@@ -7,7 +7,7 @@ import { computeBudgetLine, monthBudgetOverview, monthTiming, reachedThreshold }
 import { computeGoalProgress } from './goals';
 import { listOccurrences, monthlyEquivalent, occurrenceDates } from './recurring';
 import { computeDebtStatus, debtRemaining, validateDebtPayment } from './debts';
-import { computeNetWorth } from './networth';
+import { computeNetWorth, netWorthHistory } from './networth';
 import { forecastMonth, variableDailyAverage } from './forecast';
 import { computeBaseline, EMPTY_SCENARIO, simulateScenario } from './scenario';
 
@@ -221,6 +221,15 @@ describe('Patrimoine net', () => {
     expect(nw.netWorth).toBe(nw.totalAssets - nw.totalLiabilities);
     expect(nw.assets.find((a) => a.id === invest.id)?.manual).toBe(true);
     expect(nw.assets.some((a) => a.id === 'a2')).toBe(false);
+  });
+
+  it('l’historique ignore les mois antérieurs au début du suivi', () => {
+    const s = emptySnapshot();
+    s.accounts = [account({ initialBalance: 1000, initialBalanceDate: '2026-03-01' })];
+    s.debts = [debt({ startDate: '2025-01-01' })];
+    const h = netWorthHistory(ctxOf(s), s, ['2026-01', '2026-02', '2026-03', '2026-04'], '2026-04-10');
+    expect(h.map((x) => x.month)).toEqual(['2026-03', '2026-04']);
+    expect(h[1].asOf).toBe('2026-04-10');
   });
 
   it('un emprunt reçu sur un compte ne change pas le patrimoine net', () => {

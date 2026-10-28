@@ -205,8 +205,12 @@ export function formatMonth(month: MonthKey, locale = 'fr-MA', style: 'long' | '
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+const FR_SHORT_MONTHS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+
 export function formatMonthShort(month: MonthKey, locale = 'fr-MA'): string {
   const [y, m] = month.split('-').map(Number);
+  // Certaines locales (fr-MA) abrègent juin et juillet de façon ambiguë (« jui. ») : libellés explicites.
+  if (locale.startsWith('fr')) return FR_SHORT_MONTHS[m - 1];
   return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' })
     .format(new Date(Date.UTC(y, m - 1, 1)))
     .replace('.', '');

@@ -1,0 +1,205 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/space-grotesk';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Jetons de couleur (canaux RGB) — thème clair par défaut, thème sombre via .dark.
+ * Palette NEXORA : Midnight Navy #080D1A, Deep Space #10182B, Electric Blue #5271FF,
+ * Neon Cyan #41E7F5, Violet #9B7BFF, Emerald #25D9A0, Soft White #F4F7FF,
+ * Muted #96A3BC, Danger #FF6178, Warning #FFBF69.
+ */
+:root {
+  --bg: 243 246 252;
+  --surface: 255 255 255;
+  --surface-2: 238 242 250;
+  --surface-3: 225 231 244;
+  --line: 92 108 145;
+  --fg: 11 17 34;
+  --muted: 82 96 126;
+  --primary: 60 88 235;
+  --cyan: 8 132 160;
+  --violet: 118 86 235;
+  --positive: 4 138 98;
+  --negative: 214 40 78;
+  --warning: 170 102 8;
+  --highlight: 255 255 255;
+  --chart-grid: 92 108 145;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: 8 13 26;
+  --surface: 16 24 43;
+  --surface-2: 21 31 55;
+  --surface-3: 29 41 70;
+  --line: 128 148 190;
+  --fg: 244 247 255;
+  --muted: 150 163 188;
+  --primary: 82 113 255;
+  --cyan: 65 231 245;
+  --violet: 155 123 255;
+  --positive: 37 217 160;
+  --negative: 255 97 120;
+  --warning: 255 191 105;
+  --highlight: 255 255 255;
+  --chart-grid: 128 148 190;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+  /* Fond : aurore discrète + grille fine (purement décoratif). */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(900px 480px at 12% -8%, rgb(var(--primary) / 0.16), transparent 60%),
+      radial-gradient(700px 420px at 92% 0%, rgb(var(--violet) / 0.12), transparent 60%),
+      radial-gradient(600px 400px at 70% 110%, rgb(var(--cyan) / 0.06), transparent 60%);
+  }
+  .dark body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image: linear-gradient(rgb(var(--line) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--line) / 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 0%, black 20%, transparent 70%);
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--cyan));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: rgb(var(--primary) / 0.35);
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(var(--date-invert, 0));
+    opacity: 0.6;
+    cursor: pointer;
+  }
+  .dark {
+    --date-invert: 1;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line) / 0.3) transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply relative min-w-0 rounded-2xl border border-line/10 bg-surface/80 shadow-card backdrop-blur-sm;
+  }
+  .dark .card {
+    background-image: linear-gradient(180deg, rgb(var(--highlight) / 0.025), transparent 40%);
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+  .display {
+    @apply font-display tracking-tight;
+  }
+  .label {
+    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-muted;
+  }
+  .input {
+    @apply h-11 w-full rounded-xl border border-line/20 bg-surface-2/70 px-3 text-sm text-fg placeholder:text-muted/70 transition
+      focus:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:opacity-50;
+  }
+  .input-error {
+    @apply border-negative/70 focus:border-negative focus:ring-negative/20;
+  }
+  .gradient-text {
+    background: linear-gradient(100deg, rgb(var(--cyan)), rgb(var(--primary)) 45%, rgb(var(--violet)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .glow-line {
+    background: linear-gradient(90deg, transparent, rgb(var(--cyan) / 0.6), rgb(var(--primary) / 0.6), transparent);
+    height: 1px;
+  }
+  .skeleton {
+    @apply rounded-lg bg-surface-3/60;
+    background-image: linear-gradient(90deg, transparent, rgb(var(--highlight) / 0.06), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+
+/* Respect de la préférence « réduire les animations ». */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Impression / export PDF via le navigateur. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  :root,
+  .dark {
+    --bg: 255 255 255;
+    --surface: 255 255 255;
+    --surface-2: 246 248 252;
+    --surface-3: 235 239 247;
+    --line: 120 130 150;
+    --fg: 10 14 26;
+    --muted: 80 90 110;
+    --primary: 50 80 220;
+    --cyan: 8 120 150;
+    --violet: 110 80 220;
+    --positive: 4 130 90;
+    --negative: 200 30 70;
+    --warning: 160 95 8;
+  }
+  body::before,
+  body::after {
+    display: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .card {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    break-inside: avoid;
+  }
+  .app-content {
+    padding-left: 0 !important;
+  }
+  .print-full {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+}

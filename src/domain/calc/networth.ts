@@ -164,14 +164,27 @@ export function computeNetWorth(ctx: LedgerContext, data: Pick<DataSnapshot, 'ac
   return res;
 }
 
-/** Patrimoine net en fin de chaque mois (le mois en cours est arrêté à `today`). */
+/**
+ * Début du suivi : plus ancienne date d'ancrage de compte ou de transaction.
+ * Avant cette date, le patrimoine n'est pas reconstituable (comptes inconnus) :
+ * on ne l'affiche pas plutôt que de montrer un chiffre trompeur.
+ */
+export function trackingStart(data: Pick<DataSnapshot, 'accounts' | 'transactions'>): ISODate | null {
+  let min: ISODate | null = null;
+  for (const a of data.accounts) if (!min || a.initialBalanceDate < min) min = a.initialBalanceDate;
+  for (const t of data.transactions) if (!min || t.date < min) min = t.date;
+  return min;
+}
+
+/** Patrimoine net en fin de chaque mois (le mois en cours est arrêté à `today`). Les mois antérieurs au suivi sont exclus. */
 export function netWorthHistory(
   ctx: LedgerContext,
   data: Pick<DataSnapshot, 'accounts' | 'transactions' | 'assets' | 'valuations' | 'debts' | 'debtPayments'>,
   months: MonthKey[],
   today: ISODate,
 ): { month: MonthKey; asOf: ISODate; netWorth: number; assets: number; liabilities: number }[] {
-  return months.map((m) => {
+  const start = trackingStart(data);
+  return months.filter((m) => start != null && monthEnd(m) >= start).map((m) => {
     const asOf = minDate(monthEnd(m), today);
     const nw = computeNetWorth(ctx, data, asOf);
     return { month: m, asOf, netWorth: nw.netWorth, assets: nw.totalAssets, liabilities: nw.totalLiabilities };
