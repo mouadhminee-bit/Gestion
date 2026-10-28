@@ -101,6 +101,8 @@ export function generateInsights(
   const overview = monthBudgetOverview(data.budgets, month, monthSummary, ctx.categories, today, opt.thresholds, forecast?.committedByCategory);
   for (const line of overview.lines) {
     if (line.consumption == null || line.thresholdReached == null || line.thresholdReached < 75) continue;
+    // Une charge fixe payée exactement à son montant prévu n'est pas une alerte.
+    if (line.category?.nature === 'fixed' && line.spent <= line.planned) continue;
     const over = line.spent > line.planned;
     out.push({
       id: `budget:${line.budget.id}:${line.thresholdReached}`,

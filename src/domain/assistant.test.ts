@@ -77,3 +77,15 @@ describe('Moteur d’insights', () => {
     expect(ins[0].kind).toBe('data');
   });
 });
+
+describe('Notifications', () => {
+  it('identifiants uniques, masquage persistant, pas d’alerte pour une charge fixe payée au montant prévu', async () => {
+    const { computeNotifications } = await import('./calc/notifications');
+    const list = computeNotifications(ctx, data, today, fmt.money, 'DD/MM/YYYY');
+    expect(new Set(list.map((n) => n.id)).size).toBe(list.length);
+    expect(list.some((n) => n.title.startsWith('Loyer'))).toBe(false);
+    const target = list[0];
+    const dismissed = { ...data, notificationStates: [{ id: target.id, userId: 'u', read: true, dismissed: true, updatedAt: '' }] };
+    expect(computeNotifications(ctx, dismissed, today, fmt.money, 'DD/MM/YYYY').some((n) => n.id === target.id)).toBe(false);
+  });
+});

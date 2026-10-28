@@ -35,6 +35,7 @@ export function computeNotifications(ctx: LedgerContext, data: DataSnapshot, tod
     const lines = ov.global ? [...ov.lines, ov.global] : ov.lines;
     for (const l of lines) {
       if (l.thresholdReached == null) continue;
+      if (l.category?.nature === 'fixed' && l.spent <= l.planned) continue;
       const name = l.category?.name ?? 'Budget global';
       const over = l.spent > l.planned;
       out.push({
