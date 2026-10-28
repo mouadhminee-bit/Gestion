@@ -18,7 +18,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="card mb-4 break-inside-avoid p-5">
       <h2 className="display mb-3 text-base font-semibold">{title}</h2>
-      {children}
+      {/* Tableaux larges : défilement horizontal sur petit écran, sans effet à l'impression. */}
+      <div className="-mx-5 overflow-x-auto px-5">{children}</div>
     </section>
   );
 }

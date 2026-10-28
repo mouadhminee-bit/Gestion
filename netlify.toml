@@ -1,0 +1,29 @@
+# Déploiement Netlify — application Vite statique (mode local IndexedDB, aucun backend).
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  VITE_DATA_BACKEND = "local"
+
+# L'application utilise un routage par hash (#/...) ; ce repli sert index.html
+# pour toute URL directe inconnue (ex : rafraîchissement sur un ancien lien).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Fichiers versionnés par Vite (hash dans le nom) : mise en cache longue.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
