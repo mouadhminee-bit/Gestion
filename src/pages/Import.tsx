@@ -251,7 +251,7 @@ export default function Import() {
 
       {step === 0 && (
         <Card>
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <div>
               <Field label={tr('imp.account')} hint={tr('imp.account.hint')}>
                 <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>{data.accounts.filter((a) => !a.archived).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</Select>
@@ -314,7 +314,7 @@ export default function Import() {
 
       {step === 2 && (
         <Card title={tr('imp.normalize')}>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={tr('imp.dateFormat')} hint={tr('imp.dateFormat.hint')}>
               <Select value={dateFormat} onChange={(e) => setDateFormat(e.target.value as ImportDateFormat)}>{IMPORT_DATE_FORMATS.map((f) => <option key={f} value={f}>{displayFormat(f)}</option>)}</Select>
             </Field>
@@ -342,7 +342,7 @@ export default function Import() {
           {rawCategories.length === 0 ? (
             <p className="text-sm text-muted">{tr('imp.noCat.text')}</p>
           ) : (
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {rawCategories.map((raw) => (
                 <div key={raw} className="flex items-center gap-3 rounded-xl bg-surface-2/50 p-2.5">
                   <span className="min-w-0 flex-1 truncate text-sm">{raw}</span>

@@ -145,7 +145,7 @@ export default function Accounts() {
       {active.length === 0 ? (
         <EmptyState icon={<Wallet className="h-5 w-5" />} title={tr('acc.noneActive')} description={tr('acc.noneActiveHint')} action={<Button variant="primary" onClick={() => setForm(newForm())}>{tr('acc.create')}</Button>} />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{active.map(card)}</div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{active.map(card)}</div>
       )}
 
       {archived.length > 0 && (
@@ -168,7 +168,7 @@ export default function Accounts() {
         }
       >
         {form && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={tr('common.name')} error={errors.name} required className="sm:col-span-2">
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={tr('acc.namePlaceholder')} data-autofocus invalid={!!errors.name} />
             </Field>

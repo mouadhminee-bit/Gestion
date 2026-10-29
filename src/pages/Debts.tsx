@@ -97,7 +97,7 @@ export default function Debts() {
       {list.length === 0 ? (
         <EmptyState icon={<HandCoins className="h-5 w-5" />} title={t('debt.empty')} description={t('debt.emptyHint')} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {list.map((d, i) => {
             const st = statuses.get(d.id)!;
             const payable = d.direction === 'payable';
@@ -148,7 +148,7 @@ export default function Debts() {
           <Button variant="primary" onClick={save}>{t('common.save')}</Button>
         </>}>
         {form && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t('common.label')} required error={errors.label}><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={t('debt.labelPlaceholder')} data-autofocus /></Field>
             <Field label={t('common.type')}>
               <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as DebtType })}>

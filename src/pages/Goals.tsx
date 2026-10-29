@@ -104,7 +104,7 @@ export default function Goals() {
       {goals.length === 0 ? (
         <EmptyState icon={<Target className="h-5 w-5" />} title={t('goal.empty')} description={t('goal.emptyHint')} action={<Button variant="primary" onClick={() => setForm(newForm())}>{t('dash.createGoal')}</Button>} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {goals.map((g, i) => {
             const p = progress.get(g.id)!;
             const linked = g.linkedAccountId ? ctx.accounts.get(g.linkedAccountId) : undefined;
@@ -168,7 +168,7 @@ export default function Goals() {
         </>}
       >
         {form && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t('common.name')} required error={errors.name} className="sm:col-span-2"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('goal.namePlaceholder')} data-autofocus /></Field>
             <Field label={t('goal.target')} required error={errors.targetAmount}><MoneyInput value={form.targetAmount || null} onChange={(v) => setForm({ ...form, targetAmount: v ?? 0 })} currency={form.currency} /></Field>
             <Field label={t('goal.alreadySaved')} error={errors.savedAmount} hint={form.trackLinkedAccount ? t('goal.ignoredTracking') : undefined}><MoneyInput value={form.savedAmount} onChange={(v) => setForm({ ...form, savedAmount: v ?? 0 })} currency={form.currency} disabled={form.trackLinkedAccount} /></Field>

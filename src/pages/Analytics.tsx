@@ -167,7 +167,7 @@ export default function Analytics() {
         ))}
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-3">
+      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card className="xl:col-span-2" title={tr('an.monthly')} subtitle={months.length > 1 ? tr('an.overPeriod') : tr('an.last6')} info={tr('an.monthly.info')}>
           {series.some((p) => p.income || p.expenses) ? (
             <div className="h-64">
@@ -205,7 +205,7 @@ export default function Analytics() {
         </Card>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title={tr('an.byCategory')} info={tr('an.byCategory.info')}>
           {cats.length ? (
             <ul className="space-y-2.5">
@@ -240,7 +240,7 @@ export default function Analytics() {
         </Card>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title={tr('an.balances')} subtitle={tr('an.balances.subtitle')}>
           <div className="h-52">
             <ResponsiveContainer>
@@ -269,7 +269,7 @@ export default function Analytics() {
         </Card>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title={tr('an.recurring')} info={tr('an.recurring.info')}>
           {recurring.length ? (
             <ul className="divide-y divide-line/5 text-sm">
@@ -294,7 +294,7 @@ export default function Analytics() {
       </div>
 
       <Card className="mt-5" title={tr('an.reports')} info={tr('an.reports.info')}>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Link to={`/report?type=month&key=${month}`}><Button variant="outline" className="w-full" icon={<FileText className="h-4 w-4" />}>{tr('an.report.month', { month: fmt.month(month) })}</Button></Link>
           <Link to={`/report?type=quarter&key=${month.slice(0, 4)}-Q${Math.floor((Number(month.slice(5, 7)) - 1) / 3) + 1}`}><Button variant="outline" className="w-full" icon={<FileText className="h-4 w-4" />}>{tr('an.report.quarter', { q: Math.floor((Number(month.slice(5, 7)) - 1) / 3) + 1, year: month.slice(0, 4) })}</Button></Link>
           <Link to={`/report?type=year&key=${month.slice(0, 4)}`}><Button variant="outline" className="w-full" icon={<FileText className="h-4 w-4" />}>{tr('an.report.year', { year: month.slice(0, 4) })}</Button></Link>

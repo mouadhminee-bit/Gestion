@@ -106,7 +106,7 @@ export default function Budgets() {
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-1" title={t('budget.overview')} info={t('budget.overviewInfo')}>
           {overview.referenceSource === 'none' ? (
             <EmptyState icon={<PieChart className="h-5 w-5" />} title={t('budget.noneMonth')} description={t('budget.noneMonthHint')} action={<Button variant="primary" size="sm" onClick={() => openEdit(null)}>{t('budget.defineGlobal')}</Button>} />

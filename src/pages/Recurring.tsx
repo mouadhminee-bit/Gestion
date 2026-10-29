@@ -106,7 +106,7 @@ export default function Recurring() {
         <Card className="!p-4"><div className="label">{t('rec.activeRules')}</div><div className="display mt-1 text-xl font-semibold num">{data.recurringRules.filter((r) => r.active).length}</div></Card>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
         <Card className="xl:col-span-3" title={t('rec.schedule')} actions={<Segmented size="sm" value={view} onChange={setView} options={[{ value: 'upcoming', label: t('rec.view.upcoming') }, { value: 'past', label: t('rec.view.past') }]} />}>
           {occ.length === 0 ? (
             <EmptyState icon={<CalendarClock className="h-5 w-5" />} title={t('rec.noOccurrence')} description={t('rec.noOccurrenceHint')} />
@@ -181,7 +181,7 @@ export default function Recurring() {
           <Button variant="primary" onClick={save}>{t('common.save')}</Button>
         </>}>
         {form && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t('common.type')} className="sm:col-span-2"><Segmented value={form.kind} onChange={(v) => setForm({ ...form, kind: v, categoryId: null, subcategoryId: null })} options={[{ value: 'expense', label: t('rec.kind.expense') }, { value: 'income', label: t('rec.kind.income') }]} className="w-full" /></Field>
             <Field label={t('common.label')} required error={errors.label}><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={t('rec.labelPlaceholder')} data-autofocus /></Field>
             <Field label={t('common.amount')} required error={errors.amount}><MoneyInput value={form.amount || null} onChange={(v) => setForm({ ...form, amount: v ?? 0 })} currency={ctx.accounts.get(form.accountId)?.currency ?? settings.baseCurrency} /></Field>

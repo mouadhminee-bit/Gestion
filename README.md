@@ -8,6 +8,8 @@ avec des indicateurs **calculés, vérifiables et jamais inventés**.
   respectant « réduire les animations ».
 * Configuration initiale Maroc : français, **MAD (DH)**, `Africa/Casablanca`,
   JJ/MM/AAAA, semaine commençant le lundi, période budgétaire = mois civil.
+* **24 langues** d’interface, dont l’arabe, l’hébreu et le persan en mise en page
+  de droite à gauche (voir [Langues](#langues)).
 * **Local-first** : données dans IndexedDB (navigateur), aucune connexion bancaire,
   aucun serveur requis. Architecture cloud (Supabase + RLS) préparée.
 
@@ -76,11 +78,11 @@ Les données sont générées de façon déterministe à partir de la date du jo
 | Notifications | ✅ in-app | Budgets, échéances, dettes, objectifs ; sans répétition (état lu/masqué persisté) |
 | Mode cloud (Supabase, auth, RLS) | 🟡 Préparé | `supabase/schema.sql` + interface du repository ; **non activé** (aucun identifiant) |
 | Extension IA | 🟡 Préparée | Interface `AssistantProvider` ; aucun appel externe |
-| Langue anglaise | ⏳ À développer | Interface en français ; formats numériques déjà multi-locales |
+| Langues | ✅ 24 langues | Sélecteur à l’accueil et dans Paramètres → Régional ; textes, pluriels, noms de mois, formats et mots-clés de l’assistant traduits ; RTL pour ar / he / fa |
 
 ## Résultats des tests (exécutés)
 
-`npm test` — **121 tests, 7 fichiers, tous au vert** :
+`npm test` — **175 tests, 8 fichiers, tous au vert** :
 
 | Fichier | Tests | Couverture |
 |---|---|---|
@@ -90,6 +92,7 @@ Les données sont générées de façon déterministe à partir de la date du jo
 | `domain/calc/modules.test.ts` | 28 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur |
 | `domain/csv.test.ts` | 9 | CSV (guillemets, BOM, CRLF, injection de formules), dates, montants, doublons |
 | `domain/assistant.test.ts` | 9 | intentions de l’assistant, cohérence des chiffres, données insuffisantes, insights comparables, notifications |
+| `i18n/i18n.test.ts` | 54 | 24 dictionnaires complets (mêmes clés que le français, aucun texte vide, variables `{…}` identiques), pluriels (polonais, arabe, anglais, repli), chaque question suggérée de l’assistant retrouvée en saisie libre dans les 24 langues, réponses et insights dans la langue active, noms des catégories initiales |
 | `data/repository.test.ts` | 24 | CRUD, validation, transferts (création, modification, conversion, suppression, multidevise), **persistance après réouverture**, sauvegarde/restauration, **isolation entre utilisateurs**, archivage, budgets, récurrences, dettes, objectifs, import, export, cohérence du jeu de démo et des totaux du dashboard |
 
 `npm run test:e2e` — parcours réel dans Chromium (exécuté, 11/11) : onboarding,
@@ -100,6 +103,29 @@ solde total ni sur les dépenses, mode confidentialité.
 Vérifications manuelles effectuées : captures de tous les écrans en desktop (1440 px)
 et mobile (390 px, aucun débordement horizontal), thèmes sombre et clair, impression du
 rapport, absence d’erreur console.
+
+## Langues
+
+Français (langue de référence), anglais, arabe, espagnol, portugais, allemand, italien,
+néerlandais, turc, russe, ukrainien, polonais, roumain, suédois, grec, tchèque, hébreu,
+persan, hindi, chinois simplifié, japonais, coréen, indonésien et vietnamien.
+
+* La langue se choisit à l’accueil ou dans **Paramètres → Régional** ; elle est mémorisée
+  dans le navigateur. Changer de langue propose aussi les formats régionaux usuels
+  (nombres, dates), qui restent modifiables ; la devise et le fuseau ne changent pas.
+* Arabe, hébreu et persan : interface en miroir (droite à gauche), polices Noto dédiées ;
+  les graphiques gardent un axe temporel de gauche à droite.
+* Les catégories initiales sont traduites tant qu’elles ne sont pas renommées ; un nom
+  saisi par l’utilisateur n’est jamais modifié. Les données de démonstration sont générées
+  dans la langue active.
+* L’assistant comprend les questions dans la langue active (et toujours en français et
+  en anglais) ; les questions suggérées fonctionnent dans toutes les langues.
+* **Les traductions ont été produites par IA et n’ont pas encore été relues par des
+  locuteurs natifs.** Elles sont cohérentes et testées (clés, variables, pluriels), mais
+  une relecture humaine est recommandée avant un usage public, en particulier pour les
+  formulations financières et les mots-clés de l’assistant.
+
+Ajouter ou corriger une langue : voir [`docs/ARCHITECTURE.md` § 8](docs/ARCHITECTURE.md#8-internationalisation).
 
 ## Hypothèses retenues
 

@@ -239,7 +239,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {/* Évolution du solde */}
         <Card delay={140} title={t('dash.balanceEvolution')} subtitle={fmt.month(month)} info={t('dash.balanceEvolutionInfo')}>
           {balanceSeries.length > 1 ? (
@@ -312,7 +312,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         {/* Comparaison mois */}
         <Card delay={200} className="xl:col-span-2" title={t('dash.compare')} subtitle={t('dash.compareSubtitle', { month: fmt.month(month), previous: fmt.month(md.prevMonth) })} info={t('dash.compareInfo')}>
           {comparison.length ? (

@@ -59,7 +59,7 @@ export default function Assistant() {
   return (
     <div>
       <PageHeader eyebrow={t('an.eyebrow')} title={t('as.title')} description={t('as.description')} />
-      <div className="grid gap-5 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
         <Card className="flex flex-col xl:col-span-3" padded={false}>
           <div className="flex items-center gap-2 border-b border-line/10 px-5 py-3 text-xs text-muted">
             <ShieldCheck className="h-4 w-4 text-positive" /> {t('as.local')}

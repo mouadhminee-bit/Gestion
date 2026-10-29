@@ -78,7 +78,7 @@ export default function NetWorth() {
         actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setAssetForm({ name: '', type: 'real_estate', currency: settings.baseCurrency, value: null, date: today })}>{t('nw.addAsset')}</Button>}
       />
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2" title={t('nw.netWorth')} info={t('nw.netWorthInfo')}>
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
             <div>
@@ -130,7 +130,7 @@ export default function NetWorth() {
         </Card>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title={t('nw.assets')} subtitle={t('nw.lines', { count: nw.assets.length })}>
           <ul className="divide-y divide-line/5">
             {nw.assets.sort((a, b) => b.value - a.value).map((l) => (
@@ -170,7 +170,7 @@ export default function NetWorth() {
         {data.assets.length === 0 ? (
           <EmptyState icon={<Landmark className="h-5 w-5" />} title={t('nw.empty.title')} description={t('nw.empty.description')} />
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {data.assets.map((a) => {
               const last = latestValuation(data.valuations, a.id, today);
               const vals = data.valuations.filter((v) => v.assetId === a.id).sort((x, y) => y.date.localeCompare(x.date));
@@ -214,7 +214,7 @@ export default function NetWorth() {
       <Dialog open={!!assetForm} onOpenChange={(o) => !o && setAssetForm(null)} title={assetForm?.id ? t('nw.editAsset') : t('nw.newAsset')} size="md"
         footer={<><Button variant="ghost" onClick={() => setAssetForm(null)}>{t('common.cancel')}</Button><Button variant="primary" onClick={saveAsset} disabled={!assetForm?.name.trim()}>{t('common.save')}</Button></>}>
         {assetForm && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t('common.name')} required className="sm:col-span-2"><Input value={assetForm.name} onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })} placeholder={t('nw.namePlaceholder')} data-autofocus /></Field>
             <Field label={t('common.type')}><Select value={assetForm.type} onChange={(e) => setAssetForm({ ...assetForm, type: e.target.value as AssetType })}>{Object.entries(ASSET_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
             <Field label={t('common.currency')}><Select value={assetForm.currency} onChange={(e) => setAssetForm({ ...assetForm, currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}</Select></Field>

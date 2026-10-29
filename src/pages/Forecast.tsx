@@ -69,7 +69,7 @@ export default function Forecast() {
     <div>
       <PageHeader eyebrow={t('an.eyebrow')} title={t('fc.title')} description={t('fc.description', { month: formatMonth(monthKey(today), uiLocale), count: f.remainingDays })} />
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2" title={t('fc.endBalance')} info={t('fc.endBalance.info')}>
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
             <div>
@@ -123,7 +123,7 @@ export default function Forecast() {
         </Card>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card title={t('fc.assumptions')} info={t('fc.assumptions.info')}>
           <ul className="space-y-2 text-sm">
             {f.assumptions.map((a) => <li key={a} className="flex gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0 text-cyan" /><span className="text-muted">{a}</span></li>)}
@@ -147,7 +147,7 @@ export default function Forecast() {
         {!result.sufficientData ? (
           <EmptyState title={t('fc.insufficient.title')} description={t('fc.insufficient.description')} />
         ) : (
-          <div className="grid gap-6 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <div className="space-y-3 lg:col-span-2">
               <p className="text-xs text-muted">{t('fc.base', { count: baseline.monthsWithData, months: baseline.months.map((x) => formatMonth(x, uiLocale)).join(', ') })}</p>
               <div className="grid grid-cols-2 gap-3">
@@ -172,8 +172,9 @@ export default function Forecast() {
                 <Button size="sm" variant="outline" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setI('categoryReductions', [...input.categoryReductions, { categoryId: data.categories.find((c) => c.key === 'leisure')?.id ?? data.categories.find((c) => c.kind === 'expense')!.id, pct: 15 }])}>{t('fc.addReduction')}</Button>
               </div>
             </div>
-            <div className="lg:col-span-3">
-              <table className="w-full text-sm">
+            <div className="min-w-0 lg:col-span-3">
+              <div className="overflow-x-auto">
+              <table className="w-full text-xs sm:text-sm [&_td+td]:ps-3 [&_th+th]:ps-3">
                 <thead><tr className="text-start text-xs text-muted"><th className="py-1.5">{t('fc.col.monthlyAvg')}</th><th className="text-end">{t('fc.col.current')}</th><th className="text-end">{t('fc.col.scenario')}</th><th className="text-end">{t('rep.col.gap')}</th></tr></thead>
                 <tbody className="divide-y divide-line/5">
                   {[
@@ -191,6 +192,7 @@ export default function Forecast() {
                   <tr><td className="py-2 flex items-center gap-1">{t('fc.endOfMonth')} <InfoTip>{t('fc.endOfMonth.info')}</InfoTip></td><td className="text-end num">{fmt.money(result.endOfMonthBaseline)}</td><td className={cn('text-end num font-semibold', result.endOfMonthScenario < 0 && 'text-negative')}>{fmt.money(result.endOfMonthScenario)}</td><td /></tr>
                 </tbody>
               </table>
+              </div>
               {result.goals.length > 0 && (
                 <div className="mt-5">
                   <div className="label mb-2 flex items-center gap-1">{t('fc.goalDelay')} <InfoTip>{t('fc.goalDelay.info')}</InfoTip></div>

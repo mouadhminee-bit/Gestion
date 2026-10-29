@@ -99,7 +99,7 @@ export default function Settings() {
         {SECTIONS.map((id) => <a key={id} href={`#/settings#${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }} className="shrink-0 rounded-full border border-line/15 px-3 py-1.5 text-xs text-muted hover:text-fg">{td(`set.sec.${id}`)}</a>)}
       </nav>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card id="profile" title={t('set.sec.profile')}>
           <div className="flex items-end gap-2">
             <Field label={t('set.displayName')} className="flex-1"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -109,7 +109,7 @@ export default function Settings() {
         </Card>
 
         <Card id="regional" title={t('set.regional')}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label={t('settings.baseCurrency')} hint={t('set.baseCurrencyHint')}>
               <Select value={settings.baseCurrency} onChange={(e) => update({ baseCurrency: e.target.value }, t('set.baseCurrencyChanged'))}>
                 {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} — {currencyName(c.code, lang)}</option>)}
@@ -150,7 +150,7 @@ export default function Settings() {
           <Switch checked={settings.notifyBudgets} onChange={(v) => update({ notifyBudgets: v })} label={t('set.notif.budgets')} description={t('set.notif.budgets.description')} />
           <Switch checked={settings.notifyBills} onChange={(v) => update({ notifyBills: v })} label={t('set.notif.bills')} description={t('set.notif.bills.description')} />
           <Switch checked={settings.notifyDebts} onChange={(v) => update({ notifyDebts: v })} label={t('set.notif.debts')} description={t('set.notif.debts.description')} />
-          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label={t('set.billDays')}>
               <Input type="number" min={1} max={60} value={settings.billReminderDays} onChange={(e) => update({ billReminderDays: Math.min(60, Math.max(1, Number(e.target.value) || 7)) })} />
             </Field>
@@ -175,7 +175,7 @@ export default function Settings() {
       <RatesManager />
 
       <Card id="data" className="mt-5" title={<span className="flex items-center gap-1.5"><Database className="h-4 w-4" /> {t('set.data')}</span>}>
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <div>
             <div className="label mb-2">{t('set.backup')}</div>
             <div className="flex flex-col gap-2">

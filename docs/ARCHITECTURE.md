@@ -68,6 +68,12 @@ src/
       analytics.ts        Séries, commerçants, dépenses exceptionnelles, comparaisons
       insights.ts         Moteur d’insights explicables
       notifications.ts    Alertes calculées (identifiants déterministes)
+  i18n/
+    core.ts               t() / td(), pluriels (Intl.PluralRules), chargement à la demande
+    languages.ts          Les 24 langues : code, nom natif, sens d’écriture, locale par défaut
+    I18nProvider.tsx      Langue active, attributs lang/dir, remontage au changement
+    labels.ts             Libellés traduits paresseux, noms de devises (Intl)
+    locales/              Un dictionnaire par langue (fr.ts = référence)
   data/
     db.ts                 Schéma Dexie versionné
     repository.ts         Accès aux données (scopé par utilisateur, transactions atomiques)
@@ -190,13 +196,56 @@ Extension IA (facultative) : implémenter `AssistantProvider` via un **proxy ser
 calculés, distinguer les réponses vérifiées des interprétations, interdire toute
 modification sans confirmation.
 
-## 8. Limites connues
+## 8. Internationalisation
+
+* `src/i18n/locales/fr.ts` est la source : il définit toutes les clés (`MessageKey`).
+  Chaque autre dictionnaire est typé `Messages` — TypeScript refuse une clé manquante ou
+  en trop. Les dictionnaires non français sont chargés à la demande (un fichier JS par
+  langue, ~25 ko gzip).
+* `t(clé, variables)` est une fonction pure, utilisée aussi par le domaine (insights,
+  assistant, validations, prévisions). Interpolation `{nom}` ; pluriels sous forme
+  d’objet `{ zero?, one, two?, few?, many?, other }` choisi par `Intl.PluralRules` de la
+  langue active à partir de `count` (repli sur `other`).
+* Au changement de langue, l’application est remontée : aucun texte n’est mis en cache
+  dans la mauvaise langue. Le script de `index.html` applique `lang`/`dir` avant le
+  premier rendu (pas de clignotement en RTL).
+* RTL : utilitaires Tailwind logiques (`ms`/`me`, `ps`/`pe`, `start`/`end`,
+  `text-start`…), icônes directionnelles retournées (`rtl:-scale-x-100`), graphiques
+  forcés en `direction: ltr`.
+* Montants : la langue ne change jamais la devise ; les formats numériques suivent la
+  locale régionale choisie (par défaut celle de la langue, `fr-MA` pour le français).
+* Assistant : les mots-clés `assist.kw.*` (listes séparées par `|`) sont comparés après
+  normalisation (minuscules, accents et signes diacritiques retirés, ponctuation retirée,
+  lettres ł/ı/đ/ø… repliées) ; les mots-clés français et anglais sont toujours actifs. Les
+  noms de catégories sont reconnus même déclinés (« rozrywkę » ↔ « Rozrywka »).
+* Import CSV : les en-têtes de colonnes sont aussi reconnus dans la langue active
+  (`csv.date`, `csv.label`, `csv.amount`, `imp.col.debit`…).
+
+Ajouter une langue :
+
+1. Déclarer la langue dans `src/i18n/languages.ts` (code, nom natif, `dir`, locale).
+2. Créer `src/i18n/locales/<code>.ts` (`const xx: Messages = { … }; export default xx;`)
+   en partant de `en.ts` ; `npm run typecheck` signale toute clé manquante.
+3. Points d’attention : `{pct}` déjà formaté avec « % » sauf pour `notif.budgetThreshold.title`,
+   `assist.whatIf.text*`, `budget.dayOf`, `goal.realPct` (nombre brut) ; mots-clés de
+   l’assistant sans accents ; `imp.letter.D/M/Y` et `set.dateFormat.*` ; en RTL, `fc.hint`
+   dit « à droite ».
+4. Pour une langue RTL, `dir: 'rtl'` suffit à inverser la mise en page ; ajouter si besoin
+   une police Noto (`@fontsource-variable/…`) dans `index.css` et `tailwind.config.js`.
+5. `npm test` : `src/i18n/i18n.test.ts` vérifie automatiquement les clés, les variables,
+   les pluriels et que chaque question suggérée de l’assistant est comprise dans la langue.
+
+Les traductions actuelles (hors français) ont été produites par IA : une relecture par des
+locuteurs natifs reste à faire.
+
+## 9. Limites connues
 
 * Mode cloud, authentification et synchronisation multi-appareils : **non implémentés**
   (schéma et architecture prêts). Le test « isolation entre utilisateurs » porte sur le
   repository local (scoping par `userId`) ; les politiques RLS SQL n’ont pas été
   exécutées contre une instance Supabase.
-* Interface en français uniquement (les formats numériques/dates suivent la locale choisie).
+* Traductions non relues par des locuteurs natifs (voir § 8). Les dates restent en
+  calendrier grégorien pour toutes les langues.
 * Pas de chiffrement au repos des données locales ; le mode confidentialité masque l’affichage.
 * Taux de change et valorisations : saisie manuelle uniquement (aucune source externe).
 * Notifications in-app uniquement (pas de push / e-mail).
