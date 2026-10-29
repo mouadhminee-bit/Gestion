@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Info, Lightbulb, OctagonAlert, ChevronRigh
 import type { Insight } from '@/domain/calc/insights';
 import { cn } from '@/lib/cn';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { t } from '@/i18n/core';
 
 const STYLE = {
   success: { Icon: CheckCircle2, cls: 'text-positive bg-positive/10 border-positive/20' },
@@ -25,9 +26,9 @@ export function InsightList({ insights, limit }: { insights: Insight[]; limit?: 
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{i.title}</div>
               <p className="mt-0.5 text-xs leading-relaxed text-muted">{i.message}</p>
-              <Tooltip content={<><b>Origine du calcul</b><br />{i.source}</>}>
+              <Tooltip content={<><b>{t('insight.origin')}</b><br />{i.source}</>}>
                 <span tabIndex={0} className="mt-1 inline-flex cursor-help items-center gap-1 text-[11px] text-muted/80 underline decoration-dotted underline-offset-2">
-                  <Lightbulb className="h-3 w-3" /> D’où vient ce chiffre ?
+                  <Lightbulb className="h-3 w-3" /> {t('insight.whereFrom')}
                 </span>
               </Tooltip>
             </div>

@@ -15,6 +15,8 @@
  *    minimale la plus proche, demi vers l'extérieur (Math.round symétrique).
  */
 
+import { t } from '@/i18n/core';
+
 export type CurrencyCode = string;
 
 export interface CurrencyInfo {
@@ -208,7 +210,7 @@ export function formatNumber(value: number, locale = 'fr-MA', maxFractionDigits 
 }
 
 export function formatPercent(ratio: number | null, locale = 'fr-MA', digits = 1): string {
-  if (ratio == null || !Number.isFinite(ratio)) return 'Non calculable';
+  if (ratio == null || !Number.isFinite(ratio)) return t('common.notComputable');
   return nf(locale, { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: digits }).format(ratio);
 }
 

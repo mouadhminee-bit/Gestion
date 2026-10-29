@@ -1,6 +1,7 @@
 import * as RT from '@radix-ui/react-tooltip';
 import { Info } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { t } from '@/i18n/core';
 
 export function TooltipProvider({ children }: { children: ReactNode }) {
   return (
@@ -30,7 +31,7 @@ export function Tooltip({ content, children, side = 'top' }: { content: ReactNod
 }
 
 /** Icône (i) expliquant un indicateur — accessible au clavier et au toucher. */
-export function InfoTip({ children, label = 'Définition' }: { children: ReactNode; label?: string }) {
+export function InfoTip({ children, label = t('common.definition') }: { children: ReactNode; label?: string }) {
   return (
     <Tooltip content={children}>
       <button

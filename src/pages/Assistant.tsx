@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/Field';
 import { InsightList } from '@/features/insights/InsightList';
 import { useMonthData } from '@/features/hooks';
 import { generateInsights } from '@/domain/calc/insights';
-import type { AssistantAnswer } from '@/domain/assistant';
-import { answerQuestion, SUGGESTED_QUESTIONS } from '@/domain/assistant';
+import type { AssistantAnswer, AssistantFormatters } from '@/domain/assistant';
+import { answerIntent, answerQuestion, SUGGESTIONS } from '@/domain/assistant';
+import { t } from '@/i18n/core';
 import { monthKey } from '@/domain/dates';
 
 interface Msg {
@@ -24,7 +25,7 @@ export default function Assistant() {
   const { ctx, data, today, fmt, settings } = useApp();
   const md = useMonthData(monthKey(today));
   const [messages, setMessages] = useState<Msg[]>([
-    { id: ++mid, role: 'assistant', text: 'Bonjour ! Posez-moi une question sur vos finances. Je calcule chaque réponse à partir de vos données, et j’indique toujours d’où viennent les chiffres.' },
+    { id: ++mid, role: 'assistant', text: t('as.welcome') },
   ]);
   const [q, setQ] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
@@ -37,21 +38,31 @@ export default function Assistant() {
     [ctx, data, today, md.forecast, fmt, settings],
   );
 
+  const afmt: AssistantFormatters = { money: (m) => fmt.money(m), percent: fmt.percent, month: fmt.month, date: fmt.date };
+  function push(text: string, answer: AssistantAnswer) {
+    setMessages((m) => [...m, { id: ++mid, role: 'user', text }, { id: ++mid, role: 'assistant', text: answer.text, answer }]);
+  }
+
   function ask(question: string) {
     const text = question.trim();
     if (!text) return;
-    const answer = answerQuestion(text, ctx, data, today, { money: (m) => fmt.money(m), percent: fmt.percent, month: fmt.month, date: fmt.date });
-    setMessages((m) => [...m, { id: ++mid, role: 'user', text }, { id: ++mid, role: 'assistant', text: answer.text, answer }]);
+    push(text, answerQuestion(text, ctx, data, today, afmt));
     setQ('');
+  }
+
+  /** Les suggestions appellent directement l'intention : indépendantes de la langue. */
+  function suggest(s: (typeof SUGGESTIONS)[number]) {
+    const categoryId = s.categoryKey ? data.categories.find((c) => c.key === s.categoryKey)?.id : undefined;
+    push(t(s.key), answerIntent(s.intent, { categoryId, pct: s.pct }, ctx, data, today, afmt));
   }
 
   return (
     <div>
-      <PageHeader eyebrow="Intelligence" title="Assistant financier" description="Moteur d’analyse déterministe : aucune donnée ne quitte votre navigateur, aucun chiffre n’est inventé." />
+      <PageHeader eyebrow={t('an.eyebrow')} title={t('as.title')} description={t('as.description')} />
       <div className="grid gap-5 xl:grid-cols-5">
         <Card className="flex flex-col xl:col-span-3" padded={false}>
           <div className="flex items-center gap-2 border-b border-line/10 px-5 py-3 text-xs text-muted">
-            <ShieldCheck className="h-4 w-4 text-positive" /> Réponses calculées localement — mode sans IA externe
+            <ShieldCheck className="h-4 w-4 text-positive" /> {t('as.local')}
           </div>
           <div className="max-h-[56vh] min-h-[320px] flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5" aria-live="polite">
             {messages.map((m) => (
@@ -68,7 +79,7 @@ export default function Assistant() {
                       ))}
                     </dl>
                   )}
-                  {m.answer && <p className="mt-2 text-[11px] text-muted"><b>Source :</b> {m.answer.source}</p>}
+                  {m.answer && <p className="mt-2 text-[11px] text-muted"><b>{t('as.source')}</b> {m.answer.source}</p>}
                 </div>
               </div>
             ))}
@@ -76,26 +87,26 @@ export default function Assistant() {
           </div>
           <div className="border-t border-line/10 p-3 sm:p-4">
             <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
-              {SUGGESTED_QUESTIONS.map((s) => (
-                <button key={s} onClick={() => ask(s)} className="shrink-0 rounded-full border border-line/15 bg-surface-2/60 px-3 py-1.5 text-xs text-muted transition hover:border-primary/40 hover:text-fg">{s}</button>
+              {SUGGESTIONS.map((s) => (
+                <button key={s.key} onClick={() => suggest(s)} className="shrink-0 rounded-full border border-line/15 bg-surface-2/60 px-3 py-1.5 text-xs text-muted transition hover:border-primary/40 hover:text-fg">{t(s.key)}</button>
               ))}
             </div>
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); ask(q); }}>
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ex : combien ai-je dépensé en transport le mois dernier ?" aria-label="Votre question" />
-              <Button type="submit" variant="primary" size="icon" aria-label="Envoyer" disabled={!q.trim()}><Send className="h-4 w-4" /></Button>
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('as.placeholder')} aria-label={t('as.question')} />
+              <Button type="submit" variant="primary" size="icon" aria-label={t('as.send')} disabled={!q.trim()}><Send className="h-4 w-4" /></Button>
             </form>
           </div>
         </Card>
         <div className="space-y-5 xl:col-span-2">
-          <Card title={<span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-cyan" /> Observations du moment</span>}>
+          <Card title={<span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-cyan" /> {t('as.observations')}</span>}>
             <InsightList insights={insights} />
           </Card>
-          <Card title="À propos de l’assistant">
+          <Card title={t('as.about')}>
             <ul className="space-y-2 text-xs text-muted">
-              <li>• Les réponses réutilisent les mêmes règles de calcul que le dashboard, les budgets et les rapports.</li>
-              <li>• Lorsque les données sont insuffisantes, l’assistant le dit au lieu d’estimer.</li>
-              <li>• Aucune recommandation d’investissement personnalisée n’est fournie.</li>
-              <li>• Une extension IA est prévue : elle passerait par un proxy serveur (aucune clé dans le navigateur), ne recevrait que des agrégats et ne pourrait rien modifier sans votre confirmation.</li>
+              <li>• {t('as.about.1')}</li>
+              <li>• {t('as.about.2')}</li>
+              <li>• {t('as.about.3')}</li>
+              <li>• {t('as.about.4')}</li>
             </ul>
           </Card>
         </div>

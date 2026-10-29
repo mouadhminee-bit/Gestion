@@ -11,6 +11,8 @@
  */
 import type { CurrencyCode } from './money';
 import type { DateFormat, ISODate, MonthKey } from './dates';
+import { lazyLabels } from '@/i18n/labels';
+import type { Lang } from '@/i18n/languages';
 
 export type ID = string;
 
@@ -40,7 +42,7 @@ export interface UserSettings {
   userId: ID;
   displayName: string;
   baseCurrency: CurrencyCode;
-  language: 'fr' | 'en';
+  language: Lang;
   locale: string; // ex: fr-MA
   timeZone: string; // ex: Africa/Casablanca
   dateFormat: DateFormat;
@@ -393,52 +395,15 @@ export interface DataSnapshot {
   notificationStates: NotificationState[];
 }
 
-export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  bank: 'Compte bancaire',
-  cash: 'Espèces',
-  savings: "Compte d'épargne",
-  investment: "Portefeuille d'investissement",
-  ewallet: 'Paiement électronique',
-  other: 'Autre compte',
-};
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = lazyLabels('accountType', ['bank', 'cash', 'savings', 'investment', 'ewallet', 'other']);
 
-export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  expense: 'Dépense',
-  income: 'Revenu',
-  transfer: 'Transfert',
-  refund: 'Remboursement reçu',
-  adjustment: 'Ajustement de solde',
-  debt: 'Dette / prêt',
-};
+export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = lazyLabels('txType', ['expense', 'income', 'transfer', 'refund', 'adjustment', 'debt']);
 
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  card: 'Carte bancaire',
-  cash: 'Espèces',
-  transfer: 'Virement',
-  direct_debit: 'Prélèvement',
-  check: 'Chèque',
-  mobile: 'Paiement mobile',
-  other: 'Autre',
-};
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = lazyLabels('payment', ['card', 'cash', 'transfer', 'direct_debit', 'check', 'mobile', 'other']);
 
-export const FREQUENCY_LABELS: Record<Frequency, string> = {
-  daily: 'Quotidienne',
-  weekly: 'Hebdomadaire',
-  monthly: 'Mensuelle',
-  quarterly: 'Trimestrielle',
-  semiannual: 'Semestrielle',
-  annual: 'Annuelle',
-  custom: 'Personnalisée',
-};
+export const FREQUENCY_LABELS: Record<Frequency, string> = lazyLabels('frequency', ['daily', 'weekly', 'monthly', 'quarterly', 'semiannual', 'annual', 'custom']);
 
-export const DEBT_TYPE_LABELS: Record<DebtType, string> = {
-  personal_debt: 'Dette personnelle',
-  loan: 'Crédit',
-  lent: 'Somme prêtée',
-  borrowed: 'Somme empruntée',
-  expected_refund: 'Remboursement attendu',
-  other: 'Autre engagement',
-};
+export const DEBT_TYPE_LABELS: Record<DebtType, string> = lazyLabels('debtType', ['personal_debt', 'loan', 'lent', 'borrowed', 'expected_refund', 'other']);
 
 export const DEBT_TYPE_DIRECTION: Record<DebtType, DebtDirection> = {
   personal_debt: 'payable',
@@ -449,10 +414,4 @@ export const DEBT_TYPE_DIRECTION: Record<DebtType, DebtDirection> = {
   other: 'payable',
 };
 
-export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
-  real_estate: 'Immobilier',
-  vehicle: 'Véhicule',
-  investment: 'Investissement',
-  valuables: 'Objets de valeur',
-  other: 'Autre actif',
-};
+export const ASSET_TYPE_LABELS: Record<AssetType, string> = lazyLabels('assetType', ['real_estate', 'vehicle', 'investment', 'valuables', 'other']);

@@ -1,33 +1,34 @@
 import {
   ArrowLeftRight, Bot, CalendarClock, Gauge, Landmark, LineChart, PieChart, Settings, Target, TrendingUp, Wallet, HandCoins, type LucideIcon,
 } from 'lucide-react';
+import { td } from '@/i18n/core';
+import { lazyLabels } from '@/i18n/labels';
 
 export interface NavItem {
   to: string;
-  label: string;
-  short?: string;
+  key: string;
   icon: LucideIcon;
   group: 'pilotage' | 'gestion' | 'analyse' | 'systeme';
+  /** Libellé court pour la barre mobile. */
+  hasShort?: boolean;
 }
 
 export const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', short: 'Accueil', icon: Gauge, group: 'pilotage' },
-  { to: '/transactions', label: 'Transactions', short: 'Opérations', icon: ArrowLeftRight, group: 'pilotage' },
-  { to: '/budgets', label: 'Budgets', icon: PieChart, group: 'pilotage' },
-  { to: '/accounts', label: 'Comptes', icon: Wallet, group: 'gestion' },
-  { to: '/goals', label: 'Objectifs', icon: Target, group: 'gestion' },
-  { to: '/recurring', label: 'Paiements récurrents', short: 'Récurrents', icon: CalendarClock, group: 'gestion' },
-  { to: '/debts', label: 'Dettes & créances', short: 'Dettes', icon: HandCoins, group: 'gestion' },
-  { to: '/net-worth', label: 'Patrimoine', icon: Landmark, group: 'gestion' },
-  { to: '/analytics', label: 'Analyses & rapports', short: 'Analyses', icon: LineChart, group: 'analyse' },
-  { to: '/forecast', label: 'Prévisions', icon: TrendingUp, group: 'analyse' },
-  { to: '/assistant', label: 'Assistant', icon: Bot, group: 'analyse' },
-  { to: '/settings', label: 'Paramètres', icon: Settings, group: 'systeme' },
+  { to: '/', key: 'dashboard', icon: Gauge, group: 'pilotage', hasShort: true },
+  { to: '/transactions', key: 'transactions', icon: ArrowLeftRight, group: 'pilotage', hasShort: true },
+  { to: '/budgets', key: 'budgets', icon: PieChart, group: 'pilotage' },
+  { to: '/accounts', key: 'accounts', icon: Wallet, group: 'gestion' },
+  { to: '/goals', key: 'goals', icon: Target, group: 'gestion' },
+  { to: '/recurring', key: 'recurring', icon: CalendarClock, group: 'gestion', hasShort: true },
+  { to: '/debts', key: 'debts', icon: HandCoins, group: 'gestion', hasShort: true },
+  { to: '/net-worth', key: 'netWorth', icon: Landmark, group: 'gestion' },
+  { to: '/analytics', key: 'analytics', icon: LineChart, group: 'analyse', hasShort: true },
+  { to: '/forecast', key: 'forecast', icon: TrendingUp, group: 'analyse' },
+  { to: '/assistant', key: 'assistant', icon: Bot, group: 'analyse' },
+  { to: '/settings', key: 'settings', icon: Settings, group: 'systeme' },
 ];
 
-export const NAV_GROUPS: Record<NavItem['group'], string> = {
-  pilotage: 'Pilotage',
-  gestion: 'Gestion',
-  analyse: 'Intelligence',
-  systeme: 'Système',
-};
+export const navLabel = (n: NavItem) => td(`nav.${n.key}`);
+export const navShort = (n: NavItem) => (n.hasShort ? td(`nav.short.${n.key}`) : navLabel(n));
+
+export const NAV_GROUPS: Record<NavItem['group'], string> = lazyLabels('navGroup', ['pilotage', 'gestion', 'analyse', 'systeme']);

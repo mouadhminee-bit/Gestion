@@ -20,6 +20,7 @@ import { hasErrors, validateTransactionDraft } from '@/domain/validation';
 import { addDays } from '@/domain/dates';
 import { findDuplicates } from '@/domain/duplicates';
 import { ValidationError } from '@/data/repository';
+import { t as tr } from '@/i18n/core';
 
 type OpenArgs = { mode: 'create'; type?: EditableTransactionType; preset?: Partial<TransactionDraft> } | { mode: 'edit'; id: ID };
 
@@ -55,11 +56,11 @@ export function TransactionFormProvider({ children }: { children: ReactNode }) {
 }
 
 const TYPE_OPTIONS: { value: EditableTransactionType; label: ReactNode; tone: string }[] = [
-  { value: 'expense', label: <span className="inline-flex items-center gap-1"><ArrowUpRight className="h-3.5 w-3.5" />Dépense</span>, tone: 'text-negative' },
-  { value: 'income', label: <span className="inline-flex items-center gap-1"><ArrowDownLeft className="h-3.5 w-3.5" />Revenu</span>, tone: 'text-positive' },
-  { value: 'transfer', label: <span className="inline-flex items-center gap-1"><ArrowLeftRight className="h-3.5 w-3.5" />Transfert</span>, tone: 'text-cyan' },
-  { value: 'refund', label: <span className="inline-flex items-center gap-1"><RotateCcw className="h-3.5 w-3.5" />Rembours.</span>, tone: 'text-positive' },
-  { value: 'adjustment', label: <span className="inline-flex items-center gap-1"><Scale className="h-3.5 w-3.5" />Ajust.</span>, tone: 'text-warning' },
+  { value: 'expense', label: <span className="inline-flex items-center gap-1"><ArrowUpRight className="h-3.5 w-3.5" />{tr('form.type.expense')}</span>, tone: 'text-negative' },
+  { value: 'income', label: <span className="inline-flex items-center gap-1"><ArrowDownLeft className="h-3.5 w-3.5" />{tr('form.type.income')}</span>, tone: 'text-positive' },
+  { value: 'transfer', label: <span className="inline-flex items-center gap-1"><ArrowLeftRight className="h-3.5 w-3.5" />{tr('form.type.transfer')}</span>, tone: 'text-cyan' },
+  { value: 'refund', label: <span className="inline-flex items-center gap-1"><RotateCcw className="h-3.5 w-3.5" />{tr('form.type.refund')}</span>, tone: 'text-positive' },
+  { value: 'adjustment', label: <span className="inline-flex items-center gap-1"><Scale className="h-3.5 w-3.5" />{tr('form.type.adjustment')}</span>, tone: 'text-warning' },
 ];
 
 function draftFromGroup(group: Transaction[]): TransactionDraft {
@@ -86,7 +87,7 @@ function draftFromGroup(group: Transaction[]): TransactionDraft {
 }
 
 function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClose: () => void; onReopen: (a: OpenArgs) => void }) {
-  const { data, repo, today, ctx, fmt } = useApp();
+  const { data, repo, today, ctx, fmt, uiLocale } = useApp();
   const toast = useToast();
   const confirm = useConfirm();
   const editing = args.mode === 'edit' ? data.transactions.find((t) => t.id === args.id) : undefined;
@@ -179,7 +180,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
     const d: TransactionDraft = {
       ...draft,
       tags: tagText.split(',').map((t) => t.trim()).filter(Boolean),
-      label: draft.label.trim() || (draft.categoryId ? ctx.categories.get(draft.subcategoryId ?? draft.categoryId)?.name ?? '' : '') || (draft.type === 'adjustment' ? 'Ajustement de solde' : ''),
+      label: draft.label.trim() || (draft.categoryId ? ctx.categories.get(draft.subcategoryId ?? draft.categoryId)?.name ?? '' : '') || (draft.type === 'adjustment' ? tr('form.adjustmentLabel') : ''),
     };
     const v = validateTransactionDraft(d, {
       accounts: ctx.accounts,
@@ -204,7 +205,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
       } catch {
         /* ignore */
       }
-      toast.success(editing ? 'Opération modifiée.' : `${d.type === 'transfer' ? 'Transfert' : 'Opération'} enregistré${d.type === 'transfer' ? '' : 'e'} : ${fmt.money(d.amount!, currency)}`);
+      toast.success(editing ? tr('form.toast.edited') : tr(d.type === 'transfer' ? 'form.toast.transferSaved' : 'form.toast.saved', { amount: fmt.money(d.amount!, currency) }));
       if (again) onReopen({ mode: 'create', type: d.type, preset: { accountId: d.accountId, date: d.date } });
       else onClose();
     } catch (e) {
@@ -218,14 +219,14 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
   async function remove() {
     if (!editing) return;
     const ok = await confirm({
-      title: 'Supprimer cette opération ?',
-      message: editing.transferId ? 'Les deux mouvements du transfert seront supprimés et les soldes recalculés.' : 'Cette action est définitive. Les soldes et indicateurs seront recalculés.',
-      confirmLabel: 'Supprimer',
+      title: tr('form.delete.title'),
+      message: editing.transferId ? tr('form.delete.transfer') : tr('form.delete.message'),
+      confirmLabel: tr('common.delete'),
     });
     if (!ok) return;
     try {
       await repo.deleteTransactions([editing.id]);
-      toast.success('Opération supprimée.');
+      toast.success(tr('form.toast.deleted'));
       onClose();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -243,25 +244,25 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
 
   if (args.mode === 'edit' && !editing) {
     return (
-      <Dialog open onOpenChange={(o) => !o && onClose()} title="Opération introuvable" size="sm">
-        <p className="text-sm text-muted">Cette opération a été supprimée.</p>
+      <Dialog open onOpenChange={(o) => !o && onClose()} title={tr('form.notFound.title')} size="sm">
+        <p className="text-sm text-muted">{tr('form.notFound.message')}</p>
       </Dialog>
     );
   }
 
   if (isDebtTx && editing) {
     return (
-      <Dialog open onOpenChange={(o) => !o && onClose()} title={editing.label} description="Opération liée à une dette ou une créance" size="sm"
-        footer={<Button variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={remove}>Supprimer</Button>}>
+      <Dialog open onOpenChange={(o) => !o && onClose()} title={editing.label} description={tr('form.debt.description')} size="sm"
+        footer={<Button variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={remove}>{tr('common.delete')}</Button>}>
         <dl className="grid grid-cols-2 gap-3 text-sm">
-          <dt className="text-muted">Montant</dt><dd className="text-right num">{fmt.money(editing.amount, editing.currency)}</dd>
-          <dt className="text-muted">dont intérêts</dt><dd className="text-right num">{fmt.money(editing.interestAmount ?? 0, editing.currency)}</dd>
-          <dt className="text-muted">Date</dt><dd className="text-right">{fmt.date(editing.date)}</dd>
-          <dt className="text-muted">Compte</dt><dd className="text-right">{ctx.accounts.get(editing.accountId)?.name}</dd>
+          <dt className="text-muted">{tr('common.amount')}</dt><dd className="text-right num">{fmt.money(editing.amount, editing.currency)}</dd>
+          <dt className="text-muted">{tr('form.debt.interest')}</dt><dd className="text-right num">{fmt.money(editing.interestAmount ?? 0, editing.currency)}</dd>
+          <dt className="text-muted">{tr('common.date')}</dt><dd className="text-right">{fmt.date(editing.date)}</dd>
+          <dt className="text-muted">{tr('common.account')}</dt><dd className="text-right">{ctx.accounts.get(editing.accountId)?.name}</dd>
         </dl>
         <p className="mt-4 rounded-xl bg-surface-2 p-3 text-xs text-muted">
-          Le principal n'est ni un revenu ni une dépense : seuls les intérêts sont comptabilisés. Gérez cet engagement depuis le module{' '}
-          <Link to="/debts" onClick={onClose} className="text-cyan underline">Dettes & créances</Link>.
+          {tr('form.debt.note')}{' '}
+          <Link to="/debts" onClick={onClose} className="text-cyan underline">{tr('nav.debts')}</Link>.
         </p>
       </Dialog>
     );
@@ -271,22 +272,22 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
     <>
       {editing && (
         <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={remove}>
-          <span className="hidden sm:inline">Supprimer</span>
+          <span className="hidden sm:inline">{tr('common.delete')}</span>
         </Button>
       )}
       {!editing && (
         <Button variant="ghost" onClick={() => save(true)} disabled={saving}>
-          Enregistrer + nouveau
+          {tr('form.saveAndNew')}
         </Button>
       )}
       <Button variant="primary" loading={saving} onClick={() => save(false)} className="min-w-[140px]">
-        {dupAck && duplicate ? 'Enregistrer quand même' : editing ? 'Enregistrer' : 'Ajouter'}
+        {dupAck && duplicate ? tr('form.saveAnyway') : editing ? tr('common.save') : tr('common.add')}
       </Button>
     </>
   );
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title={editing ? 'Détail de l’opération' : 'Nouvelle opération'} size="md" footer={footer}>
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={editing ? tr('form.title.edit') : tr('form.title.new')} size="md" footer={footer}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -307,18 +308,18 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
           />
         </div>
 
-        <Field label={draft.type === 'transfer' ? 'Montant débité' : 'Montant'} error={errors.amount} required>
-          <MoneyInput value={draft.amount} onChange={(v) => set('amount', v)} currency={currency} size="xl" invalid={!!errors.amount} data-autofocus placeholder="0" aria-label="Montant" />
+        <Field label={draft.type === 'transfer' ? tr('form.amountDebited') : tr('common.amount')} error={errors.amount} required>
+          <MoneyInput value={draft.amount} onChange={(v) => set('amount', v)} currency={currency} size="xl" invalid={!!errors.amount} data-autofocus placeholder="0" aria-label={tr('common.amount')} />
         </Field>
 
         {draft.type === 'adjustment' && (
-          <Field label="Sens de la correction" error={errors.direction}>
-            <Segmented value={draft.direction ?? 'out'} onChange={(v) => set('direction', v)} options={[{ value: 'in', label: 'Augmenter le solde' }, { value: 'out', label: 'Diminuer le solde' }]} className="w-full" />
+          <Field label={tr('form.direction')} error={errors.direction}>
+            <Segmented value={draft.direction ?? 'out'} onChange={(v) => set('direction', v)} options={[{ value: 'in', label: tr('form.increase') }, { value: 'out', label: tr('form.decrease') }]} className="w-full" />
           </Field>
         )}
 
         {draft.type !== 'adjustment' && (
-          <Field label={draft.type === 'transfer' ? 'Affectation (facultatif)' : draft.type === 'refund' ? 'Catégorie remboursée' : 'Catégorie'} error={errors.categoryId} required={draft.type === 'expense' || draft.type === 'income'}>
+          <Field label={draft.type === 'transfer' ? tr('form.allocation') : draft.type === 'refund' ? tr('form.refundedCategory') : tr('common.category')} error={errors.categoryId} required={draft.type === 'expense' || draft.type === 'income'}>
             {frequent.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {frequent.map((c) => (
@@ -327,20 +328,20 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
               </div>
             )}
             <div className={cn('grid gap-2', subcats.length ? 'grid-cols-2' : 'grid-cols-1')}>
-              <Select value={draft.categoryId ?? ''} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null, subcategoryId: null }))} invalid={!!errors.categoryId} aria-label="Catégorie">
-                <option value="">{draft.type === 'transfer' ? 'Aucune' : 'Choisir…'}</option>
+              <Select value={draft.categoryId ?? ''} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null, subcategoryId: null }))} invalid={!!errors.categoryId} aria-label={tr('common.category')}>
+                <option value="">{draft.type === 'transfer' ? tr('common.none') : tr('common.choose')}</option>
                 {catKind === 'expense' ? (
                   <>
-                    <optgroup label="Dépenses fixes">{allowedCats.filter((c) => c.nature === 'fixed').map((c) => <option key={c.id} value={c.id}>{c.name}{c.archived ? ' (archivée)' : ''}</option>)}</optgroup>
-                    <optgroup label="Dépenses variables">{allowedCats.filter((c) => c.nature !== 'fixed').map((c) => <option key={c.id} value={c.id}>{c.name}{c.archived ? ' (archivée)' : ''}</option>)}</optgroup>
+                    <optgroup label={tr('form.fixedExpenses')}>{allowedCats.filter((c) => c.nature === 'fixed').map((c) => <option key={c.id} value={c.id}>{c.name}{c.archived ? tr('common.archivedF') : ''}</option>)}</optgroup>
+                    <optgroup label={tr('form.variableExpenses')}>{allowedCats.filter((c) => c.nature !== 'fixed').map((c) => <option key={c.id} value={c.id}>{c.name}{c.archived ? tr('common.archivedF') : ''}</option>)}</optgroup>
                   </>
                 ) : (
-                  allowedCats.map((c) => <option key={c.id} value={c.id}>{c.name}{c.archived ? ' (archivée)' : ''}</option>)
+                  allowedCats.map((c) => <option key={c.id} value={c.id}>{c.name}{c.archived ? tr('common.archivedF') : ''}</option>)
                 )}
               </Select>
               {subcats.length > 0 && (
-                <Select value={draft.subcategoryId ?? ''} onChange={(e) => set('subcategoryId', e.target.value || null)} aria-label="Sous-catégorie" invalid={!!errors.subcategoryId}>
-                  <option value="">Sous-catégorie…</option>
+                <Select value={draft.subcategoryId ?? ''} onChange={(e) => set('subcategoryId', e.target.value || null)} aria-label={tr('common.subcategory')} invalid={!!errors.subcategoryId}>
+                  <option value="">{tr('form.subcategoryPlaceholder')}</option>
                   {subcats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
               )}
@@ -349,54 +350,54 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
         )}
 
         <div className={cn('grid gap-3', draft.type === 'transfer' ? 'sm:grid-cols-2' : 'grid-cols-1')}>
-          <Field label={draft.type === 'transfer' ? 'Depuis le compte' : 'Compte'} error={errors.accountId} required>
+          <Field label={draft.type === 'transfer' ? tr('form.fromAccount') : tr('common.account')} error={errors.accountId} required>
             <Select value={draft.accountId ?? ''} onChange={(e) => set('accountId', e.target.value || null)} invalid={!!errors.accountId}>
-              <option value="">Choisir…</option>
+              <option value="">{tr('common.choose')}</option>
               {data.accounts.filter((a) => !a.archived || a.id === draft.accountId).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}
             </Select>
           </Field>
           {draft.type === 'transfer' && (
-            <Field label="Vers le compte" error={errors.toAccountId} required>
+            <Field label={tr('form.toAccount')} error={errors.toAccountId} required>
               <Select value={draft.toAccountId ?? ''} onChange={(e) => set('toAccountId', e.target.value || null)} invalid={!!errors.toAccountId}>
-                <option value="">Choisir…</option>
+                <option value="">{tr('common.choose')}</option>
                 {data.accounts.filter((a) => (!a.archived || a.id === draft.toAccountId) && a.id !== draft.accountId).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}
               </Select>
             </Field>
           )}
         </div>
         {crossCurrency && (
-          <Field label={`Montant crédité (${toAccount!.currency})`} error={errors.toAmount} hint="Devises différentes : indiquez le montant réellement reçu (le taux implicite est conservé dans l’historique)." required>
+          <Field label={tr('form.credited', { currency: toAccount!.currency })} error={errors.toAmount} hint={tr('form.creditedHint')} required>
             <MoneyInput value={draft.toAmount ?? null} onChange={(v) => set('toAmount', v)} currency={toAccount!.currency} invalid={!!errors.toAmount} />
           </Field>
         )}
         {draft.type === 'transfer' && (
           <p className="rounded-xl border border-cyan/20 bg-cyan/5 px-3 py-2 text-xs text-muted">
-            Un transfert entre vos comptes n’est ni un revenu ni une dépense : il diminue le compte source et augmente le compte destination.
+            {tr('form.transferInfo')}
           </p>
         )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Date" error={errors.date} required>
+          <Field label={tr('common.date')} error={errors.date} required>
             <div className="flex gap-1.5">
               <Input type="date" value={draft.date} onChange={(e) => set('date', e.target.value)} invalid={!!errors.date} className="flex-1" />
-              <Button size="sm" variant={draft.date === today ? 'secondary' : 'ghost'} className="h-11" onClick={() => set('date', today)}>Auj.</Button>
-              <Button size="sm" variant={draft.date === addDays(today, -1) ? 'secondary' : 'ghost'} className="h-11" onClick={() => set('date', addDays(today, -1))}>Hier</Button>
+              <Button size="sm" variant={draft.date === today ? 'secondary' : 'ghost'} className="h-11" onClick={() => set('date', today)}>{tr('form.today')}</Button>
+              <Button size="sm" variant={draft.date === addDays(today, -1) ? 'secondary' : 'ghost'} className="h-11" onClick={() => set('date', addDays(today, -1))}>{tr('form.yesterday')}</Button>
             </div>
           </Field>
-          <Field label="Libellé" error={errors.label} hint={!draft.label && draft.categoryId ? `Par défaut : ${ctx.categories.get(draft.subcategoryId ?? draft.categoryId)?.name}` : undefined}>
-            <Input value={draft.label} onChange={(e) => set('label', e.target.value)} placeholder="Ex : Courses Marjane" maxLength={140} />
+          <Field label={tr('common.label')} error={errors.label} hint={!draft.label && draft.categoryId ? tr('form.defaultLabel', { name: ctx.categories.get(draft.subcategoryId ?? draft.categoryId)?.name ?? '' }) : undefined}>
+            <Input value={draft.label} onChange={(e) => set('label', e.target.value)} placeholder={tr('form.labelPlaceholder')} maxLength={140} />
           </Field>
         </div>
 
         {account && draft.date < account.initialBalanceDate && (
           <p className="rounded-xl border border-line/15 bg-surface-2/60 px-3 py-2 text-xs text-muted">
-            Date antérieure au solde initial de « {account.name} » ({fmt.date(account.initialBalanceDate)}) : l’opération est comptée dans les revenus/dépenses de sa période, mais ne modifie pas le solde actuel (déjà inclus dans le solde initial).
+            {tr('form.beforeAnchor', { account: account.name, date: fmt.date(account.initialBalanceDate) })}
           </p>
         )}
 
         {draft.type === 'adjustment' && (
-          <Field label="Justification" error={errors.notes} required>
-            <Textarea value={draft.notes ?? ''} onChange={(e) => set('notes', e.target.value)} placeholder="Ex : écart constaté avec le relevé bancaire du 30/09" invalid={!!errors.notes} />
+          <Field label={tr('form.justification')} error={errors.notes} required>
+            <Textarea value={draft.notes ?? ''} onChange={(e) => set('notes', e.target.value)} placeholder={tr('form.justificationPlaceholder')} invalid={!!errors.notes} />
           </Field>
         )}
 
@@ -404,38 +405,38 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
           <div role="alert" className="flex gap-2.5 rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs">
             <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
             <div>
-              <div className="font-semibold text-warning">Doublon potentiel</div>
+              <div className="font-semibold text-warning">{tr('form.duplicate')}</div>
               <div className="mt-0.5 text-muted">
-                « {duplicate.label} » du {fmt.date(duplicate.date)} ({fmt.money(duplicate.amount, duplicate.currency)}) sur le même compte.
-                {dupAck ? ' Cliquez à nouveau pour enregistrer quand même.' : ''}
+                {tr('form.duplicateMessage', { label: duplicate.label, date: fmt.date(duplicate.date), amount: fmt.money(duplicate.amount, duplicate.currency) })}
+                {dupAck ? ` ${tr('form.duplicateAgain')}` : ''}
               </div>
             </div>
           </div>
         )}
 
         <button type="button" onClick={() => setShowMore((v) => !v)} className="flex w-full items-center justify-between rounded-xl px-1 py-1 text-xs font-medium text-muted hover:text-fg" aria-expanded={showMore}>
-          Plus de détails (bénéficiaire, mode de paiement, étiquettes, notes, justificatif)
+          {tr('form.moreDetails')}
           <ChevronDown className={cn('h-4 w-4 transition', showMore && 'rotate-180')} />
         </button>
         {showMore && (
           <div className="grid grid-cols-1 gap-3 animate-fade-in sm:grid-cols-2">
-            <Field label="Bénéficiaire / commerçant">
-              <Input value={draft.payee ?? ''} onChange={(e) => set('payee', e.target.value)} placeholder="Ex : Supermarché" />
+            <Field label={tr('form.payee')}>
+              <Input value={draft.payee ?? ''} onChange={(e) => set('payee', e.target.value)} placeholder={tr('form.payeePlaceholder')} />
             </Field>
-            <Field label="Mode de paiement">
+            <Field label={tr('form.paymentMethod')}>
               <Select value={draft.paymentMethod ?? ''} onChange={(e) => set('paymentMethod', (e.target.value || undefined) as TransactionDraft['paymentMethod'])}>
                 <option value="">—</option>
                 {Object.entries(PAYMENT_METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </Select>
             </Field>
-            <Field label="Statut">
-              <Segmented value={draft.status} onChange={(v) => set('status', v)} options={[{ value: 'cleared', label: 'Effectuée' }, { value: 'pending', label: 'En attente' }]} className="w-full" />
+            <Field label={tr('common.status')}>
+              <Segmented value={draft.status} onChange={(v) => set('status', v)} options={[{ value: 'cleared', label: tr('form.cleared') }, { value: 'pending', label: tr('form.pending') }]} className="w-full" />
             </Field>
-            <Field label="Étiquettes" hint="Séparées par des virgules" error={errors.tags}>
-              <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="vacances, travail" />
+            <Field label={tr('form.tags')} hint={tr('form.tagsHint')} error={errors.tags}>
+              <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder={tr('form.tagsPlaceholder')} />
             </Field>
             {draft.type === 'refund' && (
-              <Field label="Dépense d’origine (facultatif)" className="sm:col-span-2">
+              <Field label={tr('form.refundOf')} className="sm:col-span-2">
                 <Select value={draft.refundOfId ?? ''} onChange={(e) => set('refundOfId', e.target.value || undefined)}>
                   <option value="">—</option>
                   {recentExpenses.map((t) => <option key={t.id} value={t.id}>{fmt.date(t.date)} · {t.label} · {fmt.money(t.amount, t.currency)}</option>)}
@@ -443,30 +444,30 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
               </Field>
             )}
             {draft.type !== 'adjustment' && (
-              <Field label="Notes" className="sm:col-span-2" error={errors.notes}>
+              <Field label={tr('common.notes')} className="sm:col-span-2" error={errors.notes}>
                 <Textarea value={draft.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
               </Field>
             )}
-            <Field label="Justificatif (image ou PDF, 5 Mo max)" className="sm:col-span-2" hint="Stocké localement dans votre navigateur.">
+            <Field label={tr('form.attachment')} className="sm:col-span-2" hint={tr('form.attachmentHint')}>
               <div className="flex flex-wrap items-center gap-2">
                 {editing?.attachmentId && (
                   <>
-                    <Button size="sm" variant="outline" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={openAttachment}>Ouvrir le justificatif</Button>
-                    <Button size="sm" variant="ghost" onClick={() => repo.removeAttachment(editing.id).then(() => toast.info('Justificatif retiré.'))}>Retirer</Button>
+                    <Button size="sm" variant="outline" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={openAttachment}>{tr('form.openAttachment')}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => repo.removeAttachment(editing.id).then(() => toast.info(tr('form.attachmentRemoved')))}>{tr('form.remove')}</Button>
                   </>
                 )}
                 <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-line/25 px-3 text-xs font-medium hover:bg-surface-2">
                   <Paperclip className="h-3.5 w-3.5" />
-                  {file ? file.name : editing?.attachmentId ? 'Remplacer' : 'Joindre un fichier'}
+                  {file ? file.name : editing?.attachmentId ? tr('form.replace') : tr('form.attach')}
                   <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                 </label>
               </div>
             </Field>
             {editing && (
               <p className="text-[11px] text-muted sm:col-span-2">
-                Créée le {new Date(editing.createdAt).toLocaleString(data.settings.locale)} · modifiée le {new Date(editing.updatedAt).toLocaleString(data.settings.locale)}
-                {editing.importBatchId ? ' · importée' : ''}
-                {editing.recurringRuleId ? ' · issue d’un paiement récurrent' : ''}
+                {tr('form.createdAt', { created: new Date(editing.createdAt).toLocaleString(uiLocale), updated: new Date(editing.updatedAt).toLocaleString(uiLocale) })}
+                {editing.importBatchId ? tr('form.imported') : ''}
+                {editing.recurringRuleId ? tr('form.fromRecurring') : ''}
               </p>
             )}
           </div>

@@ -17,6 +17,7 @@ import { computeGoalProgress } from './goals';
 import { listOccurrences, pendingOccurrences } from './recurring';
 import type { MonthForecast } from './forecast';
 import { relativeChange } from './analytics';
+import { t } from '@/i18n/core';
 
 export interface Insight {
   id: string;
@@ -57,16 +58,16 @@ export function generateInsights(
   const prevPeriod = { start: `${prevMonth}-01`, end: makeDate(py, pm, prevDay) };
   const cur = summarizePeriod(ctx, data.transactions, curPeriod);
   const prev = summarizePeriod(ctx, data.transactions, prevPeriod);
-  const catName = (id: string | null) => (id ? ctx.categories.get(id)?.name ?? 'Catégorie supprimée' : 'Sans catégorie');
+  const catName = (id: string | null) => (id ? ctx.categories.get(id)?.name ?? t('common.deletedCategory') : t('common.uncategorized'));
 
   if (cur.transactionCount === 0 && prev.transactionCount === 0) {
     out.push({
       id: 'data:empty',
       kind: 'data',
       severity: 'info',
-      title: 'Pas encore assez de données',
-      message: 'Ajoutez vos premières transactions pour obtenir des observations personnalisées.',
-      source: 'Aucune transaction sur le mois en cours ni sur la même période du mois précédent.',
+      title: t('ins.empty.title'),
+      message: t('ins.empty.message'),
+      source: t('ins.empty.source'),
       href: '/transactions',
     });
     return out;
@@ -84,9 +85,9 @@ export function generateInsights(
       id: `trend:${catId}:${month}`,
       kind: 'category_trend',
       severity: up ? (change > 0.25 ? 'warning' : 'info') : 'success',
-      title: `${catName(catId)} : ${up ? 'hausse' : 'baisse'} de ${formatPercent(Math.abs(change), opt.locale)}`,
-      message: `Vous avez dépensé ${opt.fmt(c.amount)} en ${catName(catId).toLowerCase()} du 1er au ${day} ${opt.monthName(month).toLowerCase()}, contre ${opt.fmt(p.amount)} sur la même période du mois précédent.`,
-      source: `Comparaison à période égale : ${formatDate(curPeriod.start, opt.dateFormat)}–${formatDate(curPeriod.end, opt.dateFormat)} vs ${formatDate(prevPeriod.start, opt.dateFormat)}–${formatDate(prevPeriod.end, opt.dateFormat)} (${c.count} et ${p.count} opérations).`,
+      title: t(up ? 'ins.trend.up' : 'ins.trend.down', { category: catName(catId), pct: formatPercent(Math.abs(change), opt.locale) }),
+      message: t('ins.trend.message', { amount: opt.fmt(c.amount), category: catName(catId), start: formatDate(curPeriod.start, opt.dateFormat), end: formatDate(curPeriod.end, opt.dateFormat), previous: opt.fmt(p.amount) }),
+      source: t('ins.trend.source', { curStart: formatDate(curPeriod.start, opt.dateFormat), curEnd: formatDate(curPeriod.end, opt.dateFormat), prevStart: formatDate(prevPeriod.start, opt.dateFormat), prevEnd: formatDate(prevPeriod.end, opt.dateFormat), curCount: c.count, prevCount: p.count }),
       href: '/analytics',
     } });
   }
@@ -108,11 +109,11 @@ export function generateInsights(
       id: `budget:${line.budget.id}:${line.thresholdReached}`,
       kind: 'budget',
       severity: over ? 'danger' : line.thresholdReached >= 90 ? 'warning' : 'info',
-      title: over ? `Budget ${line.category?.name} dépassé` : `Budget ${line.category?.name} consommé à ${formatPercent(line.consumption, opt.locale, 0)}`,
+      title: over ? t('ins.budgetOver.title', { category: line.category?.name ?? '' }) : t('ins.budgetPct.title', { category: line.category?.name ?? '', pct: formatPercent(line.consumption, opt.locale, 0) }),
       message: over
-        ? `Dépassement de ${opt.fmt(line.spent - line.planned)} (${opt.fmt(line.spent)} dépensés pour un budget de ${opt.fmt(line.planned)}).`
-        : `${opt.fmt(line.spent)} dépensés sur ${opt.fmt(line.planned)} ; il reste ${opt.fmt(line.remaining)}.`,
-      source: 'Dépenses nettes des remboursements de la catégorie (sous-catégories incluses) ÷ budget du mois.',
+        ? t('ins.budgetOver.message', { over: opt.fmt(line.spent - line.planned), spent: opt.fmt(line.spent), planned: opt.fmt(line.planned) })
+        : t('ins.budgetPct.message', { spent: opt.fmt(line.spent), planned: opt.fmt(line.planned), remaining: opt.fmt(line.remaining) }),
+      source: t('ins.budget.source'),
       href: '/budgets',
     });
   }
@@ -124,9 +125,9 @@ export function generateInsights(
         id: `pace:${month}`,
         kind: 'pace',
         severity: 'warning',
-        title: 'Rythme de dépenses supérieur au budget',
-        message: `Au rythme actuel, vos dépenses du mois pourraient atteindre ${opt.fmt(forecast.projectedExpenses)}, soit ${opt.fmt(forecast.projectedBudgetOverrun)} au-delà du budget de ${opt.fmt(forecast.budgetReference)}.`,
-        source: 'Projection : dépenses enregistrées + échéances récurrentes à venir + dépenses variables projetées (voir Prévisions).',
+        title: t('ins.pace.title'),
+        message: t('ins.pace.message', { projected: opt.fmt(forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
+        source: t('ins.pace.source'),
         href: '/forecast',
       });
     } else if (forecast.projectedBudgetOverrun <= 0 && forecast.variableMethod === 'history') {
@@ -134,9 +135,9 @@ export function generateInsights(
         id: `pace-ok:${month}`,
         kind: 'pace',
         severity: 'success',
-        title: 'Dépenses sous contrôle',
-        message: `Projection de fin de mois : ${opt.fmt(forecast.projectedExpenses)} pour un budget de ${opt.fmt(forecast.budgetReference)} (marge estimée ${opt.fmt(-forecast.projectedBudgetOverrun)}).`,
-        source: 'Projection fondée sur la moyenne quotidienne observée et les échéances connues.',
+        title: t('ins.paceOk.title'),
+        message: t('ins.paceOk.message', { projected: opt.fmt(forecast.projectedExpenses), budget: opt.fmt(forecast.budgetReference), margin: opt.fmt(-forecast.projectedBudgetOverrun) }),
+        source: t('ins.paceOk.source'),
         href: '/forecast',
       });
     }
@@ -152,9 +153,9 @@ export function generateInsights(
         id: `goal:${g.id}:on_track`,
         kind: 'goal',
         severity: 'success',
-        title: `Objectif « ${g.name} » en bonne voie`,
-        message: `Contribution prévue ${opt.fmt(g.monthlyContribution ?? 0)}/mois pour ${opt.fmt(p.requiredMonthly ?? 0)}/mois nécessaires (${formatPercent(p.progressCapped, opt.locale, 0)} atteint).`,
-        source: 'Contribution nécessaire = montant restant ÷ mois restants jusqu’à la date cible.',
+        title: t('ins.goalOnTrack.title', { name: g.name }),
+        message: t('ins.goalOnTrack.message', { planned: opt.fmt(g.monthlyContribution ?? 0), required: opt.fmt(p.requiredMonthly ?? 0), pct: formatPercent(p.progressCapped, opt.locale, 0) }),
+        source: t('ins.goalOnTrack.source'),
         href: '/goals',
       });
     } else if (p.state === 'behind' || p.state === 'overdue') {
@@ -162,12 +163,12 @@ export function generateInsights(
         id: `goal:${g.id}:${p.state}`,
         kind: 'goal',
         severity: 'warning',
-        title: p.state === 'overdue' ? `Objectif « ${g.name} » : date dépassée` : `Objectif « ${g.name} » en retard`,
+        title: t(p.state === 'overdue' ? 'ins.goalOverdue.title' : 'ins.goalBehind.title', { name: g.name }),
         message:
           p.state === 'overdue'
-            ? `Il reste ${opt.fmt(p.remaining)} à constituer alors que la date cible est passée.`
-            : `Il faudrait ${opt.fmt(p.requiredMonthly ?? 0)}/mois, contre ${opt.fmt(g.monthlyContribution ?? 0)} prévus.`,
-        source: 'Comparaison entre contribution souhaitée et contribution nécessaire.',
+            ? t('ins.goalOverdue.message', { remaining: opt.fmt(p.remaining) })
+            : t('ins.goalBehind.message', { required: opt.fmt(p.requiredMonthly ?? 0), planned: opt.fmt(g.monthlyContribution ?? 0) }),
+        source: t('ins.goalBehind.source'),
         href: '/goals',
       });
     } else if (p.state === 'achieved') {
@@ -175,9 +176,9 @@ export function generateInsights(
         id: `goal:${g.id}:achieved`,
         kind: 'goal',
         severity: 'success',
-        title: `Objectif « ${g.name} » atteint`,
-        message: `${opt.fmt(p.saved)} constitués pour une cible de ${opt.fmt(g.targetAmount)}.`,
-        source: 'Montant constitué ≥ montant cible.',
+        title: t('ins.goalAchieved.title', { name: g.name }),
+        message: t('ins.goalAchieved.message', { saved: opt.fmt(p.saved), target: opt.fmt(g.targetAmount) }),
+        source: t('ins.goalAchieved.source'),
         href: '/goals',
       });
     }
@@ -193,9 +194,9 @@ export function generateInsights(
       id: `bill:${o.id}`,
       kind: 'bill',
       severity: 'info',
-      title: `${o.rule.label} arrive à échéance`,
-      message: `${opt.fmt(o.rule.amount)} prévus le ${formatDate(o.dueDate, opt.dateFormat)}.`,
-      source: `Paiement récurrent ${o.rule.label} non encore marqué comme payé.`,
+      title: t('ins.bill.title', { label: o.rule.label }),
+      message: t('ins.bill.message', { amount: opt.fmt(o.rule.amount), date: formatDate(o.dueDate, opt.dateFormat) }),
+      source: t('ins.bill.source', { label: o.rule.label }),
       href: '/recurring',
     });
   }
@@ -210,9 +211,9 @@ export function generateInsights(
         id: `rate:${prevMonth}`,
         kind: 'savings_rate',
         severity: diff > 0 ? 'success' : 'info',
-        title: `Taux d'épargne ${diff > 0 ? 'en progression' : 'en recul'}`,
-        message: `${opt.monthName(prevMonth)} : ${formatPercent(last.savingsRate, opt.locale)} de vos revenus épargnés, contre ${formatPercent(before.savingsRate, opt.locale)} le mois précédent.`,
-        source: 'Taux d’épargne = (revenus − dépenses) ÷ revenus, sur deux mois complets.',
+        title: t(diff > 0 ? 'ins.rateUp.title' : 'ins.rateDown.title'),
+        message: t('ins.rate.message', { month: opt.monthName(prevMonth), rate: formatPercent(last.savingsRate, opt.locale), previous: formatPercent(before.savingsRate, opt.locale) }),
+        source: t('ins.rate.source'),
         href: '/analytics',
       });
     }
@@ -228,9 +229,9 @@ export function generateInsights(
         id: `top:${month}:${topId}`,
         kind: 'top_category',
         severity: 'info',
-        title: `${catName(topId)} : 1er poste de dépenses`,
-        message: `${opt.fmt(topAmount)}, soit ${formatPercent(topAmount / cur.expenses, opt.locale, 0)} de vos dépenses depuis le début du mois.`,
-        source: 'Dépenses nettes par catégorie depuis le 1er du mois.',
+        title: t('ins.top.title', { category: catName(topId) }),
+        message: t('ins.top.message', { amount: opt.fmt(topAmount), pct: formatPercent(topAmount / cur.expenses, opt.locale, 0) }),
+        source: t('ins.top.source'),
         href: '/analytics',
       });
     }
@@ -241,9 +242,9 @@ export function generateInsights(
       id: 'data:none',
       kind: 'data',
       severity: 'info',
-      title: 'Rien de notable pour le moment',
-      message: 'Les comparaisons nécessitent au moins deux opérations par catégorie sur chaque période.',
-      source: 'Moteur d’insights : aucune règle déclenchée avec des données comparables.',
+      title: t('ins.none.title'),
+      message: t('ins.none.message'),
+      source: t('ins.none.source'),
     });
   }
   return out;

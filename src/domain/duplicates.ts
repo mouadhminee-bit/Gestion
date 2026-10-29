@@ -20,8 +20,8 @@ export function normalizeLabel(label: string): string {
   return label
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\p{M}/gu, '') // accents et signes diacritiques (toutes écritures)
+    .replace(/[^\p{L}\p{N} ]/gu, ' ')
     .replace(/\b\d{4,}\b/g, ' ') // références numériques
     .replace(/\s+/g, ' ')
     .trim();

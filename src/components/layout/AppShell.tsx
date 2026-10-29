@@ -3,7 +3,8 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import * as Popover from '@radix-ui/react-popover';
 import { Bell, ChevronLeft, ChevronRight, Eye, EyeOff, Moon, MoreHorizontal, Plus, Sun, X, CheckCheck, FlaskConical } from 'lucide-react';
 import { useApp } from '@/app/AppContext';
-import { NAV, NAV_GROUPS } from '@/app/nav';
+import { NAV, NAV_GROUPS, navLabel, navShort } from '@/app/nav';
+import { t } from '@/i18n/core';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -31,7 +32,7 @@ export function Logo({ compact }: { compact?: boolean }) {
       {!compact && (
         <div className="leading-none">
           <div className="display text-[15px] font-bold tracking-[0.18em]">NEXORA</div>
-          <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted">Personal Finance OS</div>
+          <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted">{t('shell.tagline')}</div>
         </div>
       )}
     </div>
@@ -46,7 +47,7 @@ function Sidebar() {
         <Logo />
       </div>
       <div className="glow-line mx-5 opacity-60" />
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navigation principale">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label={t('shell.mainNav')}>
         {groups.map(([g, label]) => (
           <div key={g} className="mb-4">
             <div className="label px-3 pb-1.5 text-[10px]">{label}</div>
@@ -66,7 +67,7 @@ function Sidebar() {
                   <>
                     {isActive && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-cyan to-primary" />}
                     <n.icon className={cn('h-[18px] w-[18px]', isActive ? 'text-cyan' : '')} aria-hidden />
-                    {n.label}
+                    {navLabel(n)}
                   </>
                 )}
               </NavLink>
@@ -75,9 +76,9 @@ function Sidebar() {
         ))}
       </nav>
       <div className="px-5 pb-5 text-[11px] leading-relaxed text-muted/80">
-        Données stockées localement dans ce navigateur.
+        {t('shell.localData')}
         <br />
-        Aucune connexion bancaire.
+        {t('shell.noBank')}
       </div>
     </aside>
   );
@@ -88,13 +89,13 @@ function MonthSwitcher() {
   const current = monthKey(today);
   return (
     <div className="flex items-center rounded-xl border border-line/15 bg-surface-2/60">
-      <Button variant="ghost" size="icon-sm" aria-label="Mois précédent" onClick={() => setMonth(addMonthsToKey(month, -1))}>
+      <Button variant="ghost" size="icon-sm" aria-label={t('shell.prevMonth')} onClick={() => setMonth(addMonthsToKey(month, -1))}>
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <button className="min-w-[104px] px-0.5 text-center text-sm font-medium sm:min-w-[132px]" onClick={() => setMonth(current)} title="Revenir au mois en cours">
+      <button className="min-w-[104px] px-0.5 text-center text-sm font-medium sm:min-w-[132px]" onClick={() => setMonth(current)} title={t('shell.currentMonth')}>
         {fmt.month(month)}
       </button>
-      <Button variant="ghost" size="icon-sm" aria-label="Mois suivant" onClick={() => setMonth(addMonthsToKey(month, 1))}>
+      <Button variant="ghost" size="icon-sm" aria-label={t('shell.nextMonth')} onClick={() => setMonth(addMonthsToKey(month, 1))}>
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
@@ -111,7 +112,7 @@ function Notifications() {
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Notifications${unread ? ` (${unread} non lues)` : ''}`} className="relative">
+        <Button variant="ghost" size="icon" aria-label={unread ? t('shell.notificationsUnread', { count: unread }) : t('shell.notifications')} className="relative">
           <Bell className="h-5 w-5" />
           {unread > 0 && <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[10px] font-bold text-white">{unread}</span>}
         </Button>
@@ -119,15 +120,15 @@ function Notifications() {
       <Popover.Portal>
         <Popover.Content align="end" sideOffset={8} collisionPadding={12} className="z-[60] w-[min(380px,calc(100vw-24px))] rounded-2xl border border-line/15 bg-surface shadow-2xl animate-fade-in">
           <div className="flex items-center justify-between border-b border-line/10 px-4 py-3">
-            <div className="text-sm font-semibold">Notifications</div>
+            <div className="text-sm font-semibold">{t('shell.notifications')}</div>
             {items.length > 0 && (
               <button className="inline-flex items-center gap-1 text-xs text-cyan hover:underline" onClick={() => repo.setNotificationState(items.map((i) => i.id), { read: true })}>
-                <CheckCheck className="h-3.5 w-3.5" /> Tout marquer comme lu
+                <CheckCheck className="h-3.5 w-3.5" /> {t('shell.markAllRead')}
               </button>
             )}
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2">
-            {items.length === 0 && <p className="px-3 py-8 text-center text-sm text-muted">Aucune alerte. Tout est sous contrôle.</p>}
+            {items.length === 0 && <p className="px-3 py-8 text-center text-sm text-muted">{t('shell.noAlerts')}</p>}
             {items.map((n) => (
               <div key={n.id} className={cn('group relative flex gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2', n.read && 'opacity-60')}>
                 <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', tone[n.severity])} />
@@ -142,13 +143,13 @@ function Notifications() {
                   <div className="text-sm font-medium">{n.title}</div>
                   <div className="mt-0.5 text-xs text-muted">{n.message}</div>
                 </button>
-                <button aria-label="Masquer" className="h-6 w-6 shrink-0 rounded-md text-muted opacity-0 hover:text-fg group-hover:opacity-100 focus:opacity-100" onClick={() => repo.setNotificationState([n.id], { dismissed: true })}>
+                <button aria-label={t('shell.hide')} className="h-6 w-6 shrink-0 rounded-md text-muted opacity-0 hover:text-fg group-hover:opacity-100 focus:opacity-100" onClick={() => repo.setNotificationState([n.id], { dismissed: true })}>
                   <X className="mx-auto h-3.5 w-3.5" />
                 </button>
               </div>
             ))}
           </div>
-          <div className="border-t border-line/10 px-4 py-2.5 text-[11px] text-muted">Alertes configurables dans Paramètres → Notifications.</div>
+          <div className="border-t border-line/10 px-4 py-2.5 text-[11px] text-muted">{t('shell.alertsHint')}</div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
@@ -167,28 +168,28 @@ function TopBar() {
         </div>
         <MonthSwitcher />
         {settings.demoMode && (
-          <Tooltip content="Les données affichées sont fictives. Réinitialisez-les ou repartez de zéro dans Paramètres → Données.">
+          <Tooltip content={t('shell.demoTooltip')}>
             <button onClick={() => navigate('/settings#data')} className="hidden items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-warning sm:inline-flex">
-              <FlaskConical className="h-3.5 w-3.5" /> Démo
+              <FlaskConical className="h-3.5 w-3.5" /> {t('shell.demo')}
             </button>
           </Tooltip>
         )}
         <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
-          <Tooltip content={settings.privacyMode ? 'Afficher les montants' : 'Masquer les montants'}>
-            <Button variant="ghost" size="icon" aria-pressed={settings.privacyMode} aria-label="Mode confidentialité" onClick={() => repo.updateSettings({ privacyMode: !settings.privacyMode })}>
+          <Tooltip content={settings.privacyMode ? t('shell.showAmounts') : t('shell.hideAmounts')}>
+            <Button variant="ghost" size="icon" aria-pressed={settings.privacyMode} aria-label={t('shell.privacyMode')} onClick={() => repo.updateSettings({ privacyMode: !settings.privacyMode })}>
               {settings.privacyMode ? <EyeOff className="h-5 w-5 text-cyan" /> : <Eye className="h-5 w-5" />}
             </Button>
           </Tooltip>
-          <Tooltip content={settings.theme === 'dark' ? 'Thème clair' : 'Thème sombre'}>
-            <Button variant="ghost" size="icon" className="hidden sm:inline-flex" aria-label="Changer de thème" onClick={() => repo.updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}>
+          <Tooltip content={settings.theme === 'dark' ? t('shell.lightTheme') : t('shell.darkTheme')}>
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex" aria-label={t('shell.toggleTheme')} onClick={() => repo.updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}>
               {settings.theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
           </Tooltip>
           <Notifications />
           <Button variant="primary" className="ml-1 hidden sm:inline-flex" icon={<Plus className="h-4 w-4" />} onClick={() => openForm()}>
-            Ajouter une transaction
+            {t('shell.addTransaction')}
           </Button>
-          <NavLink to="/settings" aria-label="Profil et paramètres" className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan/80 via-primary to-violet text-xs font-bold text-white">
+          <NavLink to="/settings" aria-label={t('shell.profile')} className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan/80 via-primary to-violet text-xs font-bold text-white">
             {(settings.displayName || 'N').slice(0, 1).toUpperCase()}
           </NavLink>
         </div>
@@ -206,33 +207,33 @@ function BottomNav() {
   const item = (n: (typeof NAV)[number]) => (
     <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => cn('flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium', isActive ? 'text-cyan' : 'text-muted')}>
       <n.icon className="h-5 w-5" aria-hidden />
-      {n.short ?? n.label}
+      {navShort(n)}
     </NavLink>
   );
   const inMore = NAV.slice(3).some((n) => location.pathname.startsWith(n.to));
   return (
     <>
-      <nav className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden" aria-label="Navigation mobile">
+      <nav className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line/10 bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden" aria-label={t('shell.mobileNav')}>
         <div className="mx-auto flex max-w-md items-end px-2">
           {primary.map(item)}
           <div className="flex flex-1 justify-center">
-            <button onClick={() => openForm()} aria-label="Ajouter une transaction" className="-mt-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan via-primary to-violet text-white shadow-glow active:scale-95">
+            <button onClick={() => openForm()} aria-label={t('shell.addTransaction')} className="-mt-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan via-primary to-violet text-white shadow-glow active:scale-95">
               <Plus className="h-6 w-6" />
             </button>
           </div>
           {secondary.map(item)}
           <button onClick={() => setMore(true)} className={cn('flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium', inMore ? 'text-cyan' : 'text-muted')}>
             <MoreHorizontal className="h-5 w-5" aria-hidden />
-            Plus
+            {t('shell.more')}
           </button>
         </div>
       </nav>
-      <Dialog open={more} onOpenChange={setMore} title="Modules" size="sm">
+      <Dialog open={more} onOpenChange={setMore} title={t('shell.modules')} size="sm">
         <div className="grid grid-cols-3 gap-2 pb-2">
           {NAV.slice(3).map((n) => (
             <NavLink key={n.to} to={n.to} onClick={() => setMore(false)} className={({ isActive }) => cn('flex flex-col items-center gap-2 rounded-2xl border border-line/10 bg-surface-2/60 px-2 py-4 text-center text-xs font-medium', isActive && 'border-primary/40 text-cyan')}>
               <n.icon className="h-5 w-5" />
-              {n.short ?? n.label}
+              {navShort(n)}
             </NavLink>
           ))}
         </div>
@@ -245,7 +246,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2">
-        Aller au contenu
+        {t('shell.skip')}
       </a>
       <Sidebar />
       <div className="app-content lg:pl-[248px]">

@@ -41,6 +41,7 @@ import { validateDebtPayment } from '@/domain/calc/debts';
 import { occurrenceId } from '@/domain/calc/recurring';
 import type { MonthKey } from '@/domain/dates';
 import { addMonthsToKey, isValidISODate } from '@/domain/dates';
+import { t as tr } from '@/i18n/core';
 
 export class ValidationError extends Error {
   constructor(
@@ -68,7 +69,7 @@ export class LocalRepository {
 
   private async own<T extends { userId: ID }>(table: UserTableName, id: ID): Promise<T> {
     const row = (await (this.db[table] as unknown as { get(id: ID): Promise<T | undefined> }).get(id)) as T | undefined;
-    if (!row || row.userId !== this.userId) throw new Error('Élément introuvable.');
+    if (!row || row.userId !== this.userId) throw new Error(tr('err.notFound'));
     return row;
   }
 
@@ -160,18 +161,18 @@ export class LocalRepository {
     this.assertAccount(next);
     if (patch.currency && patch.currency !== cur.currency) {
       const used = await this.db.transactions.where('accountId').equals(id).count();
-      if (used) throw new ValidationError("La devise d'un compte contenant des opérations ne peut pas être modifiée.", { currency: 'Devise verrouillée' });
+      if (used) throw new ValidationError(tr('err.currencyLocked'), { currency: tr('err.currencyLockedShort') });
     }
     await this.db.accounts.put(next);
   }
 
   private assertAccount(a: Partial<Account>) {
     const f: Record<string, string> = {};
-    if (!a.name?.trim()) f.name = 'Nom obligatoire.';
-    if (!a.currency) f.currency = 'Devise obligatoire.';
-    if (!Number.isSafeInteger(a.initialBalance)) f.initialBalance = 'Solde initial invalide.';
-    if (!isValidISODate(a.initialBalanceDate)) f.initialBalanceDate = 'Date invalide.';
-    if (Object.keys(f).length) throw new ValidationError('Compte invalide.', f);
+    if (!a.name?.trim()) f.name = tr('err.nameRequired');
+    if (!a.currency) f.currency = tr('err.currencyRequired');
+    if (!Number.isSafeInteger(a.initialBalance)) f.initialBalance = tr('err.initialBalance');
+    if (!isValidISODate(a.initialBalanceDate)) f.initialBalanceDate = tr('err.invalidDate');
+    if (Object.keys(f).length) throw new ValidationError(tr('err.accountInvalid'), f);
   }
 
   async archiveAccount(id: ID, archived = true): Promise<void> {
@@ -182,7 +183,7 @@ export class LocalRepository {
   async deleteAccount(id: ID): Promise<void> {
     await this.own<Account>('accounts', id);
     const used = await this.db.transactions.where('accountId').equals(id).count();
-    if (used) throw new ValidationError('Ce compte possède un historique : archivez-le plutôt que de le supprimer.');
+    if (used) throw new ValidationError(tr('err.accountHasHistory'));
     await this.db.accounts.delete(id);
   }
 
@@ -191,10 +192,10 @@ export class LocalRepository {
   // -------------------------------------------------------------------------
 
   async createCategory(input: NewEntity<Category>): Promise<Category> {
-    if (!input.name.trim()) throw new ValidationError('Nom obligatoire.', { name: 'Nom obligatoire.' });
+    if (!input.name.trim()) throw new ValidationError(tr('err.nameRequired'), { name: tr('err.nameRequired') });
     if (input.parentId) {
       const parent = await this.own<Category>('categories', input.parentId);
-      if (parent.parentId) throw new ValidationError('Une sous-catégorie ne peut pas avoir de sous-catégorie.');
+      if (parent.parentId) throw new ValidationError(tr('err.nestedSubcategory'));
       input = { ...input, kind: parent.kind, nature: parent.nature };
     }
     const cat = this.stamp(input) as Category;
@@ -205,7 +206,7 @@ export class LocalRepository {
   async updateCategory(id: ID, patch: Partial<Category>): Promise<void> {
     const cur = await this.own<Category>('categories', id);
     const next = { ...cur, ...patch, id, userId: this.userId, updatedAt: nowISO() };
-    if (!next.name.trim()) throw new ValidationError('Nom obligatoire.', { name: 'Nom obligatoire.' });
+    if (!next.name.trim()) throw new ValidationError(tr('err.nameRequired'), { name: tr('err.nameRequired') });
     await this.db.transaction('rw', this.db.categories, async () => {
       await this.db.categories.put(next);
       // La nature / le type d'une catégorie se propage à ses sous-catégories.
@@ -233,7 +234,7 @@ export class LocalRepository {
     const children = await this.db.categories.where('userId').equals(this.userId).filter((c) => c.parentId === id).toArray();
     let usage = await this.categoryUsage(id);
     for (const c of children) usage += await this.categoryUsage(c.id);
-    if (usage > 0) throw new ValidationError('Catégorie utilisée dans l’historique : archivez-la pour conserver la lisibilité des anciennes opérations.');
+    if (usage > 0) throw new ValidationError(tr('err.categoryUsed'));
     await this.db.categories.bulkDelete([id, ...children.map((c) => c.id)]);
   }
 
@@ -291,7 +292,7 @@ export class LocalRepository {
     if (d.type === 'transfer') {
       const to = accounts.get(d.toAccountId!)!;
       const transferId = ids.transferId ?? newId();
-      const label = common.label || `Transfert ${acc.name} → ${to.name}`;
+      const label = common.label || tr('tx.transferLabel', { from: acc.name, to: to.name });
       const outLeg: Transaction = {
         ...base,
         ...common,
@@ -345,7 +346,7 @@ export class LocalRepository {
   async createTransaction(d: TransactionDraft, extra: Partial<Transaction> = {}): Promise<Transaction[]> {
     const ctx = await this.validationContext();
     const errors = validateTransactionDraft(d, ctx);
-    if (hasErrors(errors)) throw new ValidationError('Transaction invalide.', errors);
+    if (hasErrors(errors)) throw new ValidationError(tr('err.transactionInvalid'), errors);
     const records = this.buildFromDraft(d, ctx.accounts, extra);
     await this.db.transactions.bulkAdd(records);
     return records;
@@ -365,7 +366,7 @@ export class LocalRepository {
     const group = await this.getTransactionGroup(id);
     const ctx = await this.validationContext(group);
     const errors = validateTransactionDraft(d, ctx);
-    if (hasErrors(errors)) throw new ValidationError('Transaction invalide.', errors);
+    if (hasErrors(errors)) throw new ValidationError(tr('err.transactionInvalid'), errors);
     const main = group.find((t) => t.direction === 'out') ?? group[0];
     const counter = group.find((t) => t !== main);
     // Préserve les liens métier (récurrence, import, pièce jointe, dette).
@@ -379,7 +380,7 @@ export class LocalRepository {
       debtPaymentId: main.debtPaymentId,
       interestAmount: main.interestAmount,
     };
-    if (main.type === 'debt') throw new ValidationError('Les opérations de dette se modifient depuis le module Dettes.');
+    if (main.type === 'debt') throw new ValidationError(tr('err.debtTxEdit'));
     const records = this.buildFromDraft(d, ctx.accounts, base, {
       main: main.id,
       counter: d.type === 'transfer' ? counter?.id : undefined,
@@ -442,8 +443,8 @@ export class LocalRepository {
   }
 
   async addAttachment(transactionId: ID, file: File): Promise<void> {
-    if (file.size > 5 * 1024 * 1024) throw new ValidationError('Fichier trop volumineux (5 Mo max).');
-    if (!/^(image\/(png|jpeg|webp|gif)|application\/pdf)$/.test(file.type)) throw new ValidationError('Format accepté : image (PNG, JPEG, WebP, GIF) ou PDF.');
+    if (file.size > 5 * 1024 * 1024) throw new ValidationError(tr('err.fileTooLarge'));
+    if (!/^(image\/(png|jpeg|webp|gif)|application\/pdf)$/.test(file.type)) throw new ValidationError(tr('err.fileFormat'));
     const t = await this.own<Transaction>('transactions', transactionId);
     const att: Attachment = { id: newId(), userId: this.userId, name: file.name, mimeType: file.type, size: file.size, blob: file, createdAt: nowISO() };
     await this.db.transaction('rw', this.db.transactions, this.db.attachments, async () => {
@@ -474,7 +475,7 @@ export class LocalRepository {
     const records: Transaction[] = [];
     for (const d of drafts) {
       const errors = validateTransactionDraft(d, ctx);
-      if (hasErrors(errors)) throw new ValidationError('Ligne invalide dans l’import.', errors);
+      if (hasErrors(errors)) throw new ValidationError(tr('err.importLine'), errors);
       records.push(...this.buildFromDraft(d, ctx.accounts, { importBatchId: batchRec.id }));
     }
     await this.db.transaction('rw', this.db.transactions, this.db.importBatches, async () => {
@@ -489,7 +490,7 @@ export class LocalRepository {
   // -------------------------------------------------------------------------
 
   async setBudget(month: MonthKey, categoryId: ID | null, amount: number, currency: string, options: { alertThresholds?: number[]; applyToFollowingMonths?: number } = {}): Promise<void> {
-    if (!Number.isSafeInteger(amount) || amount < 0) throw new ValidationError('Montant de budget invalide.', { amount: 'Montant invalide.' });
+    if (!Number.isSafeInteger(amount) || amount < 0) throw new ValidationError(tr('err.budgetAmount'), { amount: tr('err.invalidAmount') });
     const months = [month];
     for (let i = 1; i <= (options.applyToFollowingMonths ?? 0); i++) months.push(addMonthsToKey(month, i));
     await this.db.transaction('rw', this.db.budgets, async () => {
@@ -532,10 +533,10 @@ export class LocalRepository {
   // -------------------------------------------------------------------------
 
   async saveGoal(input: NewEntity<SavingsGoal> & { id?: ID }): Promise<SavingsGoal> {
-    if (!input.name.trim()) throw new ValidationError('Nom obligatoire.', { name: 'Nom obligatoire.' });
-    if (!Number.isSafeInteger(input.targetAmount) || input.targetAmount <= 0) throw new ValidationError('Montant cible invalide.', { targetAmount: 'Montant cible invalide.' });
-    if (!Number.isSafeInteger(input.savedAmount) || input.savedAmount < 0) throw new ValidationError('Montant constitué invalide.', { savedAmount: 'Montant invalide.' });
-    if (input.targetDate && !isValidISODate(input.targetDate)) throw new ValidationError('Date cible invalide.', { targetDate: 'Date invalide.' });
+    if (!input.name.trim()) throw new ValidationError(tr('err.nameRequired'), { name: tr('err.nameRequired') });
+    if (!Number.isSafeInteger(input.targetAmount) || input.targetAmount <= 0) throw new ValidationError(tr('err.targetAmount'), { targetAmount: tr('err.targetAmount') });
+    if (!Number.isSafeInteger(input.savedAmount) || input.savedAmount < 0) throw new ValidationError(tr('err.savedAmount'), { savedAmount: tr('err.invalidAmount') });
+    if (input.targetDate && !isValidISODate(input.targetDate)) throw new ValidationError(tr('err.targetDate'), { targetDate: tr('err.invalidDate') });
     if (input.id) {
       const cur = await this.own<SavingsGoal>('goals', input.id);
       const next = { ...cur, ...input, id: cur.id, userId: this.userId, updatedAt: nowISO() } as SavingsGoal;
@@ -557,11 +558,11 @@ export class LocalRepository {
 
   /** Affectation (ou retrait) d'un montant à un objectif — ne crée aucun actif ni transaction. */
   async addGoalContribution(goalId: ID, amount: number, date: string, note?: string): Promise<void> {
-    if (!Number.isSafeInteger(amount) || amount === 0) throw new ValidationError('Montant invalide.', { amount: 'Montant invalide.' });
-    if (!isValidISODate(date)) throw new ValidationError('Date invalide.', { date: 'Date invalide.' });
+    if (!Number.isSafeInteger(amount) || amount === 0) throw new ValidationError(tr('err.invalidAmount'), { amount: tr('err.invalidAmount') });
+    if (!isValidISODate(date)) throw new ValidationError(tr('err.invalidDate'), { date: tr('err.invalidDate') });
     const goal = await this.own<SavingsGoal>('goals', goalId);
     const saved = goal.savedAmount + amount;
-    if (saved < 0) throw new ValidationError('Le retrait dépasse le montant affecté.', { amount: 'Retrait trop élevé.' });
+    if (saved < 0) throw new ValidationError(tr('err.withdrawTooHigh'), { amount: tr('err.withdrawTooHighShort') });
     await this.db.transaction('rw', this.db.goals, this.db.goalContributions, async () => {
       await this.db.goalContributions.add({ id: newId(), userId: this.userId, goalId, amount, date, note, createdAt: nowISO() });
       const status = goal.status === 'active' && saved >= goal.targetAmount ? 'achieved' : goal.status === 'achieved' && saved < goal.targetAmount ? 'active' : goal.status;
@@ -575,14 +576,14 @@ export class LocalRepository {
 
   async saveRecurringRule(input: NewEntity<RecurringRule> & { id?: ID }): Promise<RecurringRule> {
     const f: Record<string, string> = {};
-    if (!input.label.trim()) f.label = 'Libellé obligatoire.';
-    if (!Number.isSafeInteger(input.amount) || input.amount <= 0) f.amount = 'Montant invalide.';
-    if (!isValidISODate(input.startDate)) f.startDate = 'Date invalide.';
-    if (input.endDate && (!isValidISODate(input.endDate) || input.endDate < input.startDate)) f.endDate = 'La date de fin doit suivre la date de début.';
-    if (input.frequency === 'custom' && !(Number(input.customInterval) >= 1)) f.customInterval = 'Intervalle invalide.';
+    if (!input.label.trim()) f.label = tr('err.labelRequired');
+    if (!Number.isSafeInteger(input.amount) || input.amount <= 0) f.amount = tr('err.invalidAmount');
+    if (!isValidISODate(input.startDate)) f.startDate = tr('err.invalidDate');
+    if (input.endDate && (!isValidISODate(input.endDate) || input.endDate < input.startDate)) f.endDate = tr('err.endAfterStart');
+    if (input.frequency === 'custom' && !(Number(input.customInterval) >= 1)) f.customInterval = tr('err.interval');
     const acc = await this.db.accounts.get(input.accountId);
-    if (!acc || acc.userId !== this.userId) f.accountId = 'Compte invalide.';
-    if (Object.keys(f).length) throw new ValidationError('Paiement récurrent invalide.', f);
+    if (!acc || acc.userId !== this.userId) f.accountId = tr('err.accountInvalid');
+    if (Object.keys(f).length) throw new ValidationError(tr('err.recurringInvalid'), f);
     const data = { ...input, currency: acc!.currency };
     if (input.id) {
       const cur = await this.own<RecurringRule>('recurringRules', input.id);
@@ -625,12 +626,12 @@ export class LocalRepository {
     };
     const ctx = await this.validationContext();
     const errors = validateTransactionDraft(draft, ctx);
-    if (hasErrors(errors)) throw new ValidationError('Échéance invalide.', errors);
+    if (hasErrors(errors)) throw new ValidationError(tr('err.occurrenceInvalid'), errors);
     const [tx] = this.buildFromDraft(draft, ctx.accounts, { recurringRuleId: ruleId, recurringDueDate: dueDate });
     await this.db.transaction('rw', this.db.transactions, this.db.occurrences, async () => {
       const id = occurrenceId(ruleId, dueDate);
       const st = await this.db.occurrences.get(id);
-      if (st?.status === 'paid') throw new ValidationError('Cette échéance est déjà marquée comme payée.');
+      if (st?.status === 'paid') throw new ValidationError(tr('err.occurrenceAlreadyPaid'));
       await this.db.transactions.add(tx);
       await this.db.occurrences.put({ id, userId: this.userId, ruleId, dueDate, status: 'paid', transactionId: tx.id, updatedAt: nowISO() });
     });
@@ -673,22 +674,22 @@ export class LocalRepository {
 
   async createDebt(input: NewEntity<Debt>, origin?: { accountId: ID; date: string }): Promise<Debt> {
     const f: Record<string, string> = {};
-    if (!input.label.trim()) f.label = 'Libellé obligatoire.';
-    if (!Number.isSafeInteger(input.principal) || input.principal <= 0) f.principal = 'Montant invalide.';
-    if (!isValidISODate(input.startDate)) f.startDate = 'Date invalide.';
-    if (input.dueDate && !isValidISODate(input.dueDate)) f.dueDate = 'Date invalide.';
-    if (Object.keys(f).length) throw new ValidationError('Engagement invalide.', f);
+    if (!input.label.trim()) f.label = tr('err.labelRequired');
+    if (!Number.isSafeInteger(input.principal) || input.principal <= 0) f.principal = tr('err.invalidAmount');
+    if (!isValidISODate(input.startDate)) f.startDate = tr('err.invalidDate');
+    if (input.dueDate && !isValidISODate(input.dueDate)) f.dueDate = tr('err.invalidDate');
+    if (Object.keys(f).length) throw new ValidationError(tr('err.debtInvalid'), f);
     const debt = this.stamp(input) as Debt;
     await this.db.transaction('rw', this.db.debts, this.db.transactions, this.db.accounts, async () => {
       if (origin) {
         const acc = await this.own<Account>('accounts', origin.accountId);
-        if (acc.currency !== debt.currency) throw new ValidationError('Le compte doit être dans la devise de l’engagement.');
+        if (acc.currency !== debt.currency) throw new ValidationError(tr('err.accountCurrencyDebt'));
         const tx: Transaction = this.stamp({
           type: 'debt',
           direction: debt.direction === 'payable' ? 'in' : 'out',
           amount: debt.principal,
           currency: acc.currency,
-          label: debt.direction === 'payable' ? `Emprunt : ${debt.label}` : `Prêt accordé : ${debt.label}`,
+          label: tr(debt.direction === 'payable' ? 'debt.label.borrowed' : 'debt.label.lent', { label: debt.label }),
           date: origin.date,
           categoryId: null,
           subcategoryId: null,
@@ -711,7 +712,7 @@ export class LocalRepository {
     const cur = await this.own<Debt>('debts', id);
     const payments = await this.db.debtPayments.where('debtId').equals(id).toArray();
     const repaid = payments.reduce((a, p) => a + p.principal, 0);
-    if (patch.principal != null && patch.principal < repaid) throw new ValidationError('Le principal ne peut pas être inférieur au montant déjà remboursé.');
+    if (patch.principal != null && patch.principal < repaid) throw new ValidationError(tr('err.principalBelowRepaid'));
     await this.db.debts.put({ ...cur, ...patch, id, userId: this.userId, updatedAt: nowISO() });
   }
 
@@ -737,12 +738,12 @@ export class LocalRepository {
     const payments = await this.db.debtPayments.where('debtId').equals(debtId).toArray();
     const err = validateDebtPayment(debt, payments, p.principal, p.interest);
     if (err) throw new ValidationError(err, { principal: err });
-    if (!isValidISODate(p.date)) throw new ValidationError('Date invalide.', { date: 'Date invalide.' });
+    if (!isValidISODate(p.date)) throw new ValidationError(tr('err.invalidDate'), { date: tr('err.invalidDate') });
     const payment: DebtPayment = { id: newId(), userId: this.userId, debtId, date: p.date, principal: p.principal, interest: p.interest, accountId: p.accountId, note: p.note, createdAt: nowISO() };
     await this.db.transaction('rw', [this.db.debts, this.db.debtPayments, this.db.transactions, this.db.accounts, this.db.categories], async () => {
       if (p.accountId) {
         const acc = await this.own<Account>('accounts', p.accountId);
-        if (acc.currency !== debt.currency) throw new ValidationError('Le compte doit être dans la devise de l’engagement.');
+        if (acc.currency !== debt.currency) throw new ValidationError(tr('err.accountCurrencyDebt'));
         const cats = await this.db.categories.where('userId').equals(this.userId).toArray();
         const interestCat = cats.find((c) => c.key === (debt.direction === 'payable' ? 'loan_payments' : 'dividends'));
         const tx = this.stamp({
@@ -750,7 +751,7 @@ export class LocalRepository {
           direction: debt.direction === 'payable' ? 'out' : 'in',
           amount: p.principal + p.interest,
           currency: acc.currency,
-          label: debt.direction === 'payable' ? `Remboursement : ${debt.label}` : `Encaissement : ${debt.label}`,
+          label: tr(debt.direction === 'payable' ? 'debt.label.repayment' : 'debt.label.collection', { label: debt.label }),
           date: p.date,
           categoryId: p.interest > 0 ? interestCat?.id ?? null : null,
           subcategoryId: null,
@@ -788,10 +789,10 @@ export class LocalRepository {
   // -------------------------------------------------------------------------
 
   async saveAsset(input: NewEntity<Asset> & { id?: ID }, initialValuation?: { date: string; value: number }): Promise<Asset> {
-    if (!input.name.trim()) throw new ValidationError('Nom obligatoire.', { name: 'Nom obligatoire.' });
+    if (!input.name.trim()) throw new ValidationError(tr('err.nameRequired'), { name: tr('err.nameRequired') });
     if (input.linkedAccountId) {
       const others = await this.db.assets.where('userId').equals(this.userId).filter((a) => a.linkedAccountId === input.linkedAccountId && a.id !== input.id && !a.archived).count();
-      if (others) throw new ValidationError('Ce compte est déjà valorisé par un autre actif (double comptage évité).');
+      if (others) throw new ValidationError(tr('err.accountAlreadyValued'));
     }
     let asset: Asset;
     if (input.id) {
@@ -816,8 +817,8 @@ export class LocalRepository {
 
   async addValuation(assetId: ID, date: string, value: number, note?: string): Promise<void> {
     await this.own<Asset>('assets', assetId);
-    if (!isValidISODate(date)) throw new ValidationError('Date invalide.', { date: 'Date invalide.' });
-    if (!Number.isSafeInteger(value) || value < 0) throw new ValidationError('Valeur invalide.', { value: 'Valeur invalide.' });
+    if (!isValidISODate(date)) throw new ValidationError(tr('err.invalidDate'), { date: tr('err.invalidDate') });
+    if (!Number.isSafeInteger(value) || value < 0) throw new ValidationError(tr('err.invalidValue'), { value: tr('err.invalidValue') });
     await this.db.valuations.add({ id: newId(), userId: this.userId, assetId, date, value, source: 'manual', note, createdAt: nowISO() });
   }
 
@@ -827,9 +828,9 @@ export class LocalRepository {
   }
 
   async saveRate(base: string, quote: string, rate: number, date: string): Promise<void> {
-    if (base === quote) throw new ValidationError('Les deux devises doivent être différentes.');
-    if (!(rate > 0) || !Number.isFinite(rate)) throw new ValidationError('Taux invalide.', { rate: 'Taux invalide.' });
-    if (!isValidISODate(date)) throw new ValidationError('Date invalide.', { date: 'Date invalide.' });
+    if (base === quote) throw new ValidationError(tr('err.sameCurrencies'));
+    if (!(rate > 0) || !Number.isFinite(rate)) throw new ValidationError(tr('err.invalidRate'), { rate: tr('err.invalidRate') });
+    if (!isValidISODate(date)) throw new ValidationError(tr('err.invalidDate'), { date: tr('err.invalidDate') });
     await this.db.rates.add({ id: newId(), userId: this.userId, base, quote, rate, date, source: 'manual', createdAt: nowISO() });
   }
 
@@ -874,9 +875,9 @@ export class LocalRepository {
 
   /** Remplace toutes les données de l'utilisateur par celles de la sauvegarde. */
   async restoreBackup(file: BackupFile): Promise<void> {
-    if (file?.app !== 'nexora' || typeof file.data !== 'object') throw new ValidationError('Fichier de sauvegarde invalide.');
-    if (file.schemaVersion > SCHEMA_VERSION) throw new ValidationError('Sauvegarde créée par une version plus récente de NEXORA.');
-    if (!Array.isArray(file.data.settings) || !file.data.settings.length) throw new ValidationError('Sauvegarde incomplète (paramètres manquants).');
+    if (file?.app !== 'nexora' || typeof file.data !== 'object') throw new ValidationError(tr('err.backupInvalid'));
+    if (file.schemaVersion > SCHEMA_VERSION) throw new ValidationError(tr('err.backupNewer'));
+    if (!Array.isArray(file.data.settings) || !file.data.settings.length) throw new ValidationError(tr('err.backupIncomplete'));
     const tables = [...USER_TABLES.map((t) => this.db[t]), this.db.attachments];
     await this.db.transaction('rw', tables, async () => {
       await this.clearUserData();

@@ -1,5 +1,6 @@
 import type { Category, CategoryKind, ExpenseNature } from './types';
 import { newId, nowISO } from '@/lib/id';
+import { td } from '@/i18n/core';
 
 interface SeedCategory {
   key: string;
@@ -72,6 +73,21 @@ export const SEED_CATEGORIES: SeedCategory[] = [
   { key: 'investments', name: 'Investissements', kind: 'savings', icon: 'LineChart', color: '#5271FF' },
   { key: 'other_savings', name: "Autres affectations d'épargne", kind: 'savings', icon: 'PiggyBank', color: '#9B7BFF' },
 ];
+
+const SEED_NAMES = new Map<string, string>();
+for (const c of SEED_CATEGORIES) {
+  SEED_NAMES.set(c.key, c.name);
+  c.children?.forEach((ch) => SEED_NAMES.set(ch.key, ch.name));
+}
+
+/**
+ * Nom affiché d'une catégorie : traduction de la catégorie initiale tant que
+ * l'utilisateur ne l'a pas renommée ; sinon le nom saisi par l'utilisateur.
+ */
+export function displayCategoryName(c: Pick<Category, 'key' | 'name'>): string {
+  if (c.key && SEED_NAMES.get(c.key) === c.name) return td(`cat.${c.key}`);
+  return c.name;
+}
 
 export function buildSeedCategories(userId: string): Category[] {
   const now = nowISO();

@@ -3,6 +3,7 @@
  * couche d'accès aux données (repository) avant toute écriture.
  */
 import { isValidISODate } from './dates';
+import { t } from '@/i18n/core';
 import type { Account, Category, Direction, ID, PaymentMethod, TransactionStatus } from './types';
 
 export const MAX_AMOUNT = 1_000_000_000_000_00; // 1 000 milliards (unités minimales à 2 décimales)
@@ -63,53 +64,53 @@ export function validateTransactionDraft(d: TransactionDraft, ctx: ValidationCon
   const allowedAccount = (id: ID) => ctx.existing?.accountIds.includes(id);
   const allowedCategory = (id: ID) => ctx.existing?.categoryIds.includes(id);
 
-  if (d.amount == null || Number.isNaN(d.amount)) e.amount = 'Saisissez un montant.';
-  else if (!Number.isSafeInteger(d.amount)) e.amount = 'Montant invalide.';
-  else if (d.amount <= 0) e.amount = 'Le montant doit être supérieur à zéro.';
-  else if (d.amount > MAX_AMOUNT) e.amount = 'Montant trop élevé.';
+  if (d.amount == null || Number.isNaN(d.amount)) e.amount = t('err.enterAmount');
+  else if (!Number.isSafeInteger(d.amount)) e.amount = t('err.invalidAmount');
+  else if (d.amount <= 0) e.amount = t('err.amountPositive');
+  else if (d.amount > MAX_AMOUNT) e.amount = t('err.amountTooHigh');
 
-  if (!isValidISODate(d.date)) e.date = 'Date invalide.';
+  if (!isValidISODate(d.date)) e.date = t('err.invalidDate');
 
   const account = d.accountId ? ctx.accounts.get(d.accountId) : undefined;
-  if (!d.accountId) e.accountId = 'Choisissez un compte.';
-  else if (!account) e.accountId = "Ce compte n'existe pas.";
-  else if (account.archived && !allowedAccount(account.id)) e.accountId = 'Ce compte est archivé.';
+  if (!d.accountId) e.accountId = t('err.chooseAccount');
+  else if (!account) e.accountId = t('err.accountMissing');
+  else if (account.archived && !allowedAccount(account.id)) e.accountId = t('err.accountArchived');
 
   if (d.type === 'transfer') {
     const to = d.toAccountId ? ctx.accounts.get(d.toAccountId) : undefined;
-    if (!d.toAccountId) e.toAccountId = 'Choisissez le compte destination.';
-    else if (!to) e.toAccountId = "Ce compte n'existe pas.";
-    else if (d.toAccountId === d.accountId) e.toAccountId = 'Les comptes source et destination doivent être différents.';
-    else if (to.archived && !allowedAccount(to.id)) e.toAccountId = 'Ce compte est archivé.';
+    if (!d.toAccountId) e.toAccountId = t('err.chooseDestination');
+    else if (!to) e.toAccountId = t('err.accountMissing');
+    else if (d.toAccountId === d.accountId) e.toAccountId = t('err.sameAccounts');
+    else if (to.archived && !allowedAccount(to.id)) e.toAccountId = t('err.accountArchived');
     else if (account && to.currency !== account.currency && !isValidAmount(d.toAmount)) {
-      e.toAmount = `Indiquez le montant crédité en ${to.currency} (devises différentes).`;
+      e.toAmount = t('err.creditedAmount', { currency: to.currency });
     }
   }
 
   if (d.type === 'adjustment') {
-    if (!d.direction) e.direction = 'Indiquez le sens de la correction.';
-    if (!d.notes?.trim()) e.notes = 'Une justification est obligatoire pour un ajustement.';
+    if (!d.direction) e.direction = t('err.direction');
+    if (!d.notes?.trim()) e.notes = t('err.justification');
   }
 
   const kind = expectedCategoryKind(d.type);
   if (d.categoryId) {
     const cat = ctx.categories.get(d.categoryId);
-    if (!cat) e.categoryId = "Cette catégorie n'existe pas.";
-    else if (kind == null) e.categoryId = "Ce type d'opération ne prend pas de catégorie.";
-    else if (cat.kind !== kind) e.categoryId = "Cette catégorie n'est pas autorisée pour ce type d'opération.";
-    else if (cat.parentId) e.categoryId = 'Choisissez une catégorie principale.';
-    else if (cat.archived && !allowedCategory(cat.id)) e.categoryId = 'Cette catégorie est archivée.';
+    if (!cat) e.categoryId = t('err.categoryMissing');
+    else if (kind == null) e.categoryId = t('err.noCategoryForType');
+    else if (cat.kind !== kind) e.categoryId = t('err.categoryNotAllowed');
+    else if (cat.parentId) e.categoryId = t('err.choosePrimaryCategory');
+    else if (cat.archived && !allowedCategory(cat.id)) e.categoryId = t('err.categoryArchived');
   } else if (d.type === 'expense' || d.type === 'income') {
-    e.categoryId = 'Choisissez une catégorie.';
+    e.categoryId = t('err.chooseCategory');
   }
   if (d.subcategoryId) {
     const sub = ctx.categories.get(d.subcategoryId);
-    if (!sub || sub.parentId !== d.categoryId) e.subcategoryId = 'Sous-catégorie incohérente avec la catégorie.';
-    else if (sub.archived && !allowedCategory(sub.id)) e.subcategoryId = 'Cette sous-catégorie est archivée.';
+    if (!sub || sub.parentId !== d.categoryId) e.subcategoryId = t('err.subcategoryMismatch');
+    else if (sub.archived && !allowedCategory(sub.id)) e.subcategoryId = t('err.subcategoryArchived');
   }
-  if (d.label.length > 140) e.label = 'Libellé trop long (140 caractères max).';
-  if ((d.notes ?? '').length > 2000) e.notes = 'Notes trop longues.';
-  if (d.tags.some((t) => t.length > 40)) e.tags = 'Étiquette trop longue (40 caractères max).';
+  if (d.label.length > 140) e.label = t('err.labelTooLong');
+  if ((d.notes ?? '').length > 2000) e.notes = t('err.notesTooLong');
+  if (d.tags.some((t) => t.length > 40)) e.tags = t('err.tagTooLong');
   return e;
 }
 

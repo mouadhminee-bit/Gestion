@@ -4,6 +4,7 @@ import { CategoryIcon, Badge } from '@/components/ui/Misc';
 import { cn } from '@/lib/cn';
 import type { Transaction } from '@/domain/types';
 import { TRANSACTION_TYPE_LABELS } from '@/domain/types';
+import { t as tr } from '@/i18n/core';
 
 export function useTransactionVisual() {
   const { ctx } = useApp();
@@ -46,7 +47,7 @@ export function TransactionRow({ t, onOpen, selected, onSelect, showAccount = tr
   const neutral = t.type === 'transfer' || t.type === 'adjustment' || (t.type === 'debt' && !t.interestAmount);
   const subtitle =
     t.type === 'transfer'
-      ? `${t.direction === 'out' ? 'Vers' : 'Depuis'} ${counterpart?.name ?? 'compte supprimé'}`
+      ? tr(t.direction === 'out' ? 'txRow.to' : 'txRow.from', { name: counterpart?.name ?? tr('txRow.deletedAccount') })
       : visual.cat
         ? visual.parent && visual.parent.id !== visual.cat.id
           ? `${visual.parent.name} · ${visual.cat.name}`
@@ -59,7 +60,7 @@ export function TransactionRow({ t, onOpen, selected, onSelect, showAccount = tr
           type="checkbox"
           checked={!!selected}
           onChange={(e) => onSelect(e.target.checked)}
-          aria-label={`Sélectionner ${t.label}`}
+          aria-label={tr('txRow.select', { label: t.label })}
           className="h-4 w-4 shrink-0 accent-[rgb(var(--primary))]"
         />
       )}
@@ -68,8 +69,8 @@ export function TransactionRow({ t, onOpen, selected, onSelect, showAccount = tr
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="truncate text-sm font-medium">{t.label || TRANSACTION_TYPE_LABELS[t.type]}</span>
-            {t.status === 'pending' && <Clock className="h-3.5 w-3.5 shrink-0 text-warning" aria-label="En attente" />}
-            {t.attachmentId && <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="Justificatif" />}
+            {t.status === 'pending' && <Clock className="h-3.5 w-3.5 shrink-0 text-warning" aria-label={tr('txRow.pending')} />}
+            {t.attachmentId && <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('txRow.attachment')} />}
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted">
             <span className="truncate">{subtitle}</span>
@@ -90,7 +91,7 @@ export function TransactionRow({ t, onOpen, selected, onSelect, showAccount = tr
           </div>
           <div className="mt-0.5 text-[11px] text-muted">
             {fmt.date(t.date)}
-            {neutral && <span className="ml-1 hidden sm:inline">· {TRANSACTION_TYPE_LABELS[t.type].toLowerCase()}</span>}
+            {neutral && <span className="ml-1 hidden sm:inline">· {TRANSACTION_TYPE_LABELS[t.type]}</span>}
           </div>
         </div>
       </button>

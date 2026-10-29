@@ -7,6 +7,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { useApp } from '@/app/AppContext';
 import { fromMajor, toMajor } from '@/domain/money';
+import { t } from '@/i18n/core';
 
 export const SERIES = {
   income: 'rgb(var(--positive))',
@@ -76,7 +77,7 @@ export function LegendDot({ color, label, value }: { color: string; label: React
   );
 }
 
-export function NoData({ children = 'Données insuffisantes pour ce graphique.', height = 200 }: { children?: ReactNode; height?: number }) {
+export function NoData({ children = t('common.noChartData'), height = 200 }: { children?: ReactNode; height?: number }) {
   return (
     <div className="flex items-center justify-center rounded-xl border border-dashed border-line/20 px-4 text-center text-xs text-muted" style={{ height }}>
       {children}

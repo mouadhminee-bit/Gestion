@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { t as tr } from '@/i18n/core';
 
 type ToastKind = 'success' | 'error' | 'info' | 'warning';
 interface ToastItem {
@@ -54,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   {t.action.label}
                 </button>
               )}
-              <button aria-label="Fermer" className="shrink-0 text-muted hover:text-fg" onClick={() => dismiss(t.id)}>
+              <button aria-label={tr('common.close')} className="shrink-0 text-muted hover:text-fg" onClick={() => dismiss(t.id)}>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -74,7 +75,7 @@ export function useToast(): ToastApi {
 /** Message d'erreur lisible pour l'utilisateur, sans détails techniques sensibles. */
 export function errorMessage(e: unknown): string {
   if (e instanceof Error && e.name === 'ValidationError') return e.message;
-  if (e instanceof Error && /QuotaExceeded/i.test(e.name + e.message)) return 'Espace de stockage du navigateur insuffisant.';
+  if (e instanceof Error && /QuotaExceeded/i.test(e.name + e.message)) return tr('common.storageFull');
   if (e instanceof Error && e.message && e.message.length < 160) return e.message;
-  return 'Une erreur inattendue est survenue. Vos données n’ont pas été modifiées.';
+  return tr('common.unexpectedError');
 }

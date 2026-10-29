@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from './Button';
+import { t } from '@/i18n/core';
 
 /**
  * Fenêtre modale accessible (focus piégé, Échap, aria). Sur mobile, elle s'affiche
@@ -50,10 +51,10 @@ export function Dialog({
           <div className="flex items-start justify-between gap-4 px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
             <div className="min-w-0">
               <RD.Title className="display text-lg font-semibold">{title}</RD.Title>
-              {description ? <RD.Description className="mt-0.5 text-sm text-muted">{description}</RD.Description> : <RD.Description className="sr-only">{typeof title === 'string' ? title : 'Fenêtre'}</RD.Description>}
+              {description ? <RD.Description className="mt-0.5 text-sm text-muted">{description}</RD.Description> : <RD.Description className="sr-only">{typeof title === 'string' ? title : t('common.window')}</RD.Description>}
             </div>
             <RD.Close asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Fermer">
+              <Button variant="ghost" size="icon-sm" aria-label={t('common.close')}>
                 <X className="h-4 w-4" />
               </Button>
             </RD.Close>
@@ -103,10 +104,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         footer={
           <>
             <Button variant="ghost" onClick={() => close(false)}>
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button variant={opts?.danger === false ? 'primary' : 'danger'} onClick={() => close(true)} data-autofocus>
-              {opts?.confirmLabel ?? 'Confirmer'}
+              {opts?.confirmLabel ?? t('common.confirm')}
             </Button>
           </>
         }

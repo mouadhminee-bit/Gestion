@@ -15,19 +15,20 @@ import type { OccurrenceView } from '@/domain/calc/recurring';
 import { listOccurrences, monthlyEquivalent, nextOccurrence } from '@/domain/calc/recurring';
 import { addDays, formatLongDate } from '@/domain/dates';
 import { cn } from '@/lib/cn';
+import { t, td } from '@/i18n/core';
 
 type Form = Omit<RecurringRule, 'id' | 'userId' | 'createdAt' | 'updatedAt'> & { id?: string };
 
 const STATUS: Record<OccurrenceView['status'], { label: string; tone: 'positive' | 'warning' | 'neutral' | 'cyan' | 'negative' }> = {
-  paid: { label: 'Payée', tone: 'positive' },
-  matched: { label: 'Paiement détecté', tone: 'cyan' },
-  skipped: { label: 'Ignorée', tone: 'neutral' },
-  upcoming: { label: 'À venir', tone: 'neutral' },
-  overdue: { label: 'En retard', tone: 'negative' },
+  paid: { get label() { return t('rec.status.paid'); }, tone: 'positive' },
+  matched: { get label() { return t('rec.status.matched'); }, tone: 'cyan' },
+  skipped: { get label() { return t('rec.status.skipped'); }, tone: 'neutral' },
+  upcoming: { get label() { return t('rec.status.upcoming'); }, tone: 'neutral' },
+  overdue: { get label() { return t('rec.status.overdue'); }, tone: 'negative' },
 };
 
 export default function Recurring() {
-  const { data, ctx, fmt, today, repo, settings } = useApp();
+  const { data, ctx, fmt, today, repo, settings, uiLocale } = useApp();
   const toast = useToast();
   const confirm = useConfirm();
   const [form, setForm] = useState<Form | null>(null);
@@ -50,7 +51,7 @@ export default function Recurring() {
     if (!form) return;
     try {
       await repo.saveRecurringRule({ ...form, endDate: form.endDate || undefined });
-      toast.success('Paiement récurrent enregistré. Aucune opération n’a été créée : confirmez chaque échéance lorsqu’elle est payée.');
+      toast.success(t('rec.saved'));
       setForm(null);
     } catch (e) {
       if (e instanceof ValidationError) setErrors(e.fields);
@@ -62,7 +63,7 @@ export default function Recurring() {
     if (!pay || !pay.amount) return;
     try {
       await repo.markOccurrencePaid(pay.o.rule.id, pay.o.dueDate, { date: pay.date, amount: pay.amount, accountId: pay.accountId });
-      toast.success('Échéance marquée comme payée : l’opération a été créée.');
+      toast.success(t('rec.paid'));
       setPay(null);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -73,17 +74,17 @@ export default function Recurring() {
     const st = data.occurrences.find((s) => s.id === o.id);
     let deleteTx = false;
     if (st?.transactionId) {
-      deleteTx = await confirm({ title: 'Annuler le paiement ?', message: 'Supprimer aussi l’opération créée lors du paiement ? (Annuler conserve l’opération mais la détache de l’échéance.)', confirmLabel: 'Supprimer l’opération' });
+      deleteTx = await confirm({ title: t('rec.reset.title'), message: t('rec.reset.message'), confirmLabel: t('rec.reset.confirm') });
     }
     await repo.resetOccurrence(o.rule.id, o.dueDate, deleteTx);
-    toast.info('Statut de l’échéance réinitialisé.');
+    toast.info(t('rec.resetDone'));
   }
 
   async function removeRule(r: Form) {
     if (!r.id) return;
-    if (!(await confirm({ title: `Supprimer « ${r.label} » ?`, message: 'Les échéances futures disparaissent. Les opérations déjà payées restent dans l’historique.', confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm({ title: t('rec.delete.title', { label: r.label }), message: t('rec.delete.message'), confirmLabel: t('common.delete') }))) return;
     await repo.deleteRecurringRule(r.id);
-    toast.success('Paiement récurrent supprimé.');
+    toast.success(t('rec.deleted'));
     setForm(null);
   }
 
@@ -92,23 +93,23 @@ export default function Recurring() {
   return (
     <div>
       <PageHeader
-        eyebrow="Gestion"
-        title="Factures & paiements récurrents"
-        description="Une récurrence décrit des échéances ; elle ne crée jamais d’opération automatiquement. Marquez une échéance comme payée pour enregistrer l’opération réelle."
-        actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => { setErrors({}); setForm(newForm()); }} disabled={!data.accounts.length}>Nouvelle récurrence</Button>}
+        eyebrow={t('navGroup.gestion')}
+        title={t('rec.title')}
+        description={t('rec.description')}
+        actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => { setErrors({}); setForm(newForm()); }} disabled={!data.accounts.length}>{t('rec.new')}</Button>}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Card className="!p-4"><div className="label flex items-center gap-1">Charges / mois <InfoTip>Équivalent mensuel moyen des dépenses récurrentes actives (montant × occurrences par an ÷ 12).</InfoTip></div><div className="display mt-1 text-xl font-semibold num">{fmt.money(monthlyOut)}</div></Card>
-        <Card className="!p-4"><div className="label">Revenus / mois</div><div className="display mt-1 text-xl font-semibold num text-positive">{fmt.money(monthlyIn)}</div></Card>
-        <Card className="!p-4"><div className="label">En retard</div><div className="display mt-1 text-xl font-semibold num">{listOccurrences(data.recurringRules, data.occurrences, data.transactions, { start: addDays(today, -30), end: today }, today).filter((o) => o.status === 'overdue').length}</div></Card>
-        <Card className="!p-4"><div className="label">Récurrences actives</div><div className="display mt-1 text-xl font-semibold num">{data.recurringRules.filter((r) => r.active).length}</div></Card>
+        <Card className="!p-4"><div className="label flex items-center gap-1">{t('rec.chargesMonth')} <InfoTip>{t('rec.chargesMonthInfo')}</InfoTip></div><div className="display mt-1 text-xl font-semibold num">{fmt.money(monthlyOut)}</div></Card>
+        <Card className="!p-4"><div className="label">{t('rec.incomeMonth')}</div><div className="display mt-1 text-xl font-semibold num text-positive">{fmt.money(monthlyIn)}</div></Card>
+        <Card className="!p-4"><div className="label">{t('rec.overdue')}</div><div className="display mt-1 text-xl font-semibold num">{listOccurrences(data.recurringRules, data.occurrences, data.transactions, { start: addDays(today, -30), end: today }, today).filter((o) => o.status === 'overdue').length}</div></Card>
+        <Card className="!p-4"><div className="label">{t('rec.activeRules')}</div><div className="display mt-1 text-xl font-semibold num">{data.recurringRules.filter((r) => r.active).length}</div></Card>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-5">
-        <Card className="xl:col-span-3" title="Échéancier" actions={<Segmented size="sm" value={view} onChange={setView} options={[{ value: 'upcoming', label: 'À venir (60 j)' }, { value: 'past', label: 'Historique (6 mois)' }]} />}>
+        <Card className="xl:col-span-3" title={t('rec.schedule')} actions={<Segmented size="sm" value={view} onChange={setView} options={[{ value: 'upcoming', label: t('rec.view.upcoming') }, { value: 'past', label: t('rec.view.past') }]} />}>
           {occ.length === 0 ? (
-            <EmptyState icon={<CalendarClock className="h-5 w-5" />} title="Aucune échéance" description="Ajoutez votre loyer, vos abonnements, votre salaire…" />
+            <EmptyState icon={<CalendarClock className="h-5 w-5" />} title={t('rec.noOccurrence')} description={t('rec.noOccurrenceHint')} />
           ) : (
             <ul className="divide-y divide-line/5">
               {occ.map((o) => {
@@ -119,7 +120,7 @@ export default function Recurring() {
                     <CategoryIcon icon={cat?.icon ?? 'Repeat'} color={cat?.color} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{o.rule.label}</div>
-                      <div className="text-xs text-muted">{formatLongDate(o.dueDate, settings.locale)} · {ctx.accounts.get(o.rule.accountId)?.name}</div>
+                      <div className="text-xs text-muted">{formatLongDate(o.dueDate, uiLocale)} · {ctx.accounts.get(o.rule.accountId)?.name}</div>
                     </div>
                     <div className="text-right">
                       <div className={cn('num text-sm font-semibold', o.rule.kind === 'income' && 'text-positive')}>{fmt.money(o.rule.kind === 'income' ? o.rule.amount : -o.rule.amount, o.rule.currency, { sign: true })}</div>
@@ -128,15 +129,15 @@ export default function Recurring() {
                     <div className="flex w-full justify-end gap-1 sm:w-auto">
                       {(o.status === 'upcoming' || o.status === 'overdue') && (
                         <>
-                          <Button size="sm" variant="outline" icon={<Check className="h-3.5 w-3.5" />} onClick={() => setPay({ o, date: o.dueDate <= today ? today : o.dueDate, amount: o.rule.amount, accountId: o.rule.accountId })}>Payée</Button>
-                          <Button size="sm" variant="ghost" icon={<CircleSlash className="h-3.5 w-3.5" />} onClick={() => repo.skipOccurrence(o.rule.id, o.dueDate).then(() => toast.info('Échéance ignorée.'))}>Ignorer</Button>
+                          <Button size="sm" variant="outline" icon={<Check className="h-3.5 w-3.5" />} onClick={() => setPay({ o, date: o.dueDate <= today ? today : o.dueDate, amount: o.rule.amount, accountId: o.rule.accountId })}>{t('rec.markPaid')}</Button>
+                          <Button size="sm" variant="ghost" icon={<CircleSlash className="h-3.5 w-3.5" />} onClick={() => repo.skipOccurrence(o.rule.id, o.dueDate).then(() => toast.info(t('rec.skipped')))}>{t('rec.skip')}</Button>
                         </>
                       )}
                       {o.status === 'matched' && o.transactionId && (
-                        <Button size="sm" variant="outline" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => repo.linkOccurrence(o.rule.id, o.dueDate, o.transactionId!).then(() => toast.success('Opération existante associée à l’échéance (pas de doublon créé).'))}>Associer</Button>
+                        <Button size="sm" variant="outline" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => repo.linkOccurrence(o.rule.id, o.dueDate, o.transactionId!).then(() => toast.success(t('rec.linked')))}>{t('rec.link')}</Button>
                       )}
                       {(o.status === 'paid' || o.status === 'skipped') && (
-                        <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => reset(o)}>Annuler</Button>
+                        <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => reset(o)}>{t('common.cancel')}</Button>
                       )}
                     </div>
                   </li>
@@ -146,9 +147,9 @@ export default function Recurring() {
           )}
         </Card>
 
-        <Card className="xl:col-span-2" title="Récurrences">
+        <Card className="xl:col-span-2" title={t('rec.rules')}>
           {data.recurringRules.length === 0 ? (
-            <EmptyState title="Aucune récurrence" />
+            <EmptyState title={t('rec.noRule')} />
           ) : (
             <ul className="space-y-1">
               {data.recurringRules.map((r) => {
@@ -160,11 +161,11 @@ export default function Recurring() {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{r.label}</div>
                       <div className="text-[11px] text-muted">
-                        {FREQUENCY_LABELS[r.frequency]}{r.frequency === 'custom' ? ` (tous les ${r.customInterval} ${{ day: 'j', week: 'sem.', month: 'mois', year: 'ans' }[r.customUnit ?? 'day']})` : ''} · {r.active ? (next ? `prochaine le ${fmt.date(next)}` : 'terminée') : 'désactivée'}
+                        {FREQUENCY_LABELS[r.frequency]}{r.frequency === 'custom' ? t('rec.every', { count: r.customInterval ?? 1, unit: td(`rec.unitShort.${r.customUnit ?? 'day'}`) }) : ''} · {r.active ? (next ? t('rec.next', { date: fmt.date(next) }) : t('rec.ended')) : t('rec.disabled')}
                       </div>
                     </div>
                     <div className={cn('num text-sm font-semibold', r.kind === 'income' && 'text-positive')}>{fmt.money(r.amount, r.currency)}</div>
-                    <Button size="icon-sm" variant="ghost" aria-label={`Modifier ${r.label}`} onClick={() => { setErrors({}); setForm({ ...r }); }}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon-sm" variant="ghost" aria-label={t('rec.editName', { label: r.label })} onClick={() => { setErrors({}); setForm({ ...r }); }}><Pencil className="h-3.5 w-3.5" /></Button>
                   </li>
                 );
               })}
@@ -173,54 +174,54 @@ export default function Recurring() {
         </Card>
       </div>
 
-      <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.id ? 'Modifier la récurrence' : 'Nouvelle récurrence'} size="lg"
+      <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.id ? t('rec.edit') : t('rec.new')} size="lg"
         footer={<>
-          {form?.id && <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => removeRule(form)}>Supprimer</Button>}
-          <Button variant="ghost" onClick={() => setForm(null)}>Annuler</Button>
-          <Button variant="primary" onClick={save}>Enregistrer</Button>
+          {form?.id && <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => removeRule(form)}>{t('common.delete')}</Button>}
+          <Button variant="ghost" onClick={() => setForm(null)}>{t('common.cancel')}</Button>
+          <Button variant="primary" onClick={save}>{t('common.save')}</Button>
         </>}>
         {form && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Type" className="sm:col-span-2"><Segmented value={form.kind} onChange={(v) => setForm({ ...form, kind: v, categoryId: null, subcategoryId: null })} options={[{ value: 'expense', label: 'Dépense récurrente' }, { value: 'income', label: 'Revenu récurrent' }]} className="w-full" /></Field>
-            <Field label="Libellé" required error={errors.label}><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Ex : Loyer" data-autofocus /></Field>
-            <Field label="Montant" required error={errors.amount}><MoneyInput value={form.amount || null} onChange={(v) => setForm({ ...form, amount: v ?? 0 })} currency={ctx.accounts.get(form.accountId)?.currency ?? settings.baseCurrency} /></Field>
-            <Field label="Compte" error={errors.accountId}>
+            <Field label={t('common.type')} className="sm:col-span-2"><Segmented value={form.kind} onChange={(v) => setForm({ ...form, kind: v, categoryId: null, subcategoryId: null })} options={[{ value: 'expense', label: t('rec.kind.expense') }, { value: 'income', label: t('rec.kind.income') }]} className="w-full" /></Field>
+            <Field label={t('common.label')} required error={errors.label}><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={t('rec.labelPlaceholder')} data-autofocus /></Field>
+            <Field label={t('common.amount')} required error={errors.amount}><MoneyInput value={form.amount || null} onChange={(v) => setForm({ ...form, amount: v ?? 0 })} currency={ctx.accounts.get(form.accountId)?.currency ?? settings.baseCurrency} /></Field>
+            <Field label={t('common.account')} error={errors.accountId}>
               <Select value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>{data.accounts.filter((a) => !a.archived || a.id === form.accountId).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</Select>
             </Field>
-            <Field label="Catégorie">
+            <Field label={t('common.category')}>
               <Select value={form.categoryId ?? ''} onChange={(e) => setForm({ ...form, categoryId: e.target.value || null, subcategoryId: null })}>
                 <option value="">—</option>
                 {catsFor(form.kind).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </Field>
-            <Field label="Fréquence">
+            <Field label={t('rec.frequency')}>
               <Select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value as Frequency })}>{Object.entries(FREQUENCY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>
             </Field>
             {form.frequency === 'custom' ? (
-              <Field label="Tous les" error={errors.customInterval}>
+              <Field label={t('rec.everyLabel')} error={errors.customInterval}>
                 <div className="flex gap-2">
                   <Input type="number" min={1} value={form.customInterval ?? 1} onChange={(e) => setForm({ ...form, customInterval: Number(e.target.value) })} className="w-24" />
-                  <Select value={form.customUnit} onChange={(e) => setForm({ ...form, customUnit: e.target.value as CustomUnit })}><option value="day">jours</option><option value="week">semaines</option><option value="month">mois</option><option value="year">ans</option></Select>
+                  <Select value={form.customUnit} onChange={(e) => setForm({ ...form, customUnit: e.target.value as CustomUnit })}><option value="day">{t('rec.unit.day')}</option><option value="week">{t('rec.unit.week')}</option><option value="month">{t('rec.unit.month')}</option><option value="year">{t('rec.unit.year')}</option></Select>
                 </div>
               </Field>
             ) : <div className="hidden sm:block" />}
-            <Field label="Date de la première échéance" error={errors.startDate} hint="Fins de mois gérées : un 31 devient le 30 ou le 28/29 selon le mois."><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Field>
-            <Field label="Date de fin (facultatif)" error={errors.endDate}><Input type="date" value={form.endDate ?? ''} onChange={(e) => setForm({ ...form, endDate: e.target.value || undefined })} /></Field>
-            <Field label="Bénéficiaire"><Input value={form.payee ?? ''} onChange={(e) => setForm({ ...form, payee: e.target.value })} /></Field>
-            <div className="flex items-end"><Switch checked={form.active} onChange={(v) => setForm({ ...form, active: v })} label="Récurrence active" /></div>
-            <Field label="Notes" className="sm:col-span-2"><Textarea value={form.notes ?? ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-[60px]" /></Field>
+            <Field label={t('rec.firstDate')} error={errors.startDate} hint={t('rec.firstDateHint')}><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Field>
+            <Field label={t('rec.endDate')} error={errors.endDate}><Input type="date" value={form.endDate ?? ''} onChange={(e) => setForm({ ...form, endDate: e.target.value || undefined })} /></Field>
+            <Field label={t('rec.payee')}><Input value={form.payee ?? ''} onChange={(e) => setForm({ ...form, payee: e.target.value })} /></Field>
+            <div className="flex items-end"><Switch checked={form.active} onChange={(v) => setForm({ ...form, active: v })} label={t('rec.active')} /></div>
+            <Field label={t('common.notes')} className="sm:col-span-2"><Textarea value={form.notes ?? ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-[60px]" /></Field>
           </div>
         )}
       </Dialog>
 
-      <Dialog open={!!pay} onOpenChange={(o) => !o && setPay(null)} title="Confirmer le paiement" description={pay ? `${pay.o.rule.label} — échéance du ${fmt.date(pay.o.dueDate)}` : ''} size="sm"
-        footer={<><Button variant="ghost" onClick={() => setPay(null)}>Annuler</Button><Button variant="primary" onClick={confirmPay} disabled={!pay?.amount}>Créer l’opération</Button></>}>
+      <Dialog open={!!pay} onOpenChange={(o) => !o && setPay(null)} title={t('rec.confirm.title')} description={pay ? t('rec.confirm.subtitle', { label: pay.o.rule.label, date: fmt.date(pay.o.dueDate) }) : ''} size="sm"
+        footer={<><Button variant="ghost" onClick={() => setPay(null)}>{t('common.cancel')}</Button><Button variant="primary" onClick={confirmPay} disabled={!pay?.amount}>{t('rec.confirm.create')}</Button></>}>
         {pay && (
           <div className="space-y-4">
-            <p className="text-xs text-muted">Une opération réelle sera créée et liée à cette échéance. Ajustez si le montant ou la date diffèrent.</p>
-            <Field label="Montant réellement payé"><MoneyInput value={pay.amount} onChange={(v) => setPay({ ...pay, amount: v })} currency={pay.o.rule.currency} data-autofocus /></Field>
-            <Field label="Date du paiement"><Input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} /></Field>
-            <Field label="Compte"><Select value={pay.accountId} onChange={(e) => setPay({ ...pay, accountId: e.target.value })}>{data.accounts.filter((a) => !a.archived).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select></Field>
+            <p className="text-xs text-muted">{t('rec.confirm.hint')}</p>
+            <Field label={t('rec.amountPaid')}><MoneyInput value={pay.amount} onChange={(v) => setPay({ ...pay, amount: v })} currency={pay.o.rule.currency} data-autofocus /></Field>
+            <Field label={t('rec.paymentDate')}><Input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} /></Field>
+            <Field label={t('common.account')}><Select value={pay.accountId} onChange={(e) => setPay({ ...pay, accountId: e.target.value })}>{data.accounts.filter((a) => !a.archived).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select></Field>
           </div>
         )}
       </Dialog>

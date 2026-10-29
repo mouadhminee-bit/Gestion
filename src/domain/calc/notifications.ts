@@ -13,6 +13,7 @@ import { listOccurrences } from './recurring';
 import { computeDebtStatus } from './debts';
 import { computeGoalProgress } from './goals';
 import { accountBalances } from './ledger';
+import { t } from '@/i18n/core';
 
 export interface AppNotification {
   id: string;
@@ -36,13 +37,13 @@ export function computeNotifications(ctx: LedgerContext, data: DataSnapshot, tod
     for (const l of lines) {
       if (l.thresholdReached == null) continue;
       if (l.category?.nature === 'fixed' && l.spent <= l.planned) continue;
-      const name = l.category?.name ?? 'Budget global';
+      const name = l.category?.name ?? t('notif.budgetGlobal');
       const over = l.spent > l.planned;
       out.push({
         id: `budget:${l.budget.id}:${over ? 'over' : l.thresholdReached}`,
         severity: over ? 'danger' : l.thresholdReached >= 90 ? 'warning' : 'info',
-        title: over ? `${name} : budget dépassé` : `${name} : ${l.thresholdReached} % du budget atteint`,
-        message: `${fmt(l.spent)} dépensés sur ${fmt(l.planned)}.`,
+        title: over ? t('notif.budgetOver.title', { name }) : t('notif.budgetThreshold.title', { name, pct: l.thresholdReached }),
+        message: t('notif.budget.message', { spent: fmt(l.spent), planned: fmt(l.planned) }),
         href: '/budgets',
         date: today,
       });
@@ -53,9 +54,9 @@ export function computeNotifications(ctx: LedgerContext, data: DataSnapshot, tod
     const window = { start: addDays(today, -30), end: addDays(today, s.billReminderDays) };
     for (const o of listOccurrences(data.recurringRules, data.occurrences, data.transactions, window, today)) {
       if (o.status === 'overdue') {
-        out.push({ id: `bill-overdue:${o.id}`, severity: 'warning', title: `${o.rule.label} : échéance passée`, message: `Prévue le ${formatDate(o.dueDate, dateFormat)} (${fmt(o.rule.amount)}), non marquée comme payée.`, href: '/recurring', date: o.dueDate });
+        out.push({ id: `bill-overdue:${o.id}`, severity: 'warning', title: t('notif.billOverdue.title', { label: o.rule.label }), message: t('notif.billOverdue.message', { date: formatDate(o.dueDate, dateFormat), amount: fmt(o.rule.amount) }), href: '/recurring', date: o.dueDate });
       } else if (o.status === 'upcoming') {
-        out.push({ id: `bill:${o.id}`, severity: 'info', title: `${o.rule.kind === 'income' ? 'Revenu attendu' : 'Échéance à venir'} : ${o.rule.label}`, message: `${fmt(o.rule.amount)} le ${formatDate(o.dueDate, dateFormat)}.`, href: '/recurring', date: o.dueDate });
+        out.push({ id: `bill:${o.id}`, severity: 'info', title: t(o.rule.kind === 'income' ? 'notif.incomeExpected' : 'notif.billUpcoming', { label: o.rule.label }), message: t('notif.bill.message', { amount: fmt(o.rule.amount), date: formatDate(o.dueDate, dateFormat) }), href: '/recurring', date: o.dueDate });
       }
     }
   }
@@ -64,8 +65,8 @@ export function computeNotifications(ctx: LedgerContext, data: DataSnapshot, tod
     for (const d of data.debts) {
       if (d.status !== 'active') continue;
       const st = computeDebtStatus(d, data.debtPayments, today);
-      if (st.overdue) out.push({ id: `debt:${d.id}:overdue`, severity: 'danger', title: `${d.label} : échéance dépassée`, message: `Reste ${fmt(st.remaining)} ${d.direction === 'payable' ? 'à rembourser' : 'à recevoir'}.`, href: '/debts', date: d.dueDate! });
-      else if (d.dueDate && d.dueDate <= addDays(today, 14)) out.push({ id: `debt:${d.id}:soon`, severity: 'info', title: `${d.label} : échéance proche`, message: `Échéance le ${formatDate(d.dueDate, dateFormat)}, reste ${fmt(st.remaining)}.`, href: '/debts', date: d.dueDate });
+      if (st.overdue) out.push({ id: `debt:${d.id}:overdue`, severity: 'danger', title: t('notif.debtOverdue.title', { label: d.label }), message: t(d.direction === 'payable' ? 'notif.debtOverdue.payable' : 'notif.debtOverdue.receivable', { amount: fmt(st.remaining) }), href: '/debts', date: d.dueDate! });
+      else if (d.dueDate && d.dueDate <= addDays(today, 14)) out.push({ id: `debt:${d.id}:soon`, severity: 'info', title: t('notif.debtSoon.title', { label: d.label }), message: t('notif.debtSoon.message', { date: formatDate(d.dueDate, dateFormat), amount: fmt(st.remaining) }), href: '/debts', date: d.dueDate });
     }
   }
 
@@ -73,7 +74,7 @@ export function computeNotifications(ctx: LedgerContext, data: DataSnapshot, tod
   for (const g of data.goals) {
     if (g.status !== 'active' && g.status !== 'achieved') continue;
     const p = computeGoalProgress(g, today, g.linkedAccountId ? balances.get(g.linkedAccountId) : undefined);
-    if (p.state === 'achieved') out.push({ id: `goal:${g.id}:achieved`, severity: 'success', title: `Objectif atteint : ${g.name}`, message: `${fmt(p.saved)} constitués.`, href: '/goals', date: today });
+    if (p.state === 'achieved') out.push({ id: `goal:${g.id}:achieved`, severity: 'success', title: t('notif.goal.title', { name: g.name }), message: t('notif.goal.message', { amount: fmt(p.saved) }), href: '/goals', date: today });
   }
 
   const states = new Map(data.notificationStates.map((n) => [n.id, n]));

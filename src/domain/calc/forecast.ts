@@ -26,6 +26,7 @@ import { accountsInScope, summarizePeriod, topCategoryId, totalBalance } from '.
 import type { OccurrenceView } from './recurring';
 import { listOccurrences, pendingOccurrences } from './recurring';
 import { monthBudgetOverview } from './budgets';
+import { t } from '@/i18n/core';
 
 export type VariableMethod = 'history' | 'budget' | 'insufficient';
 
@@ -131,7 +132,7 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
     variableMethod = 'history';
     variableProjected = roundHalfAwayFromZero(avg.dailyAverage * remainingDays);
     assumptions.push(
-      `Dépenses variables : moyenne quotidienne observée sur ${avg.days} jours (${avg.count} dépenses, hors charges fixes et paiements récurrents) × ${remainingDays} jour(s) restant(s).`,
+      t('forecast.assume.history', { days: avg.days, count: avg.count, remaining: remainingDays }),
     );
   } else {
     const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today);
@@ -140,23 +141,23 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
       variableMethod = 'budget';
       variableProjected = variableLines.reduce((acc, l) => acc + Math.max(0, l.remaining), 0);
       assumptions.push(
-        `Historique insuffisant (${avg.days} jours, ${avg.count} dépenses) : les dépenses variables sont estimées par le reste des budgets des catégories variables.`,
+        t('forecast.assume.budget', { days: avg.days, count: avg.count }),
       );
     } else {
       assumptions.push(
-        `Données insuffisantes pour projeter les dépenses variables (il faut au moins ${MIN_HISTORY_DAYS} jours et ${MIN_HISTORY_TRANSACTIONS} dépenses, ou des budgets par catégorie).`,
+        t('forecast.assume.insufficient', { minDays: MIN_HISTORY_DAYS, minCount: MIN_HISTORY_TRANSACTIONS }),
       );
     }
   }
   if (pending.length) {
     assumptions.push(
-      `${pending.length} échéance(s) récurrente(s) non encore payée(s) ce mois-ci sont supposées être réglées à leur montant prévu.`,
+      t('forecast.assume.pending', { count: pending.length }),
     );
   } else {
-    assumptions.push('Aucune échéance récurrente en attente pour le reste du mois.');
+    assumptions.push(t('forecast.assume.noPending'));
   }
   if (Object.keys(current.unconverted).length) {
-    assumptions.push('Certains soldes ne sont pas inclus faute de taux de change disponible.');
+    assumptions.push(t('forecast.assume.unconverted'));
   }
 
   const projectedIncome = summary.income + expectedIncome;

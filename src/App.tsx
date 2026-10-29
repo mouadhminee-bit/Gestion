@@ -9,6 +9,8 @@ import { Skeleton } from '@/components/ui/Misc';
 import { Button } from '@/components/ui/Button';
 import { TransactionFormProvider } from '@/features/transactions/TransactionForm';
 import { Onboarding } from '@/pages/Onboarding';
+import { I18nProvider, useI18n } from '@/i18n/I18nProvider';
+import { isLang } from '@/i18n/languages';
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Transactions = lazy(() => import('@/pages/Transactions'));
@@ -70,6 +72,7 @@ function RoutedBoundary({ children }: { children: ReactNode }) {
 function Root() {
   const repo = useRepository();
   const snapshot = useSnapshot(repo);
+  const { lang, changeLanguage } = useI18n();
   if (snapshot === undefined) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -78,6 +81,11 @@ function Root() {
         </div>
       </div>
     );
+  }
+  if (snapshot?.settings.onboarded && snapshot.settings.language !== lang && isLang(snapshot.settings.language)) {
+    // Langue enregistrée différente (ex : sauvegarde restaurée) : on l'applique.
+    changeLanguage(snapshot.settings.language);
+    return null;
   }
   if (snapshot === null || !snapshot.settings.onboarded) return <Onboarding repo={repo} existing={snapshot?.settings} />;
   return (
@@ -113,14 +121,16 @@ function Root() {
 
 export function App() {
   return (
-    <HashRouter>
-      <TooltipProvider>
-        <ToastProvider>
-          <ConfirmProvider>
-            <Root />
-          </ConfirmProvider>
-        </ToastProvider>
-      </TooltipProvider>
-    </HashRouter>
+    <I18nProvider>
+      <HashRouter>
+        <TooltipProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <Root />
+            </ConfirmProvider>
+          </ToastProvider>
+        </TooltipProvider>
+      </HashRouter>
+    </I18nProvider>
   );
 }

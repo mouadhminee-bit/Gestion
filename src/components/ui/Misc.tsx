@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { iconFor } from '@/lib/icons';
 import { useApp } from '@/app/AppContext';
+import { t } from '@/i18n/core';
 import type { CurrencyCode } from '@/domain/money';
 
 export type Tone = 'neutral' | 'primary' | 'positive' | 'negative' | 'warning' | 'cyan' | 'violet';
@@ -178,7 +179,7 @@ export function Stat({ label, value, hint, className }: { label: ReactNode; valu
 export function DemoBadge() {
   return (
     <Badge tone="warning" className="uppercase tracking-wide">
-      Données fictives
+      {t('common.demoData')}
     </Badge>
   );
 }

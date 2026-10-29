@@ -1,17 +1,35 @@
 import type { UserSettings } from './types';
+import { getLang } from '@/i18n/core';
+import { languageInfo } from '@/i18n/languages';
 import { DEFAULT_THRESHOLDS } from './calc/budgets';
 
 export const LOCAL_USER_ID = 'local-user';
 
-export const LOCALES = [
-  { value: 'fr-MA', label: 'Français (Maroc)' },
-  { value: 'fr-FR', label: 'Français (France)' },
-  { value: 'fr-BE', label: 'Français (Belgique)' },
-  { value: 'fr-CA', label: 'Français (Canada)' },
-  { value: 'en-US', label: 'English (US)' },
-  { value: 'en-GB', label: 'English (UK)' },
-  { value: 'ar-MA', label: 'العربية (المغرب) — formats' },
+/** Formats numériques proposés (libellés générés dans la langue de l'interface). */
+export const LOCALE_CODES = [
+  'fr-MA', 'fr-FR', 'fr-BE', 'fr-CH', 'fr-CA', 'ar-MA', 'ar-SA', 'ar-EG', 'en-US', 'en-GB', 'es-ES', 'es-MX', 'pt-PT', 'pt-BR',
+  'de-DE', 'de-CH', 'it-IT', 'nl-NL', 'tr-TR', 'ru-RU', 'uk-UA', 'pl-PL', 'ro-RO', 'sv-SE', 'el-GR', 'cs-CZ', 'he-IL',
+  'fa-IR', 'hi-IN', 'zh-CN', 'ja-JP', 'ko-KR', 'id-ID', 'vi-VN',
 ];
+
+export function localeOptions(uiLang: string): { value: string; label: string }[] {
+  let dn: Intl.DisplayNames | null = null;
+  try {
+    dn = new Intl.DisplayNames([uiLang], { type: 'language' });
+  } catch {
+    dn = null;
+  }
+  return LOCALE_CODES.map((value) => {
+    let label = value;
+    try {
+      label = dn?.of(value) ?? value;
+    } catch {
+      /* code non reconnu */
+    }
+    const sample = new Intl.NumberFormat(value).format(1234.5);
+    return { value, label: `${label.charAt(0).toUpperCase()}${label.slice(1)} — ${sample}` };
+  });
+}
 
 export const TIME_ZONES = [
   'Africa/Casablanca',
@@ -36,8 +54,8 @@ export function defaultSettings(userId: string, overrides: Partial<UserSettings>
     userId,
     displayName: '',
     baseCurrency: 'MAD',
-    language: 'fr',
-    locale: 'fr-MA',
+    language: getLang(),
+    locale: getLang() === 'fr' ? 'fr-MA' : languageInfo(getLang()).locale,
     timeZone: 'Africa/Casablanca',
     dateFormat: 'DD/MM/YYYY',
     weekStartsOn: 1,

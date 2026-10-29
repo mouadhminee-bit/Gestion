@@ -9,6 +9,7 @@
  */
 import type { ISODate } from '../dates';
 import type { Debt, DebtPayment } from '../types';
+import { t } from '@/i18n/core';
 
 export interface DebtStatusView {
   remaining: number;
@@ -48,10 +49,10 @@ export function computeDebtStatus(debt: Debt, payments: DebtPayment[], today: IS
 
 /** Validation d'un paiement : le principal ne peut pas dépasser le restant dû. */
 export function validateDebtPayment(debt: Debt, payments: DebtPayment[], principal: number, interest: number): string | null {
-  if (!Number.isInteger(principal) || !Number.isInteger(interest)) return 'Montant invalide.';
-  if (principal < 0 || interest < 0) return 'Les montants doivent être positifs.';
-  if (principal + interest === 0) return 'Le paiement doit être supérieur à zéro.';
+  if (!Number.isInteger(principal) || !Number.isInteger(interest)) return t('debt.err.invalidAmount');
+  if (principal < 0 || interest < 0) return t('debt.err.positive');
+  if (principal + interest === 0) return t('debt.err.zero');
   const remaining = debtRemaining(debt, payments);
-  if (principal > remaining) return 'Le principal dépasse le montant restant dû.';
+  if (principal > remaining) return t('debt.err.overRemaining');
   return null;
 }

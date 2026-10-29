@@ -18,18 +18,11 @@ import type { Account, Asset, AssetValuation, DataSnapshot, ID } from '../types'
 import type { LedgerContext } from './ledger';
 import { accountBalances } from './ledger';
 import { debtRemaining } from './debts';
+import { lazyLabels } from '@/i18n/labels';
 
 export type AssetClass = 'liquidity' | 'savings' | 'investment' | 'real_estate' | 'vehicle' | 'receivable' | 'other';
 
-export const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
-  liquidity: 'Liquidités',
-  savings: 'Épargne',
-  investment: 'Investissements',
-  real_estate: 'Immobilier',
-  vehicle: 'Véhicules',
-  receivable: 'Créances',
-  other: 'Autres actifs',
-};
+export const ASSET_CLASS_LABELS: Record<AssetClass, string> = lazyLabels('assetClass', ['liquidity', 'savings', 'investment', 'real_estate', 'vehicle', 'receivable', 'other']);
 
 export interface NetWorthLine {
   source: 'account' | 'asset' | 'debt';

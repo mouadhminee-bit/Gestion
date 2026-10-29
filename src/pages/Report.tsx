@@ -13,6 +13,7 @@ import { computeGoalProgress, GOAL_STATE_LABELS } from '@/domain/calc/goals';
 import { computeNetWorth, ASSET_CLASS_LABELS, type AssetClass } from '@/domain/calc/networth';
 import { accountBalances } from '@/domain/calc/ledger';
 import { cn } from '@/lib/cn';
+import { t } from '@/i18n/core';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -25,18 +26,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function Report() {
-  const { data, ctx, fmt, today, settings } = useApp();
+  const { data, ctx, fmt, today, settings, uiLocale } = useApp();
   const [params] = useSearchParams();
   const type = (params.get('type') ?? 'month') as 'month' | 'quarter' | 'year';
   const key = params.get('key') ?? monthKey(today);
 
   const { period, title } = useMemo((): { period: Period; title: string } => {
-    if (type === 'year') return { period: yearPeriod(Number(key)), title: `Rapport annuel ${key}` };
+    if (type === 'year') return { period: yearPeriod(Number(key)), title: t('rep.title.year', { year: key }) };
     if (type === 'quarter') {
       const [y, q] = key.split('-Q').map(Number);
-      return { period: quarterPeriod(y, q), title: `Rapport trimestriel — T${q} ${y}` };
+      return { period: quarterPeriod(y, q), title: t('rep.title.quarter', { q, year: y }) };
     }
-    return { period: monthPeriod(key), title: `Rapport mensuel — ${fmt.month(key)}` };
+    return { period: monthPeriod(key), title: t('rep.title.month', { month: fmt.month(key) }) };
   }, [type, key, fmt]);
 
   const prev = previousPeriod(period);
@@ -58,56 +59,56 @@ export default function Report() {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="no-print mb-4 flex items-center justify-between">
-        <Link to="/analytics"><Button variant="ghost" icon={<ArrowLeft className="h-4 w-4" />}>Retour</Button></Link>
-        <Button variant="primary" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Imprimer / PDF</Button>
+        <Link to="/analytics"><Button variant="ghost" icon={<ArrowLeft className="h-4 w-4" />}>{t('common.back')}</Button></Link>
+        <Button variant="primary" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>{t('rep.print')}</Button>
       </div>
 
       <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="display text-2xl font-semibold">{title}</h1>
-          <p className="mt-1 text-sm text-muted">Du {fmt.date(period.start)} au {fmt.date(period.end)} · comparé au {fmt.date(prev.start)} – {fmt.date(prev.end)} · édité le {fmt.date(today)}</p>
-          {settings.demoMode && <p className="mt-1 text-xs font-semibold text-warning">Données de démonstration fictives.</p>}
-          {asOf < period.end && <p className="mt-1 text-xs text-muted">Période en cours : chiffres arrêtés au {fmt.date(asOf)}.</p>}
+          <p className="mt-1 text-sm text-muted">{t('rep.meta', { start: fmt.date(period.start), end: fmt.date(period.end), prevStart: fmt.date(prev.start), prevEnd: fmt.date(prev.end), today: fmt.date(today) })}</p>
+          {settings.demoMode && <p className="mt-1 text-xs font-semibold text-warning">{t('rep.demo')}</p>}
+          {asOf < period.end && <p className="mt-1 text-xs text-muted">{t('rep.inProgress', { date: fmt.date(asOf) })}</p>}
         </div>
         <Logo />
       </header>
 
-      <Section title="Synthèse">
+      <Section title={t('rep.summary')}>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            ['Revenus', fmt.money(s.income), cmp.incomeChange],
-            ['Dépenses', fmt.money(s.expenses), cmp.expensesChange],
-            ['Épargne nette', fmt.money(s.netSavings), null],
-            ['Taux d’épargne', fmt.percent(s.savingsRate), null],
+            [t('common.income'), fmt.money(s.income), cmp.incomeChange],
+            [t('common.expenses'), fmt.money(s.expenses), cmp.expensesChange],
+            [t('an.netSavings'), fmt.money(s.netSavings), null],
+            [t('an.savingsRate'), fmt.percent(s.savingsRate), null],
           ].map(([l, v, ch]) => (
             <div key={l as string}>
               <div className="label">{l}</div>
               <div className="mt-1 text-lg font-semibold num">{v}</div>
-              {ch != null && <div className="text-xs text-muted">{(ch as number) >= 0 ? '+' : ''}{fmt.percent(ch as number, 1)} vs période préc.</div>}
+              {ch != null && <div className="text-xs text-muted">{t('rep.vsPrev', { pct: `${(ch as number) >= 0 ? '+' : ''}${fmt.percent(ch as number, 1)}` })}</div>}
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted">Dépenses fixes : {fmt.money(s.fixedExpenses)} · variables : {fmt.money(s.variableExpenses)} · remboursements reçus : {fmt.money(s.refunds)} · transferts internes (exclus) : {fmt.money(s.transfers)}.</p>
+        <p className="mt-3 text-xs text-muted">{t('rep.summaryDetail', { fixed: fmt.money(s.fixedExpenses), variable: fmt.money(s.variableExpenses), refunds: fmt.money(s.refunds), transfers: fmt.money(s.transfers) })}</p>
         {months.length > 1 && (
           <table className="mt-4 w-full text-xs">
-            <thead><tr className="text-left text-muted"><th className="py-1">Mois</th><th className="text-right">Revenus</th><th className="text-right">Dépenses</th><th className="text-right">Épargne</th><th className="text-right">Taux</th></tr></thead>
+            <thead><tr className="text-left text-muted"><th className="py-1">{t('rep.col.month')}</th><th className="text-right">{t('common.income')}</th><th className="text-right">{t('common.expenses')}</th><th className="text-right">{t('rep.col.savings')}</th><th className="text-right">{t('rep.col.rate')}</th></tr></thead>
             <tbody className="divide-y divide-line/10">
               {series.map((p) => (
-                <tr key={p.month}><td className="py-1">{formatMonthShort(p.month, settings.locale)} {p.month.slice(0, 4)}</td><td className="text-right num">{fmt.money(p.income)}</td><td className="text-right num">{fmt.money(p.expenses)}</td><td className="text-right num">{fmt.money(p.netSavings)}</td><td className="text-right num">{fmt.percent(p.savingsRate, 0)}</td></tr>
+                <tr key={p.month}><td className="py-1">{formatMonthShort(p.month, uiLocale)} {p.month.slice(0, 4)}</td><td className="text-right num">{fmt.money(p.income)}</td><td className="text-right num">{fmt.money(p.expenses)}</td><td className="text-right num">{fmt.money(p.netSavings)}</td><td className="text-right num">{fmt.percent(p.savingsRate, 0)}</td></tr>
               ))}
             </tbody>
           </table>
         )}
       </Section>
 
-      <Section title="Dépenses par catégorie">
+      <Section title={t('an.byCategory')}>
         {cats.length ? (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-muted"><th className="py-1">Catégorie</th><th className="text-right">Montant</th><th className="text-right">Part</th><th className="text-right">Période préc.</th></tr></thead>
+            <thead><tr className="text-left text-xs text-muted"><th className="py-1">{t('common.category')}</th><th className="text-right">{t('common.amount')}</th><th className="text-right">{t('rep.col.share')}</th><th className="text-right">{t('rep.col.prev')}</th></tr></thead>
             <tbody className="divide-y divide-line/10">
               {cats.map((c) => (
                 <tr key={c.categoryId ?? 'none'}>
-                  <td className="py-1.5">{c.categoryId ? ctx.categories.get(c.categoryId)?.name : 'Sans catégorie'}</td>
+                  <td className="py-1.5">{c.categoryId ? ctx.categories.get(c.categoryId)?.name : t('common.uncategorized')}</td>
                   <td className="text-right num">{fmt.money(c.amount)}</td>
                   <td className="text-right num">{fmt.percent(s.expenses ? c.amount / s.expenses : null, 0)}</td>
                   <td className="text-right num text-muted">{fmt.money(cmp.previous.expensesByCategory.get(c.categoryId)?.amount ?? 0)}</td>
@@ -115,14 +116,14 @@ export default function Report() {
               ))}
             </tbody>
           </table>
-        ) : <p className="text-sm text-muted">Aucune dépense sur la période.</p>}
+        ) : <p className="text-sm text-muted">{t('rep.noExpenses')}</p>}
       </Section>
 
-      <Section title="Synthèse budgétaire">
+      <Section title={t('rep.budgets')}>
         {hasBudgets ? (
           <>
             <table className="w-full text-sm">
-              <thead><tr className="text-left text-xs text-muted"><th className="py-1">Mois</th><th className="text-right">Budget</th><th className="text-right">Dépensé</th><th className="text-right">Écart</th><th className="text-right">Catégories dépassées</th></tr></thead>
+              <thead><tr className="text-left text-xs text-muted"><th className="py-1">{t('rep.col.month')}</th><th className="text-right">{t('rep.col.budget')}</th><th className="text-right">{t('rep.col.spent')}</th><th className="text-right">{t('rep.col.gap')}</th><th className="text-right">{t('rep.col.over')}</th></tr></thead>
               <tbody className="divide-y divide-line/10">
                 {budgetRows.map(({ m, ov }) => {
                   const spent = ov.reference - (ov.available ?? 0);
@@ -138,15 +139,15 @@ export default function Report() {
                 })}
               </tbody>
             </table>
-            <p className="mt-2 text-xs text-muted">Budget cumulé de la période : {fmt.money(totalBudget)}. Écart positif = dépassement.</p>
+            <p className="mt-2 text-xs text-muted">{t('rep.budgetNote', { amount: fmt.money(totalBudget) })}</p>
           </>
-        ) : <p className="text-sm text-muted">Aucun budget défini sur la période.</p>}
+        ) : <p className="text-sm text-muted">{t('rep.noBudget')}</p>}
       </Section>
 
-      <Section title="Synthèse des objectifs">
+      <Section title={t('rep.goals')}>
         {data.goals.length ? (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-muted"><th className="py-1">Objectif</th><th className="text-right">Constitué</th><th className="text-right">Cible</th><th className="text-right">Progression</th><th className="text-right">État</th></tr></thead>
+            <thead><tr className="text-left text-xs text-muted"><th className="py-1">{t('rep.col.goal')}</th><th className="text-right">{t('rep.col.saved')}</th><th className="text-right">{t('rep.col.target')}</th><th className="text-right">{t('rep.col.progress')}</th><th className="text-right">{t('rep.col.state')}</th></tr></thead>
             <tbody className="divide-y divide-line/10">
               {data.goals.map((g) => {
                 const p = computeGoalProgress(g, today, g.linkedAccountId ? balances.get(g.linkedAccountId) : undefined);
@@ -156,22 +157,22 @@ export default function Report() {
               })}
             </tbody>
           </table>
-        ) : <p className="text-sm text-muted">Aucun objectif.</p>}
-        <p className="mt-2 text-xs text-muted">Les objectifs sont des affectations et ne sont pas ajoutés au patrimoine.</p>
+        ) : <p className="text-sm text-muted">{t('rep.noGoal')}</p>}
+        <p className="mt-2 text-xs text-muted">{t('rep.goalsNote')}</p>
       </Section>
 
-      <Section title={`Synthèse patrimoniale au ${fmt.date(asOf)}`}>
+      <Section title={t('rep.netWorth', { date: fmt.date(asOf) })}>
         <div className="grid grid-cols-3 gap-4">
-          <div><div className="label">Actifs</div><div className="font-semibold num">{fmt.money(nw.totalAssets)}</div></div>
-          <div><div className="label">Passifs</div><div className="font-semibold num">{fmt.money(nw.totalLiabilities)}</div></div>
-          <div><div className="label">Patrimoine net</div><div className="font-semibold num">{fmt.money(nw.netWorth)}</div></div>
+          <div><div className="label">{t('nw.assets')}</div><div className="font-semibold num">{fmt.money(nw.totalAssets)}</div></div>
+          <div><div className="label">{t('nw.liabilities')}</div><div className="font-semibold num">{fmt.money(nw.totalLiabilities)}</div></div>
+          <div><div className="label">{t('nw.netWorth')}</div><div className="font-semibold num">{fmt.money(nw.netWorth)}</div></div>
         </div>
         <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-3">
           {(Object.keys(nw.byClass) as AssetClass[]).filter((k) => nw.byClass[k]).map((k) => <li key={k} className="flex justify-between"><span className="text-muted">{ASSET_CLASS_LABELS[k]}</span><span className="num">{fmt.money(nw.byClass[k])}</span></li>)}
         </ul>
-        {nw.assets.some((a) => a.manual) && <p className="mt-2 text-xs text-muted">Certaines valeurs sont des estimations saisies manuellement.</p>}
+        {nw.assets.some((a) => a.manual) && <p className="mt-2 text-xs text-muted">{t('rep.manualNote')}</p>}
       </Section>
-      <p className="pb-6 text-center text-[11px] text-muted">NEXORA — chiffres calculés à partir des données saisies par l’utilisateur. Les projections ne sont pas des certitudes.</p>
+      <p className="pb-6 text-center text-[11px] text-muted">{t('rep.footer')}</p>
     </div>
   );
 }

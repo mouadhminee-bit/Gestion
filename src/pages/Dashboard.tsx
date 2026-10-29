@@ -20,25 +20,20 @@ import { computeGoalProgress } from '@/domain/calc/goals';
 import { addMonthsToKey, formatLongDate, formatMonthShort, monthKey, monthPeriod, parseISO } from '@/domain/dates';
 import { cn } from '@/lib/cn';
 import type { MoneyBag } from '@/domain/money';
+import { t } from '@/i18n/core';
+import { lazyLabels } from '@/i18n/labels';
 
-export const DEFINITIONS = {
-  balance: 'Somme des soldes des comptes actifs inclus dans le périmètre (paramétrable par compte), convertis en devise principale avec le dernier taux connu. Solde = solde initial + mouvements.',
-  income: 'Total des transactions de type « Revenu » de la période (+ intérêts perçus). Les transferts entre vos comptes et les emprunts reçus ne sont pas des revenus.',
-  expenses: 'Dépenses de consommation de la période, nettes des remboursements reçus (+ intérêts payés). Exclut transferts internes, épargne, investissements et remboursement du principal des dettes.',
-  savings: 'Épargne nette = Revenus − Dépenses. C’est la capacité d’épargne de la période, distincte des virements vers vos comptes d’épargne.',
-  rate: 'Taux d’épargne = Épargne nette ÷ Revenus. Non calculable si les revenus sont nuls.',
-  available: 'Budget disponible = Budget mensuel global (ou somme des budgets par catégorie) − Dépenses du mois. Ce n’est pas un solde bancaire.',
-};
+export const DEFINITIONS = lazyLabels('def', ['balance', 'income', 'expenses', 'savings', 'rate', 'available']);
 
 function Delta({ current, previous, invert }: { current: number; previous: number; invert?: boolean }) {
   const { fmt } = useApp();
   const ch = relativeChange(current, previous);
-  if (ch == null) return <span className="text-[11px] text-muted">Pas de comparaison</span>;
+  if (ch == null) return <span className="text-[11px] text-muted">{t('dash.noComparison')}</span>;
   const good = invert ? ch <= 0 : ch >= 0;
   return (
     <span className={cn('inline-flex items-center gap-0.5 text-[11px] font-medium', good ? 'text-positive' : 'text-negative')}>
       {ch >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownLeft className="h-3 w-3" />}
-      {fmt.percent(Math.abs(ch), 0)} <span className="font-normal text-muted">vs mois préc.</span>
+      {fmt.percent(Math.abs(ch), 0)} <span className="font-normal text-muted">{t('dash.vsPrev')}</span>
     </span>
   );
 }
@@ -68,15 +63,15 @@ function UnconvertedNote({ bag }: { bag: MoneyBag }) {
     <div className="mb-4 flex items-start gap-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-xs text-muted">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
       <span>
-        Montants exclus du total faute de taux de change : {entries.map(([c, v]) => fmt.money(v, c)).join(' · ')}.{' '}
-        <Link to="/settings#rates" className="text-cyan underline">Ajouter un taux</Link>
+        {t('dash.unconverted', { amounts: entries.map(([c, v]) => fmt.money(v, c)).join(' · ') })}{' '}
+        <Link to="/settings#rates" className="text-cyan underline">{t('dash.addRate')}</Link>
       </span>
     </div>
   );
 }
 
 export default function Dashboard() {
-  const { data, ctx, fmt, month, today, settings } = useApp();
+  const { data, ctx, fmt, month, today, settings, uiLocale } = useApp();
   const openForm = useTransactionForm();
   const chart = useChart();
   const balances = useBalances();
@@ -103,9 +98,9 @@ export default function Dashboard() {
     const rest = items.slice(6).reduce((a, v) => a + v.amount, 0);
     const rows = top.map((v) => {
       const c = v.categoryId ? ctx.categories.get(v.categoryId) : undefined;
-      return { name: c?.name ?? 'Sans catégorie', value: v.amount, color: c?.color ?? '#94A3B8' };
+      return { name: c?.name ?? t('common.uncategorized'), value: v.amount, color: c?.color ?? '#94A3B8' };
     });
-    if (rest > 0) rows.push({ name: 'Autres catégories', value: rest, color: '#64748B' });
+    if (rest > 0) rows.push({ name: t('dash.otherCategories'), value: rest, color: '#64748B' });
     return rows;
   }, [md.summary, ctx.categories]);
 
@@ -115,7 +110,7 @@ export default function Dashboard() {
     const ids = new Set<string | null>([...md.summary.expensesByCategory.keys(), ...md.prev.expensesByCategory.keys()]);
     return [...ids]
       .map((id) => ({
-        name: id ? ctx.categories.get(id)?.name ?? '—' : 'Sans catégorie',
+        name: id ? ctx.categories.get(id)?.name ?? '—' : t('common.uncategorized'),
         current: chart.major(md.summary.expensesByCategory.get(id)?.amount ?? 0),
         previous: chart.major(md.prev.expensesByCategory.get(id)?.amount ?? 0),
       }))
@@ -139,16 +134,16 @@ export default function Dashboard() {
   const goals = data.goals.filter((g) => g.status === 'active' || g.status === 'achieved').slice(0, 4);
   const recent = data.transactions.slice(0, 7);
   const greetingHour = new Date().getHours();
-  const greeting = greetingHour < 12 ? 'Bonjour' : greetingHour < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const greeting = t(greetingHour < 12 ? 'dash.greeting.morning' : greetingHour < 18 ? 'dash.greeting.afternoon' : 'dash.greeting.evening');
   const { summary, prev, overview } = md;
 
   if (data.accounts.length === 0) {
     return (
       <EmptyState
         icon={<Wallet className="h-5 w-5" />}
-        title="Créez votre premier compte"
-        description="Le dashboard s’alimente à partir de vos comptes et de vos opérations."
-        action={<Link to="/accounts"><Button variant="primary">Ajouter un compte</Button></Link>}
+        title={t('dash.firstAccount')}
+        description={t('dash.firstAccountHint')}
+        action={<Link to="/accounts"><Button variant="primary">{t('dash.addAccount')}</Button></Link>}
         className="mt-10"
       />
     );
@@ -160,7 +155,7 @@ export default function Dashboard() {
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-fade-in">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted">
-            {formatLongDate(today, settings.locale)}
+            {formatLongDate(today, uiLocale)}
             {settings.demoMode && <DemoBadge />}
           </div>
           <h1 className="display mt-1 text-2xl font-semibold sm:text-3xl">
@@ -171,7 +166,7 @@ export default function Dashboard() {
         </div>
         <div className="sm:text-right">
           <div className="flex items-center gap-1 text-xs text-muted sm:justify-end">
-            Solde total {md.isCurrent ? 'aujourd’hui' : `au ${fmt.date(md.asOf)}`} <InfoTip>{DEFINITIONS.balance}</InfoTip>
+            {md.isCurrent ? t('dash.totalToday') : t('dash.totalAt', { date: fmt.date(md.asOf) })} <InfoTip>{DEFINITIONS.balance}</InfoTip>
           </div>
           <AnimatedAmount value={md.balance.total} className="display text-3xl font-semibold tracking-tight sm:text-4xl" />
         </div>
@@ -179,27 +174,27 @@ export default function Dashboard() {
       <UnconvertedNote bag={md.balance.unconverted} />
 
       {/* KPI */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6" aria-label="Indicateurs clés">
-        <Kpi icon={Wallet} label="Solde total" info={DEFINITIONS.balance} accent="rgb(var(--primary))" delay={0} footer={<span className="text-[11px] text-muted">{accountsInScope(data.accounts).length} compte(s) dans le périmètre</span>}>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6" aria-label={t('dash.kpis')}>
+        <Kpi icon={Wallet} label={t('dash.kpi.balance')} info={DEFINITIONS.balance} accent="rgb(var(--primary))" delay={0} footer={<span className="text-[11px] text-muted">{t('dash.kpi.accountsInScope', { count: accountsInScope(data.accounts).length })}</span>}>
           <AnimatedAmount value={md.balance.total} />
         </Kpi>
-        <Kpi icon={ArrowDownLeft} label="Revenus du mois" info={DEFINITIONS.income} accent="rgb(var(--positive))" delay={40} footer={<Delta current={summary.income} previous={prev.income} />}>
+        <Kpi icon={ArrowDownLeft} label={t('dash.kpi.income')} info={DEFINITIONS.income} accent="rgb(var(--positive))" delay={40} footer={<Delta current={summary.income} previous={prev.income} />}>
           <AnimatedAmount value={summary.income} />
         </Kpi>
-        <Kpi icon={ArrowUpRight} label="Dépenses du mois" info={DEFINITIONS.expenses} accent="rgb(var(--negative))" delay={80} footer={<Delta current={summary.expenses} previous={prev.expenses} invert />}>
+        <Kpi icon={ArrowUpRight} label={t('dash.kpi.expenses')} info={DEFINITIONS.expenses} accent="rgb(var(--negative))" delay={80} footer={<Delta current={summary.expenses} previous={prev.expenses} invert />}>
           <AnimatedAmount value={summary.expenses} />
         </Kpi>
-        <Kpi icon={PiggyBank} label="Épargne du mois" info={DEFINITIONS.savings} accent="rgb(var(--cyan))" delay={120} footer={<span className="text-[11px] text-muted">Mois préc. : {fmt.money(prev.netSavings)}</span>}>
+        <Kpi icon={PiggyBank} label={t('dash.kpi.savings')} info={DEFINITIONS.savings} accent="rgb(var(--cyan))" delay={120} footer={<span className="text-[11px] text-muted">{t('dash.kpi.prev', { value: fmt.money(prev.netSavings) })}</span>}>
           <span className={summary.netSavings < 0 ? 'text-negative' : ''}>
             <AnimatedAmount value={summary.netSavings} />
           </span>
         </Kpi>
-        <Kpi icon={Percent} label="Taux d’épargne" info={DEFINITIONS.rate} accent="rgb(var(--violet))" delay={160} footer={<span className="text-[11px] text-muted">Mois préc. : {fmt.percent(prev.savingsRate)}</span>}>
+        <Kpi icon={Percent} label={t('dash.kpi.rate')} info={DEFINITIONS.rate} accent="rgb(var(--violet))" delay={160} footer={<span className="text-[11px] text-muted">{t('dash.kpi.prev', { value: fmt.percent(prev.savingsRate) })}</span>}>
           <span className={cn('num', summary.savingsRate == null && 'text-base text-muted')}>{fmt.percent(summary.savingsRate)}</span>
         </Kpi>
-        <Kpi icon={Gauge} label="Budget disponible" info={DEFINITIONS.available} accent="rgb(var(--warning))" delay={200}
-          footer={overview.available == null ? <Link to="/budgets" className="text-[11px] text-cyan hover:underline">Définir un budget</Link> : <span className="text-[11px] text-muted">sur {fmt.money(overview.reference)} {overview.referenceSource === 'categories' ? '(somme catégories)' : ''}</span>}>
-          {overview.available == null ? <span className="text-base text-muted">Aucun budget</span> : <span className={overview.available < 0 ? 'text-negative' : ''}><AnimatedAmount value={overview.available} /></span>}
+        <Kpi icon={Gauge} label={t('dash.kpi.available')} info={DEFINITIONS.available} accent="rgb(var(--warning))" delay={200}
+          footer={overview.available == null ? <Link to="/budgets" className="text-[11px] text-cyan hover:underline">{t('dash.kpi.defineBudget')}</Link> : <span className="text-[11px] text-muted">{t('dash.kpi.of', { amount: fmt.money(overview.reference) })} {overview.referenceSource === 'categories' ? t('dash.kpi.sumCategories') : ''}</span>}>
+          {overview.available == null ? <span className="text-base text-muted">{t('dash.kpi.noBudget')}</span> : <span className={overview.available < 0 ? 'text-negative' : ''}><AnimatedAmount value={overview.available} /></span>}
         </Kpi>
       </section>
 
@@ -208,14 +203,14 @@ export default function Dashboard() {
         <Card
           className="xl:col-span-2"
           delay={80}
-          title="Revenus vs dépenses"
-          info="Revenus et dépenses de consommation par mois (mêmes règles que les KPI). Les transferts internes sont exclus."
-          actions={<Segmented size="sm" value={range} onChange={setRange} options={[{ value: '3', label: '3 m' }, { value: '6', label: '6 m' }, { value: '12', label: '12 m' }]} />}
+          title={t('dash.incomeVsExpenses')}
+          info={t('dash.incomeVsExpensesInfo')}
+          actions={<Segmented size="sm" value={range} onChange={setRange} options={[{ value: '3', label: t('dash.range', { count: 3 }) }, { value: '6', label: t('dash.range', { count: 6 }) }, { value: '12', label: t('dash.range', { count: 12 }) }]} />}
         >
           {hasSeries ? (
             <div className="h-64">
               <ResponsiveContainer>
-                <BarChart data={series.map((p) => ({ name: formatMonthShort(p.month, settings.locale), income: chart.major(p.income), expenses: chart.major(p.expenses), month: p.month }))} barGap={4}>
+                <BarChart data={series.map((p) => ({ name: formatMonthShort(p.month, uiLocale), income: chart.major(p.income), expenses: chart.major(p.expenses), month: p.month }))} barGap={4}>
                   <defs>
                     <linearGradient id="g-inc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={SERIES.income} stopOpacity={0.95} /><stop offset="1" stopColor={SERIES.income} stopOpacity={0.45} /></linearGradient>
                     <linearGradient id="g-exp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={SERIES.expense} stopOpacity={0.9} /><stop offset="1" stopColor={SERIES.expense} stopOpacity={0.4} /></linearGradient>
@@ -224,29 +219,29 @@ export default function Dashboard() {
                   <XAxis dataKey="name" {...chart.axis} />
                   <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={44} />
                   <RTooltip cursor={{ fill: 'rgb(var(--surface-3) / 0.5)' }} content={<ChartTooltip valueFormatter={chart.money} />} />
-                  <Bar dataKey="income" name="Revenus" fill="url(#g-inc)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={chart.animate} animationDuration={chart.duration} />
-                  <Bar dataKey="expenses" name="Dépenses" fill="url(#g-exp)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={chart.animate} animationDuration={chart.duration} />
+                  <Bar dataKey="income" name={t('common.income')} fill="url(#g-inc)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={chart.animate} animationDuration={chart.duration} />
+                  <Bar dataKey="expenses" name={t('common.expenses')} fill="url(#g-exp)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={chart.animate} animationDuration={chart.duration} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <NoData height={256}>Aucun revenu ni dépense sur la période.</NoData>
+            <NoData height={256}>{t('dash.noSeries')}</NoData>
           )}
           <div className="mt-3 flex gap-4">
-            <LegendDot color={SERIES.income} label="Revenus" />
-            <LegendDot color={SERIES.expense} label="Dépenses" />
+            <LegendDot color={SERIES.income} label={t('common.income')} />
+            <LegendDot color={SERIES.expense} label={t('common.expenses')} />
           </div>
         </Card>
 
         {/* Insights */}
-        <Card delay={120} title={<span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-cyan" /> Financial Insights</span>} info="Observations calculées automatiquement à partir de vos données, sans IA externe. Chaque observation précise son origine." actions={<Link to="/assistant" className="text-xs text-cyan hover:underline">Assistant</Link>}>
+        <Card delay={120} title={<span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-cyan" /> {t('dash.insights')}</span>} info={t('dash.insightsInfo')} actions={<Link to="/assistant" className="text-xs text-cyan hover:underline">{t('nav.assistant')}</Link>}>
           <InsightList insights={insights} limit={5} />
         </Card>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {/* Évolution du solde */}
-        <Card delay={140} title="Évolution du solde" subtitle={fmt.month(month)} info="Solde total des comptes du périmètre en fin de journée, recalculé à partir des mouvements.">
+        <Card delay={140} title={t('dash.balanceEvolution')} subtitle={fmt.month(month)} info={t('dash.balanceEvolutionInfo')}>
           {balanceSeries.length > 1 ? (
             <div className="h-52">
               <ResponsiveContainer>
@@ -257,18 +252,18 @@ export default function Dashboard() {
                   <CartesianGrid vertical={false} stroke={SERIES.grid} />
                   <XAxis dataKey="day" {...chart.axis} interval="preserveStartEnd" minTickGap={16} />
                   <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={44} domain={['auto', 'auto']} />
-                  <RTooltip content={<ChartTooltip valueFormatter={chart.money} labelFormatter={(d) => `Jour ${d}`} />} />
-                  <Area type="monotone" dataKey="balance" name="Solde" stroke={SERIES.cyan} strokeWidth={2} fill="url(#g-bal)" isAnimationActive={chart.animate} animationDuration={chart.duration} />
+                  <RTooltip content={<ChartTooltip valueFormatter={chart.money} labelFormatter={(d) => t('dash.day', { day: String(d) })} />} />
+                  <Area type="monotone" dataKey="balance" name={t('common.balance')} stroke={SERIES.cyan} strokeWidth={2} fill="url(#g-bal)" isAnimationActive={chart.animate} animationDuration={chart.duration} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <NoData height={208}>Pas encore assez de jours écoulés pour tracer l’évolution.</NoData>
+            <NoData height={208}>{t('dash.notEnoughDays')}</NoData>
           )}
         </Card>
 
         {/* Répartition */}
-        <Card delay={160} title="Répartition des dépenses" subtitle={fmt.month(month)} info="Dépenses nettes des remboursements par catégorie principale (sous-catégories regroupées).">
+        <Card delay={160} title={t('dash.breakdown')} subtitle={fmt.month(month)} info={t('dash.breakdownInfo')}>
           {donut.length ? (
             <div className="flex items-center gap-4">
               <div className="relative h-44 w-44 shrink-0">
@@ -281,7 +276,7 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="label text-[9px]">Total</div>
+                  <div className="label text-[9px]">{t('common.total')}</div>
                   <div className="num text-sm font-semibold">{fmt.money(summary.expenses, undefined, { compact: true })}</div>
                 </div>
               </div>
@@ -292,34 +287,34 @@ export default function Dashboard() {
               </div>
             </div>
           ) : (
-            <NoData height={176}>Aucune dépense ce mois-ci.</NoData>
+            <NoData height={176}>{t('dash.noExpensesMonth')}</NoData>
           )}
         </Card>
 
         {/* Taux d'épargne */}
-        <Card delay={180} title="Évolution du taux d’épargne" info={DEFINITIONS.rate} className="lg:col-span-2 xl:col-span-1">
+        <Card delay={180} title={t('dash.rateEvolution')} info={DEFINITIONS.rate} className="lg:col-span-2 xl:col-span-1">
           {series.some((p) => p.savingsRate != null) ? (
             <div className="h-52">
               <ResponsiveContainer>
-                <LineChart data={series.map((p) => ({ name: formatMonthShort(p.month, settings.locale), rate: p.savingsRate == null ? null : Math.round(p.savingsRate * 1000) / 10 }))}>
+                <LineChart data={series.map((p) => ({ name: formatMonthShort(p.month, uiLocale), rate: p.savingsRate == null ? null : Math.round(p.savingsRate * 1000) / 10 }))}>
                   <CartesianGrid vertical={false} stroke={SERIES.grid} />
                   <XAxis dataKey="name" {...chart.axis} />
                   <YAxis {...chart.axis} tickFormatter={(v) => `${v} %`} width={52} />
                   <ReferenceLine y={0} stroke={SERIES.muted} strokeOpacity={0.4} />
-                  <RTooltip content={<ChartTooltip valueFormatter={(v) => `${v.toLocaleString(settings.locale)} %`} />} />
-                  <Line type="monotone" dataKey="rate" name="Taux d’épargne" stroke={SERIES.violet} strokeWidth={2.5} dot={{ r: 3, fill: SERIES.violet }} connectNulls={false} isAnimationActive={chart.animate} animationDuration={chart.duration} />
+                  <RTooltip content={<ChartTooltip valueFormatter={(v) => fmt.percent(v / 100)} />} />
+                  <Line type="monotone" dataKey="rate" name={t('dash.kpi.rate')} stroke={SERIES.violet} strokeWidth={2.5} dot={{ r: 3, fill: SERIES.violet }} connectNulls={false} isAnimationActive={chart.animate} animationDuration={chart.duration} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <NoData height={208}>Taux non calculable : aucun revenu sur la période.</NoData>
+            <NoData height={208}>{t('dash.rateNotComputable')}</NoData>
           )}
         </Card>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-3">
         {/* Comparaison mois */}
-        <Card delay={200} className="xl:col-span-2" title="Mois actuel vs mois précédent" subtitle={`${fmt.month(month)} comparé à ${fmt.month(md.prevMonth)} (mois complets)`} info="Dépenses par catégorie sur les deux mois calendaires. Pour le mois en cours, la comparaison porte sur un mois incomplet.">
+        <Card delay={200} className="xl:col-span-2" title={t('dash.compare')} subtitle={t('dash.compareSubtitle', { month: fmt.month(month), previous: fmt.month(md.prevMonth) })} info={t('dash.compareInfo')}>
           {comparison.length ? (
             <div className="h-60">
               <ResponsiveContainer>
@@ -334,12 +329,12 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <NoData height={240}>Aucune dépense sur ces deux mois.</NoData>
+            <NoData height={240}>{t('dash.noExpensesTwoMonths')}</NoData>
           )}
         </Card>
 
         {/* Objectifs */}
-        <Card delay={220} title="Objectifs d’épargne" info="Progression = montant constitué ÷ montant cible (affichage plafonné à 100 %). Les objectifs sont des affectations, pas des actifs supplémentaires." actions={<Link to="/goals" className="text-xs text-cyan hover:underline">Tout voir</Link>}>
+        <Card delay={220} title={t('dash.goals')} info={t('dash.goalsInfo')} actions={<Link to="/goals" className="text-xs text-cyan hover:underline">{t('common.seeAll')}</Link>}>
           {goals.length ? (
             <ul className="space-y-3">
               {goals.map((g) => {
@@ -355,29 +350,29 @@ export default function Dashboard() {
                         {fmt.money(p.saved)} / {fmt.money(g.targetAmount)}
                       </div>
                     </div>
-                    {p.state === 'achieved' ? <Badge tone="positive">Atteint</Badge> : p.state === 'behind' || p.state === 'overdue' ? <Badge tone="warning">En retard</Badge> : p.state === 'on_track' ? <Badge tone="cyan">En bonne voie</Badge> : null}
+                    {p.state === 'achieved' ? <Badge tone="positive">{t('goal.badge.achieved')}</Badge> : p.state === 'behind' || p.state === 'overdue' ? <Badge tone="warning">{t('goal.badge.behind')}</Badge> : p.state === 'on_track' ? <Badge tone="cyan">{t('goal.badge.onTrack')}</Badge> : null}
                   </li>
                 );
               })}
             </ul>
           ) : (
-            <EmptyState icon={<Target className="h-5 w-5" />} title="Aucun objectif" description="Fixez un objectif pour suivre votre progression." action={<Link to="/goals"><Button size="sm" variant="outline">Créer un objectif</Button></Link>} />
+            <EmptyState icon={<Target className="h-5 w-5" />} title={t('dash.noGoals')} description={t('dash.noGoalsHint')} action={<Link to="/goals"><Button size="sm" variant="outline">{t('dash.createGoal')}</Button></Link>} />
           )}
         </Card>
       </div>
 
       {/* Activité récente */}
-      <Card delay={240} title="Activité récente" actions={<><Button size="sm" variant="ghost" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => openForm()}>Ajouter</Button><Link to="/transactions" className="inline-flex items-center text-xs text-cyan hover:underline">Tout voir <ChevronRight className="h-3.5 w-3.5" /></Link></>}>
+      <Card delay={240} title={t('dash.recent')} actions={<><Button size="sm" variant="ghost" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => openForm()}>{t('common.add')}</Button><Link to="/transactions" className="inline-flex items-center text-xs text-cyan hover:underline">{t('common.seeAll')} <ChevronRight className="h-3.5 w-3.5 rtl:-scale-x-100" /></Link></>}>
         {recent.length ? (
           <div className="-mx-2 divide-y divide-line/5">
             {recent.map((t) => <TransactionRow key={t.id} t={t} onOpen={() => openForm({ mode: 'edit', id: t.id })} />)}
           </div>
         ) : (
-          <EmptyState title="Aucune opération" description="Ajoutez votre première dépense en quelques secondes (raccourci : touche N)." action={<Button variant="primary" onClick={() => openForm()}>Ajouter une transaction</Button>} />
+          <EmptyState title={t('dash.noTx')} description={t('dash.noTxHint')} action={<Button variant="primary" onClick={() => openForm()}>{t('shell.addTransaction')}</Button>} />
         )}
       </Card>
       {month !== monthKey(today) && (
-        <p className="text-center text-xs text-muted">Vous consultez {fmt.month(month)}. Cliquez sur le mois en haut de l’écran pour revenir au mois en cours.</p>
+        <p className="text-center text-xs text-muted">{t('dash.viewing', { month: fmt.month(month) })}</p>
       )}
     </div>
   );

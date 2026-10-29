@@ -17,6 +17,8 @@ import type { ISODate, MonthKey } from '@/domain/dates';
 import { formatDate, formatMonth, monthKey, todayISO } from '@/domain/dates';
 import type { CurrencyCode } from '@/domain/money';
 import { formatMoney, formatPercent } from '@/domain/money';
+import { displayCategoryName } from '@/domain/categories.seed';
+import { getLang } from '@/i18n/core';
 
 export interface Formatters {
   money: (minor: number, currency?: CurrencyCode, opts?: { sign?: boolean; compact?: boolean; force?: boolean }) => string;
@@ -36,11 +38,19 @@ interface AppState {
   month: MonthKey;
   setMonth: (m: MonthKey) => void;
   fmt: Formatters;
+  /** Locale de l'interface (noms des mois et des jours), distincte des formats numériques. */
+  uiLocale: string;
 }
 
 const AppCtx = createContext<AppState | null>(null);
 
 export const MASK = '••••••';
+
+export function uiLocaleFor(settings: Pick<UserSettings, 'locale'>): string {
+  const region = settings.locale.split('-')[1];
+  const lang = getLang();
+  return region ? `${lang}-${region}` : lang;
+}
 
 export function makeFormatters(settings: UserSettings): Formatters {
   const hidden = settings.privacyMode;
@@ -57,7 +67,7 @@ export function makeFormatters(settings: UserSettings): Formatters {
     },
     percent: (ratio, digits = 1) => formatPercent(ratio, settings.locale, digits),
     date: (d) => formatDate(d, settings.dateFormat),
-    month: (m) => formatMonth(m, settings.locale),
+    month: (m) => formatMonth(m, uiLocaleFor(settings)),
   };
 }
 
@@ -76,7 +86,9 @@ function useToday(timeZone: string): ISODate {
   return today;
 }
 
-export function AppProvider({ repo, data, children }: { repo: LocalRepository; data: DataSnapshot; children: ReactNode }) {
+export function AppProvider({ repo, data: rawData, children }: { repo: LocalRepository; data: DataSnapshot; children: ReactNode }) {
+  // Catégories initiales affichées dans la langue active (sauf si renommées).
+  const data = useMemo(() => ({ ...rawData, categories: rawData.categories.map((c) => ({ ...c, name: displayCategoryName(c) })) }), [rawData]);
   const settings = data.settings;
   const today = useToday(settings.timeZone);
   const [month, setMonthState] = useState<MonthKey>(() => {
@@ -100,16 +112,16 @@ export function AppProvider({ repo, data, children }: { repo: LocalRepository; d
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('dark', settings.theme === 'dark');
-    root.lang = settings.language;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', settings.theme === 'dark' ? '#080D1A' : '#F3F6FC');
     try {
       localStorage.setItem('nexora.theme', settings.theme);
     } catch {
       /* ignore */
     }
-  }, [settings.theme, settings.language]);
+  }, [settings.theme]);
 
-  const value = useMemo<AppState>(() => ({ repo, data, settings, ctx, today, month, setMonth, fmt }), [repo, data, settings, ctx, today, month, setMonth, fmt]);
+  const uiLocale = uiLocaleFor(settings);
+  const value = useMemo<AppState>(() => ({ repo, data, settings, ctx, today, month, setMonth, fmt, uiLocale }), [repo, data, settings, ctx, today, month, setMonth, fmt, uiLocale]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }
 

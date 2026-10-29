@@ -18,6 +18,7 @@ import { TRANSACTION_TYPE_LABELS } from '@/domain/types';
 import { summarizePeriod, topCategoryId } from '@/domain/calc/ledger';
 import { monthEnd, monthStart, addMonthsToKey, monthKey, formatLongDate } from '@/domain/dates';
 import { normalizeLabel } from '@/domain/duplicates';
+import { t as tr } from '@/i18n/core';
 
 interface Filters {
   q: string;
@@ -35,7 +36,7 @@ interface Filters {
 const PAGE = 50;
 
 export default function Transactions() {
-  const { data, ctx, fmt, today, month, repo, settings } = useApp();
+  const { data, ctx, fmt, today, month, repo, settings, uiLocale } = useApp();
   const openForm = useTransactionForm();
   const confirm = useConfirm();
   const toast = useToast();
@@ -122,12 +123,12 @@ export default function Transactions() {
     });
 
   async function bulkDelete() {
-    const ok = await confirm({ title: `Supprimer ${selected.size} opération(s) ?`, message: 'Les transferts sélectionnés seront supprimés avec leur contrepartie. Les soldes seront recalculés. Cette action est définitive.', confirmLabel: 'Supprimer' });
+    const ok = await confirm({ title: tr('tx.bulkDelete.title', { count: selected.size }), message: tr('tx.bulkDelete.message'), confirmLabel: tr('common.delete') });
     if (!ok) return;
     try {
       const n = await repo.deleteTransactions([...selected]);
       setSelected(new Set());
-      toast.success(`${n} mouvement(s) supprimé(s).`);
+      toast.success(tr('tx.bulkDeleted', { count: n }));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -137,7 +138,7 @@ export default function Transactions() {
     if (!recatTarget) return;
     try {
       await repo.recategorize([...selected], recatTarget);
-      toast.success('Catégorie mise à jour (opérations compatibles uniquement).');
+      toast.success(tr('tx.recategorized'));
       setSelected(new Set());
       setRecatOpen(false);
     } catch (e) {
@@ -146,8 +147,8 @@ export default function Transactions() {
   }
 
   function exportCSV() {
-    download(`nexora-transactions-${range.start === '1900-01-01' ? 'tout' : range.start + '_' + range.end}.csv`, transactionsCSV(filtered, ctx.categories, ctx.accounts));
-    toast.success(`${filtered.length} opération(s) exportée(s) (filtres appliqués).`);
+    download(`nexora-transactions-${range.start === '1900-01-01' ? tr('tx.exportAll') : range.start + '_' + range.end}.csv`, transactionsCSV(filtered, ctx.categories, ctx.accounts));
+    toast.success(tr('tx.exported', { count: filtered.length }));
   }
 
   const topCats = data.categories.filter((c) => !c.parentId && c.kind !== 'savings');
@@ -155,14 +156,14 @@ export default function Transactions() {
   return (
     <div>
       <PageHeader
-        eyebrow="Pilotage"
-        title="Transactions"
-        description="Toutes vos opérations, avec recherche, filtres et export."
+        eyebrow={tr('navGroup.pilotage')}
+        title={tr('nav.transactions')}
+        description={tr('tx.description')}
         actions={
           <>
-            <Link to="/import"><Button variant="outline" icon={<FileUp className="h-4 w-4" />}>Importer</Button></Link>
-            <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={exportCSV} disabled={!filtered.length}>Exporter CSV</Button>
-            <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openForm()}>Ajouter</Button>
+            <Link to="/import"><Button variant="outline" icon={<FileUp className="h-4 w-4" />}>{tr('common.import')}</Button></Link>
+            <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={exportCSV} disabled={!filtered.length}>{tr('common.exportCsv')}</Button>
+            <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openForm()}>{tr('common.add')}</Button>
           </>
         }
       />
@@ -171,69 +172,69 @@ export default function Transactions() {
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input value={f.q} onChange={(e) => set('q', e.target.value)} placeholder="Rechercher un libellé, un commerçant, une étiquette…" className="pl-9" aria-label="Recherche" />
+            <Input value={f.q} onChange={(e) => set('q', e.target.value)} placeholder={tr('tx.search')} className="pl-9" aria-label={tr('common.searchLabel')} />
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 lg:flex">
-            <Select value={f.period} onChange={(e) => set('period', e.target.value as Filters['period'])} aria-label="Période" className="lg:min-w-[150px]">
+            <Select value={f.period} onChange={(e) => set('period', e.target.value as Filters['period'])} aria-label={tr('common.period')} className="lg:min-w-[150px]">
               <option value="month">{fmt.month(month)}</option>
               <option value="prev">{fmt.month(addMonthsToKey(month, -1))}</option>
-              <option value="3m">3 derniers mois</option>
-              <option value="year">Année {today.slice(0, 4)}</option>
-              <option value="all">Tout l’historique</option>
-              <option value="custom">Personnalisée…</option>
+              <option value="3m">{tr('tx.last3m')}</option>
+              <option value="year">{tr('tx.year', { year: today.slice(0, 4) })}</option>
+              <option value="all">{tr('tx.allHistory')}</option>
+              <option value="custom">{tr('tx.custom')}</option>
             </Select>
-            <Select value={f.sort} onChange={(e) => set('sort', e.target.value as Filters['sort'])} aria-label="Tri" className="lg:min-w-[150px]">
-              <option value="date_desc">Plus récentes</option>
-              <option value="date_asc">Plus anciennes</option>
-              <option value="amount_desc">Montant décroissant</option>
-              <option value="amount_asc">Montant croissant</option>
+            <Select value={f.sort} onChange={(e) => set('sort', e.target.value as Filters['sort'])} aria-label={tr('common.sort')} className="lg:min-w-[150px]">
+              <option value="date_desc">{tr('tx.sort.newest')}</option>
+              <option value="date_asc">{tr('tx.sort.oldest')}</option>
+              <option value="amount_desc">{tr('tx.sort.amountDesc')}</option>
+              <option value="amount_asc">{tr('tx.sort.amountAsc')}</option>
             </Select>
             <Button variant={showFilters || activeFilters ? 'secondary' : 'outline'} icon={<Filter className="h-4 w-4" />} onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters}>
-              <span className="hidden sm:inline">Filtres</span>
+              <span className="hidden sm:inline">{tr('common.filters')}</span>
               {activeFilters > 0 && <Badge tone="primary">{activeFilters}</Badge>}
             </Button>
           </div>
         </div>
         {f.period === 'custom' && (
           <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-md">
-            <Input type="date" value={f.from} onChange={(e) => set('from', e.target.value)} aria-label="Du" />
-            <Input type="date" value={f.to} onChange={(e) => set('to', e.target.value)} aria-label="Au" />
+            <Input type="date" value={f.from} onChange={(e) => set('from', e.target.value)} aria-label={tr('common.from')} />
+            <Input type="date" value={f.to} onChange={(e) => set('to', e.target.value)} aria-label={tr('common.to')} />
           </div>
         )}
         {showFilters && (
           <div className="mt-3 grid grid-cols-2 gap-2 animate-fade-in md:grid-cols-5">
-            <Field label="Catégorie">
+            <Field label={tr('common.category')}>
               <Select value={f.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
-                <option value="">Toutes</option>
+                <option value="">{tr('common.allF')}</option>
                 {topCats.map((c) => (
                   <optgroup key={c.id} label={c.name}>
-                    <option value={c.id}>{c.name} (toutes)</option>
+                    <option value={c.id}>{tr('tx.allSub', { name: c.name })}</option>
                     {data.categories.filter((s) => s.parentId === c.id).map((s) => <option key={s.id} value={s.id}>↳ {s.name}</option>)}
                   </optgroup>
                 ))}
               </Select>
             </Field>
-            <Field label="Compte">
+            <Field label={tr('common.account')}>
               <Select value={f.accountId} onChange={(e) => set('accountId', e.target.value)}>
-                <option value="">Tous</option>
-                {data.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (archivé)' : ''}</option>)}
+                <option value="">{tr('common.allM')}</option>
+                {data.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.archived ? tr('common.archivedM') : ''}</option>)}
               </Select>
             </Field>
-            <Field label="Type">
+            <Field label={tr('common.type')}>
               <Select value={f.type} onChange={(e) => set('type', e.target.value as Filters['type'])}>
-                <option value="">Tous</option>
+                <option value="">{tr('common.allM')}</option>
                 {Object.entries(TRANSACTION_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </Select>
             </Field>
-            <Field label="Montant min.">
+            <Field label={tr('tx.minAmount')}>
               <MoneyInput value={f.min} onChange={(v) => set('min', v)} currency={settings.baseCurrency} />
             </Field>
-            <Field label="Montant max.">
+            <Field label={tr('tx.maxAmount')}>
               <MoneyInput value={f.max} onChange={(v) => set('max', v)} currency={settings.baseCurrency} />
             </Field>
             {activeFilters > 0 && (
               <Button variant="ghost" size="sm" className="col-span-2 justify-self-start md:col-span-5" icon={<X className="h-3.5 w-3.5" />} onClick={() => setF((p) => ({ ...p, categoryId: '', accountId: '', type: '', min: null, max: null }))}>
-                Réinitialiser les filtres
+                {tr('tx.resetFilters')}
               </Button>
             )}
           </div>
@@ -241,17 +242,17 @@ export default function Transactions() {
       </Card>
 
       <div className="mb-3 grid grid-cols-3 gap-2 text-center sm:flex sm:gap-6 sm:text-left">
-        <div><div className="label">Opérations</div><div className="num font-semibold">{filtered.length}</div></div>
-        <div><div className="label">Revenus</div><div className="num font-semibold text-positive">{fmt.money(totals.income)}</div></div>
-        <div><div className="label">Dépenses</div><div className="num font-semibold">{fmt.money(totals.expenses)}</div></div>
+        <div><div className="label">{tr('tx.operations')}</div><div className="num font-semibold">{filtered.length}</div></div>
+        <div><div className="label">{tr('common.income')}</div><div className="num font-semibold text-positive">{fmt.money(totals.income)}</div></div>
+        <div><div className="label">{tr('common.expenses')}</div><div className="num font-semibold">{fmt.money(totals.expenses)}</div></div>
       </div>
 
       {selected.size > 0 && (
         <div className="sticky top-[72px] z-10 mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-primary/30 bg-surface/95 p-2.5 shadow-lg backdrop-blur animate-fade-in">
-          <span className="px-2 text-sm font-medium">{selected.size} sélectionnée(s)</span>
-          <Button size="sm" variant="outline" icon={<Tags className="h-3.5 w-3.5" />} onClick={() => setRecatOpen(true)}>Changer la catégorie</Button>
-          <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={bulkDelete}>Supprimer</Button>
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setSelected(new Set())}>Annuler</Button>
+          <span className="px-2 text-sm font-medium">{tr('tx.selectedCount', { count: selected.size })}</span>
+          <Button size="sm" variant="outline" icon={<Tags className="h-3.5 w-3.5" />} onClick={() => setRecatOpen(true)}>{tr('tx.changeCategory')}</Button>
+          <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={bulkDelete}>{tr('common.delete')}</Button>
+          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setSelected(new Set())}>{tr('common.cancel')}</Button>
         </div>
       )}
 
@@ -259,9 +260,9 @@ export default function Transactions() {
         {filtered.length === 0 ? (
           <EmptyState
             icon={<Inbox className="h-5 w-5" />}
-            title={data.transactions.length ? 'Aucune opération ne correspond' : 'Aucune opération'}
-            description={data.transactions.length ? 'Modifiez la recherche, la période ou les filtres.' : 'Ajoutez une opération ou importez un relevé CSV.'}
-            action={<Button variant="primary" onClick={() => openForm()}>Ajouter une opération</Button>}
+            title={data.transactions.length ? tr('tx.noMatch') : tr('dash.noTx')}
+            description={data.transactions.length ? tr('tx.noMatchHint') : tr('tx.emptyHint')}
+            action={<Button variant="primary" onClick={() => openForm()}>{tr('tx.addOperation')}</Button>}
             className="m-2"
           />
         ) : (
@@ -274,13 +275,13 @@ export default function Transactions() {
                   checked={shown.length > 0 && shown.every((t) => selected.has(t.id))}
                   onChange={(e) => setSelected(e.target.checked ? new Set(shown.map((t) => t.id)) : new Set())}
                 />
-                Tout sélectionner (affichées)
+                {tr('tx.selectAll')}
               </label>
               <span className="flex items-center gap-1"><ArrowDownUp className="h-3 w-3" /> {shown.length} / {filtered.length}</span>
             </div>
             {groups.map((g) => (
               <div key={g.date || 'all'}>
-                {g.date && <div className="sticky top-16 z-[5] bg-surface/90 px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted backdrop-blur">{formatLongDate(g.date, settings.locale)}</div>}
+                {g.date && <div className="sticky top-16 z-[5] bg-surface/90 px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted backdrop-blur">{formatLongDate(g.date, uiLocale)}</div>}
                 <div className="divide-y divide-line/5">
                   {g.items.map((t) => (
                     <TransactionRow key={t.id} t={t} selected={selected.has(t.id)} onSelect={(v) => toggle(t.id, v)} onOpen={() => openForm({ mode: 'edit', id: t.id })} />
@@ -290,22 +291,22 @@ export default function Transactions() {
             ))}
             {limit < filtered.length && (
               <div className="flex justify-center p-3">
-                <Button variant="outline" onClick={() => setLimit((l) => l + PAGE)}>Charger {Math.min(PAGE, filtered.length - limit)} de plus</Button>
+                <Button variant="outline" onClick={() => setLimit((l) => l + PAGE)}>{tr('tx.loadMore', { count: Math.min(PAGE, filtered.length - limit) })}</Button>
               </div>
             )}
           </>
         )}
       </Card>
 
-      <Dialog open={recatOpen} onOpenChange={setRecatOpen} title="Changer la catégorie" size="sm" footer={<><Button variant="ghost" onClick={() => setRecatOpen(false)}>Annuler</Button><Button variant="primary" onClick={bulkRecategorize} disabled={!recatTarget}>Appliquer</Button></>}>
-        <Field label="Nouvelle catégorie" hint="Seules les opérations compatibles (dépense ↔ catégorie de dépense, revenu ↔ catégorie de revenu) seront modifiées.">
+      <Dialog open={recatOpen} onOpenChange={setRecatOpen} title={tr('tx.changeCategory')} size="sm" footer={<><Button variant="ghost" onClick={() => setRecatOpen(false)}>{tr('common.cancel')}</Button><Button variant="primary" onClick={bulkRecategorize} disabled={!recatTarget}>{tr('common.apply')}</Button></>}>
+        <Field label={tr('tx.newCategory')} hint={tr('tx.recatHint')}>
           <Select value={recatTarget} onChange={(e) => setRecatTarget(e.target.value)}>
-            <option value="">Choisir…</option>
+            <option value="">{tr('common.choose')}</option>
             {data.categories.filter((c) => !c.archived && c.kind !== 'savings').map((c) => <option key={c.id} value={c.id}>{c.parentId ? '↳ ' : ''}{c.name}</option>)}
           </Select>
         </Field>
       </Dialog>
-      <p className={cn('mt-4 text-center text-xs text-muted', !filtered.length && 'hidden')}>Astuce : touche <kbd className="rounded border border-line/30 px-1">N</kbd> pour ajouter une opération.</p>
+      <p className={cn('mt-4 text-center text-xs text-muted', !filtered.length && 'hidden')}>{tr('tx.tip.before')} <kbd className="rounded border border-line/30 px-1">N</kbd> {tr('tx.tip.after')}</p>
     </div>
   );
 }

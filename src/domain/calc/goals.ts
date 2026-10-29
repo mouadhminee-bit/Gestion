@@ -12,6 +12,7 @@
 import type { ISODate } from '../dates';
 import { addMonths, monthsBetweenCeil } from '../dates';
 import type { SavingsGoal } from '../types';
+import { lazyLabels } from '@/i18n/labels';
 
 export type GoalState = 'achieved' | 'overdue' | 'on_track' | 'behind' | 'no_deadline' | 'no_plan';
 
@@ -67,11 +68,4 @@ export function computeGoalProgress(goal: SavingsGoal, today: ISODate, linkedAcc
   return { saved, remaining, progress, progressCapped, monthsLeft, requiredMonthly, contributionGap, projectedDate, state };
 }
 
-export const GOAL_STATE_LABELS: Record<GoalState, string> = {
-  achieved: 'Objectif atteint',
-  overdue: 'Date cible dépassée',
-  on_track: 'En bonne voie',
-  behind: 'En retard sur le rythme',
-  no_deadline: 'Sans date cible',
-  no_plan: 'Contribution non définie',
-};
+export const GOAL_STATE_LABELS: Record<GoalState, string> = lazyLabels('goalState', ['achieved', 'overdue', 'on_track', 'behind', 'no_deadline', 'no_plan']);
