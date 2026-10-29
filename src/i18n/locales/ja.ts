@@ -214,7 +214,7 @@ const ja: Messages = {
   'ins.none.title': "現時点で特記事項はありません",
   'ins.none.message': "比較には、各期間・各カテゴリで少なくとも 2 件の取引が必要です。",
   'ins.none.source': "インサイトエンジン：比較可能なデータで発動したルールはありません。",
-  'assist.q.categorySpending': "今月レストランにいくら使いましたか？",
+  'assist.q.categorySpending': "今月、外食にいくら使いましたか？",
   'assist.q.budgetOver': "最も予算を超えているカテゴリはどれですか？",
   'assist.q.savingsCapacity': "今月、無理なくいくら貯められますか？",
   'assist.q.trend': "過去3か月で支出はどう推移しましたか？",

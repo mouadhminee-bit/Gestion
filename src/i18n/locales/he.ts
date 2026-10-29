@@ -234,7 +234,7 @@ const he: Messages = {
   'assist.kw.trend': "מגמה|התפתח|השתנו|שלושת החודשים|שלושה חודשים|3 חודשים",
   'assist.kw.balance': "יתרה|היתרה",
   'assist.kw.end': "סוף|משוער|הערכה|תחזית|צפוי",
-  'assist.kw.netWorth': "שווי נקי|הון נקי",
+  'assist.kw.netWorth': "שווי נקי|השווי הנקי|הון נקי|ההון הנקי",
   'assist.kw.income': "הכנסה|הכנסות|משכורת|שכר|שיעור חיסכון",
   'assist.kw.lastMonth': "חודש שעבר|בחודש הקודם|החודש הקודם",
   'assist.kw.thisYear': "השנה|בשנה הנוכחית",

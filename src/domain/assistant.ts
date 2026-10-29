@@ -101,10 +101,16 @@ function kw(group: KwGroup): string[] {
   if (enMessages) sources.push(String(enMessages[key] ?? ''));
   const out = new Set<string>();
   for (const s of sources) for (const w of s.split('|')) {
-    const n = normalizeLabel(w);
+    const n = norm(w);
     if (n) out.add(n);
   }
   return [...out];
+}
+
+/** Lettres que NFD ne décompose pas (ł, ı, đ, ø…) : repliées pour comparer questions et mots-clés. */
+const FOLD: Record<string, string> = { ł: 'l', ı: 'i', đ: 'd', ø: 'o', æ: 'ae', œ: 'oe', ß: 'ss', ð: 'd', þ: 'th', ħ: 'h' };
+function norm(s: string): string {
+  return normalizeLabel(s).replace(/[łıđøæœßðþħ]/g, (c) => FOLD[c]);
 }
 
 function has(q: string, group: KwGroup): boolean {
@@ -122,7 +128,7 @@ function findCategory(ctx: LedgerContext, q: string): { id: ID; name: string } |
   const generic = new Set(kw('generic'));
   for (const c of ctx.categories.values()) {
     if (c.archived) continue;
-    const n = normalizeLabel(c.name);
+    const n = norm(c.name);
     if (!n) continue;
     let score = 0;
     if (q.includes(n)) score = 100 + n.length; // nom complet présent dans la question
@@ -131,6 +137,15 @@ function findCategory(ctx: LedgerContext, q: string): { id: ID; name: string } |
         if (w.length < 4 || generic.has(w)) continue;
         const stem = w.replace(/s$/, '');
         if (qWords.has(w) || qWords.has(stem) || qWords.has(stem + 's')) score = Math.max(score, 10 + w.length);
+        else if (w.length >= 6) {
+          // Langues à déclinaisons : « rozrywkę » ↔ « rozrywka » (seule la terminaison diffère).
+          for (const qw of qWords) {
+            const min = Math.min(w.length, qw.length);
+            let cp = 0;
+            while (cp < min && w[cp] === qw[cp]) cp++;
+            if (cp >= Math.max(5, min - 2)) score = Math.max(score, 5 + cp);
+          }
+        }
       }
     }
     if (score > 0 && (!best || score > best.score)) best = { id: c.id, name: c.name, score };
@@ -141,9 +156,10 @@ function findCategory(ctx: LedgerContext, q: string): { id: ID; name: string } |
 /** Détecte l'intention et ses paramètres à partir d'une question libre. */
 export function detectIntent(question: string, ctx: LedgerContext): { intent: Intent; params: IntentParams } {
   const raw = asciiDigits(question);
-  const q = normalizeLabel(raw);
+  const q = norm(raw);
   const period: IntentParams['period'] = has(q, 'lastMonth') ? 'last_month' : has(q, 'thisYear') ? 'this_year' : 'this_month';
-  const pctMatch = /(\d+(?:[.,]\d+)?)\s*(%|٪)/.exec(raw) ?? (has(q, 'percent') ? /(\d+(?:[.,]\d+)?)/.exec(raw) : null);
+  // « 15 % », « 15٪ » ou, en turc, « %15 ».
+  const pctMatch = /(\d+(?:[.,]\d+)?)\s*(?:%|٪)/.exec(raw) ?? /(?:%|٪)\s*(\d+(?:[.,]\d+)?)/.exec(raw) ?? (has(q, 'percent') ? /(\d+(?:[.,]\d+)?)/.exec(raw) : null);
   const cat = findCategory(ctx, q);
   if (pctMatch && has(q, 'reduce')) return { intent: 'what_if', params: { pct: Number(pctMatch[1].replace(',', '.')), categoryId: cat?.id } };
   if (cat && has(q, 'spent') && !has(q, 'trend') && !has(q, 'recurring') && !has(q, 'budget') && !has(q, 'savings') && !has(q, 'balance')) {

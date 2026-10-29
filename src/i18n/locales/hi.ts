@@ -225,7 +225,7 @@ const hi: Messages = {
   'assist.q.netWorth': "मेरी कुल शुद्ध संपत्ति कितनी है?",
   'assist.kw.reduce': "कम कर|घटा|कटौती|अगर मैं|reduce|kam kar",
   'assist.kw.spent': "खर्च किया|खर्च कि|कितना|भुगतान|kharch|kitna",
-  'assist.kw.recurring': "आवर्ती|सदस्यता|सब्सक्रिप्शन|निश्चित|बिल|किस्त|emi",
+  'assist.kw.recurring': "आवर्ती|सदस्यता|सब्सक्रिप्शन|निश्चित|किस्त|emi",
   'assist.kw.budget': "बजट|budget",
   'assist.kw.over': "सबसे ज़्यादा|सबसे ज्यादा|ऊपर|पार|अधिक",
   'assist.kw.savings': "बचत|बचा|bachat",

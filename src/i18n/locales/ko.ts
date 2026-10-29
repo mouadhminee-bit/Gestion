@@ -214,7 +214,7 @@ const ko: Messages = {
   'ins.none.title': "현재 특이사항 없음",
   'ins.none.message': "비교하려면 각 기간에 카테고리별로 거래가 최소 2건 있어야 합니다.",
   'ins.none.source': "인사이트 엔진: 비교 가능한 데이터로 실행된 규칙이 없습니다.",
-  'assist.q.categorySpending': "이번 달 식당에 얼마를 썼나요?",
+  'assist.q.categorySpending': "이번 달 외식에 얼마를 썼나요?",
   'assist.q.budgetOver': "예산을 가장 많이 초과한 카테고리는 무엇인가요?",
   'assist.q.savingsCapacity': "이번 달 무리 없이 얼마를 모을 수 있나요?",
   'assist.q.trend': "지난 3개월 동안 지출은 어떻게 변했나요?",
