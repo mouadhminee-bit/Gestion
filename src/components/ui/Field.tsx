@@ -10,7 +10,7 @@ export function Field({ label, error, hint, children, className, htmlFor, requir
       {label && (
         <label htmlFor={htmlFor} className="text-xs font-medium text-muted">
           {label}
-          {required && <span className="ml-0.5 text-negative" aria-hidden>*</span>}
+          {required && <span className="ms-0.5 text-negative" aria-hidden>*</span>}
         </label>
       )}
       {children}
@@ -36,10 +36,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }>(function Select({ className, invalid, children, ...rest }, ref) {
   return (
     <div className="relative">
-      <select ref={ref} className={cn('input appearance-none pr-9', invalid && 'input-error', className)} aria-invalid={invalid || undefined} {...rest}>
+      <select ref={ref} className={cn('input appearance-none pe-9', invalid && 'input-error', className)} aria-invalid={invalid || undefined} {...rest}>
         {children}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
+      <ChevronDown className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
     </div>
   );
 });
@@ -79,7 +79,7 @@ export function MoneyInput({
         inputMode="decimal"
         autoComplete="off"
         className={cn(
-          'input num pr-14',
+          'input num pe-14',
           size === 'xl' && 'h-16 rounded-2xl text-3xl font-semibold display',
           invalid && 'input-error',
         )}
@@ -95,7 +95,7 @@ export function MoneyInput({
         onBlur={() => setText(toText(value))}
         {...rest}
       />
-      <span className={cn('pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted', size === 'xl' && 'text-lg')}>{symbol}</span>
+      <span className={cn('pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted', size === 'xl' && 'text-lg')}>{symbol}</span>
     </div>
   );
 }
@@ -117,7 +117,7 @@ export function Switch({ checked, onChange, label, description, id }: { checked:
         onClick={() => onChange(!checked)}
         className={cn('relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition', checked ? 'bg-primary' : 'bg-surface-3 border border-line/20')}
       >
-        <span className={cn('absolute top-1/2 h-4.5 w-4.5 -translate-y-1/2 rounded-full bg-white shadow transition-all', checked ? 'left-[22px]' : 'left-[3px]')} style={{ width: 18, height: 18 }} />
+        <span className={cn('absolute top-1/2 h-4.5 w-4.5 -translate-y-1/2 rounded-full bg-white shadow transition-all', checked ? 'start-[22px]' : 'start-[3px]')} style={{ width: 18, height: 18 }} />
       </button>
     </div>
   );

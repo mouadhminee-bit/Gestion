@@ -59,7 +59,7 @@ export default function Report() {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="no-print mb-4 flex items-center justify-between">
-        <Link to="/analytics"><Button variant="ghost" icon={<ArrowLeft className="h-4 w-4" />}>{t('common.back')}</Button></Link>
+        <Link to="/analytics"><Button variant="ghost" icon={<ArrowLeft className="h-4 w-4 rtl:-scale-x-100" />}>{t('common.back')}</Button></Link>
         <Button variant="primary" icon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>{t('rep.print')}</Button>
       </div>
 
@@ -91,10 +91,10 @@ export default function Report() {
         <p className="mt-3 text-xs text-muted">{t('rep.summaryDetail', { fixed: fmt.money(s.fixedExpenses), variable: fmt.money(s.variableExpenses), refunds: fmt.money(s.refunds), transfers: fmt.money(s.transfers) })}</p>
         {months.length > 1 && (
           <table className="mt-4 w-full text-xs">
-            <thead><tr className="text-left text-muted"><th className="py-1">{t('rep.col.month')}</th><th className="text-right">{t('common.income')}</th><th className="text-right">{t('common.expenses')}</th><th className="text-right">{t('rep.col.savings')}</th><th className="text-right">{t('rep.col.rate')}</th></tr></thead>
+            <thead><tr className="text-start text-muted"><th className="py-1">{t('rep.col.month')}</th><th className="text-end">{t('common.income')}</th><th className="text-end">{t('common.expenses')}</th><th className="text-end">{t('rep.col.savings')}</th><th className="text-end">{t('rep.col.rate')}</th></tr></thead>
             <tbody className="divide-y divide-line/10">
               {series.map((p) => (
-                <tr key={p.month}><td className="py-1">{formatMonthShort(p.month, uiLocale)} {p.month.slice(0, 4)}</td><td className="text-right num">{fmt.money(p.income)}</td><td className="text-right num">{fmt.money(p.expenses)}</td><td className="text-right num">{fmt.money(p.netSavings)}</td><td className="text-right num">{fmt.percent(p.savingsRate, 0)}</td></tr>
+                <tr key={p.month}><td className="py-1">{formatMonthShort(p.month, uiLocale)} {p.month.slice(0, 4)}</td><td className="text-end num">{fmt.money(p.income)}</td><td className="text-end num">{fmt.money(p.expenses)}</td><td className="text-end num">{fmt.money(p.netSavings)}</td><td className="text-end num">{fmt.percent(p.savingsRate, 0)}</td></tr>
               ))}
             </tbody>
           </table>
@@ -104,14 +104,14 @@ export default function Report() {
       <Section title={t('an.byCategory')}>
         {cats.length ? (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-muted"><th className="py-1">{t('common.category')}</th><th className="text-right">{t('common.amount')}</th><th className="text-right">{t('rep.col.share')}</th><th className="text-right">{t('rep.col.prev')}</th></tr></thead>
+            <thead><tr className="text-start text-xs text-muted"><th className="py-1">{t('common.category')}</th><th className="text-end">{t('common.amount')}</th><th className="text-end">{t('rep.col.share')}</th><th className="text-end">{t('rep.col.prev')}</th></tr></thead>
             <tbody className="divide-y divide-line/10">
               {cats.map((c) => (
                 <tr key={c.categoryId ?? 'none'}>
                   <td className="py-1.5">{c.categoryId ? ctx.categories.get(c.categoryId)?.name : t('common.uncategorized')}</td>
-                  <td className="text-right num">{fmt.money(c.amount)}</td>
-                  <td className="text-right num">{fmt.percent(s.expenses ? c.amount / s.expenses : null, 0)}</td>
-                  <td className="text-right num text-muted">{fmt.money(cmp.previous.expensesByCategory.get(c.categoryId)?.amount ?? 0)}</td>
+                  <td className="text-end num">{fmt.money(c.amount)}</td>
+                  <td className="text-end num">{fmt.percent(s.expenses ? c.amount / s.expenses : null, 0)}</td>
+                  <td className="text-end num text-muted">{fmt.money(cmp.previous.expensesByCategory.get(c.categoryId)?.amount ?? 0)}</td>
                 </tr>
               ))}
             </tbody>
@@ -123,17 +123,17 @@ export default function Report() {
         {hasBudgets ? (
           <>
             <table className="w-full text-sm">
-              <thead><tr className="text-left text-xs text-muted"><th className="py-1">{t('rep.col.month')}</th><th className="text-right">{t('rep.col.budget')}</th><th className="text-right">{t('rep.col.spent')}</th><th className="text-right">{t('rep.col.gap')}</th><th className="text-right">{t('rep.col.over')}</th></tr></thead>
+              <thead><tr className="text-start text-xs text-muted"><th className="py-1">{t('rep.col.month')}</th><th className="text-end">{t('rep.col.budget')}</th><th className="text-end">{t('rep.col.spent')}</th><th className="text-end">{t('rep.col.gap')}</th><th className="text-end">{t('rep.col.over')}</th></tr></thead>
               <tbody className="divide-y divide-line/10">
                 {budgetRows.map(({ m, ov }) => {
                   const spent = ov.reference - (ov.available ?? 0);
                   return (
                     <tr key={m}>
                       <td className="py-1.5">{fmt.month(m)}</td>
-                      <td className="text-right num">{ov.referenceSource === 'none' ? '—' : fmt.money(ov.reference)}</td>
-                      <td className="text-right num">{ov.referenceSource === 'none' ? '—' : fmt.money(spent)}</td>
-                      <td className={cn('text-right num', ov.available != null && ov.available < 0 && 'text-negative')}>{ov.available == null ? '—' : fmt.money(-ov.available, undefined, { sign: true })}</td>
-                      <td className="text-right text-xs">{ov.lines.filter((l) => l.status === 'over').map((l) => l.category?.name).join(', ') || '—'}</td>
+                      <td className="text-end num">{ov.referenceSource === 'none' ? '—' : fmt.money(ov.reference)}</td>
+                      <td className="text-end num">{ov.referenceSource === 'none' ? '—' : fmt.money(spent)}</td>
+                      <td className={cn('text-end num', ov.available != null && ov.available < 0 && 'text-negative')}>{ov.available == null ? '—' : fmt.money(-ov.available, undefined, { sign: true })}</td>
+                      <td className="text-end text-xs">{ov.lines.filter((l) => l.status === 'over').map((l) => l.category?.name).join(', ') || '—'}</td>
                     </tr>
                   );
                 })}
@@ -147,12 +147,12 @@ export default function Report() {
       <Section title={t('rep.goals')}>
         {data.goals.length ? (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-muted"><th className="py-1">{t('rep.col.goal')}</th><th className="text-right">{t('rep.col.saved')}</th><th className="text-right">{t('rep.col.target')}</th><th className="text-right">{t('rep.col.progress')}</th><th className="text-right">{t('rep.col.state')}</th></tr></thead>
+            <thead><tr className="text-start text-xs text-muted"><th className="py-1">{t('rep.col.goal')}</th><th className="text-end">{t('rep.col.saved')}</th><th className="text-end">{t('rep.col.target')}</th><th className="text-end">{t('rep.col.progress')}</th><th className="text-end">{t('rep.col.state')}</th></tr></thead>
             <tbody className="divide-y divide-line/10">
               {data.goals.map((g) => {
                 const p = computeGoalProgress(g, today, g.linkedAccountId ? balances.get(g.linkedAccountId) : undefined);
                 return (
-                  <tr key={g.id}><td className="py-1.5">{g.name}</td><td className="text-right num">{fmt.money(p.saved)}</td><td className="text-right num">{fmt.money(g.targetAmount)}</td><td className="text-right num">{fmt.percent(p.progressCapped, 0)}</td><td className="text-right text-xs">{GOAL_STATE_LABELS[p.state]}</td></tr>
+                  <tr key={g.id}><td className="py-1.5">{g.name}</td><td className="text-end num">{fmt.money(p.saved)}</td><td className="text-end num">{fmt.money(g.targetAmount)}</td><td className="text-end num">{fmt.percent(p.progressCapped, 0)}</td><td className="text-end text-xs">{GOAL_STATE_LABELS[p.state]}</td></tr>
                 );
               })}
             </tbody>

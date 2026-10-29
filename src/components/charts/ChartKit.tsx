@@ -24,10 +24,14 @@ export function useChart() {
   const { fmt, settings } = useApp();
   return useMemo(() => {
     const cur = settings.baseCurrency;
+    const compact = new Intl.NumberFormat(settings.locale, { notation: 'compact', maximumFractionDigits: 1 });
+    const axisMoney = (major: number) => (fmt.hidden ? '•••' : compact.format(major));
     return {
       /** Valeur décimale pour l'axe (Recharts) à partir d'unités minimales. */
       major: (minor: number) => toMajor(minor, cur),
-      axisMoney: (major: number) => (fmt.hidden ? '•••' : new Intl.NumberFormat(settings.locale, { notation: 'compact', maximumFractionDigits: 1 }).format(major)),
+      axisMoney,
+      /** Largeur de l'axe Y adaptée à la longueur des montants abrégés dans la langue (ex. « 13,5 ألف »). */
+      yWidth: (base: number) => Math.max(base, Math.ceil(Math.max(...[-13500, 135000, 1250000].map((v) => axisMoney(v).length)) * 6.6) + 6),
       money: (major: number) => fmt.money(fromMajor(major, cur), cur),
       percent: (r: number) => fmt.percent(r, 0),
       duration: 700,

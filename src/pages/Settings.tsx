@@ -365,10 +365,10 @@ function RatesManager() {
       </div>
       {rates.length > 0 && (
         <table className="mt-4 w-full text-sm">
-          <thead><tr className="text-left text-xs text-muted"><th className="py-1">{t('common.date')}</th><th>{t('rate.pair')}</th><th className="text-right">{t('rate.rate')}</th><th /></tr></thead>
+          <thead><tr className="text-start text-xs text-muted"><th className="py-1">{t('common.date')}</th><th>{t('rate.pair')}</th><th className="text-end">{t('rate.rate')}</th><th /></tr></thead>
           <tbody className="divide-y divide-line/5">
             {rates.map((r) => (
-              <tr key={r.id}><td className="py-1.5">{fmt.date(r.date)}</td><td>1 {r.base} = {r.quote}</td><td className="text-right num">{r.rate.toLocaleString(settings.locale, { maximumFractionDigits: 6 })}</td><td className="text-right"><Button size="icon-sm" variant="ghost" aria-label={t('rate.delete')} onClick={() => repo.deleteRate(r.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td></tr>
+              <tr key={r.id}><td className="py-1.5">{fmt.date(r.date)}</td><td>1 {r.base} = {r.quote}</td><td className="text-end num">{r.rate.toLocaleString(settings.locale, { maximumFractionDigits: 6 })}</td><td className="text-end"><Button size="icon-sm" variant="ghost" aria-label={t('rate.delete')} onClick={() => repo.deleteRate(r.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td></tr>
             ))}
           </tbody>
         </table>

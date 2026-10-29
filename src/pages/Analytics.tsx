@@ -175,7 +175,7 @@ export default function Analytics() {
                 <BarChart data={series.map((p) => ({ name: formatMonthShort(p.month, uiLocale), income: chart.major(p.income), fixed: chart.major(p.fixed), variable: chart.major(p.variable) }))}>
                   <CartesianGrid vertical={false} stroke={SERIES.grid} />
                   <XAxis dataKey="name" {...chart.axis} />
-                  <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={44} />
+                  <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(44)} />
                   <RTooltip cursor={{ fill: 'rgb(var(--surface-3) / 0.5)' }} content={<ChartTooltip valueFormatter={chart.money} />} />
                   <Bar dataKey="income" name={tr('common.income')} fill={SERIES.income} radius={[5, 5, 0, 0]} maxBarSize={22} isAnimationActive={chart.animate} animationDuration={chart.duration} />
                   <Bar dataKey="fixed" name={tr('form.fixedExpenses')} stackId="e" fill={SERIES.violet} maxBarSize={22} isAnimationActive={chart.animate} animationDuration={chart.duration} />
@@ -220,7 +220,7 @@ export default function Analytics() {
                       <div className="flex justify-between gap-2 text-sm"><span className="truncate">{cat?.name ?? tr('common.uncategorized')}</span><span className="num font-medium">{fmt.money(c.amount)}</span></div>
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-3/70"><div className="h-full rounded-full" style={{ width: `${Math.max(0, (c.amount / maxCat) * 100)}%`, background: cat?.color ?? '#94A3B8' }} /></div>
                     </div>
-                    <div className="w-14 text-right"><ChangeBadge v={ch} invert /></div>
+                    <div className="w-14 text-end"><ChangeBadge v={ch} invert /></div>
                   </li>
                 );
               })}
@@ -232,7 +232,7 @@ export default function Analytics() {
             <table className="w-full text-sm">
               <tbody className="divide-y divide-line/5">
                 {payees.map((p) => (
-                  <tr key={p.payee}><td className="py-2 pr-2">{p.payee}</td><td className="py-2 text-right text-xs text-muted">{tr('an.ops', { count: p.count })}</td><td className="py-2 pl-3 text-right num font-medium">{fmt.money(p.amount)}</td></tr>
+                  <tr key={p.payee}><td className="py-2 pe-2">{p.payee}</td><td className="py-2 text-end text-xs text-muted">{tr('an.ops', { count: p.count })}</td><td className="py-2 ps-3 text-end num font-medium">{fmt.money(p.amount)}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -247,7 +247,7 @@ export default function Analytics() {
               <LineChart data={balances}>
                 <CartesianGrid vertical={false} stroke={SERIES.grid} />
                 <XAxis dataKey="name" {...chart.axis} />
-                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={48} domain={['auto', 'auto']} />
+                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(48)} domain={['auto', 'auto']} />
                 <RTooltip content={<ChartTooltip valueFormatter={chart.money} />} />
                 <Line type="monotone" dataKey="balance" name={tr('an.totalBalance')} stroke={SERIES.cyan} strokeWidth={2.5} dot={{ r: 3 }} isAnimationActive={chart.animate} animationDuration={chart.duration} />
               </LineChart>
@@ -260,7 +260,7 @@ export default function Analytics() {
               <LineChart data={nwHistory}>
                 <CartesianGrid vertical={false} stroke={SERIES.grid} />
                 <XAxis dataKey="name" {...chart.axis} />
-                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={48} domain={['auto', 'auto']} />
+                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(48)} domain={['auto', 'auto']} />
                 <RTooltip content={<ChartTooltip valueFormatter={chart.money} />} />
                 <Line type="monotone" dataKey="nw" name={tr('nw.netWorth')} stroke={SERIES.violet} strokeWidth={2.5} dot={{ r: 3 }} isAnimationActive={chart.animate} animationDuration={chart.duration} />
               </LineChart>

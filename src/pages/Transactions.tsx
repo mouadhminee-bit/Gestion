@@ -171,8 +171,8 @@ export default function Transactions() {
       <Card padded={false} className="mb-4 p-3 sm:p-4">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input value={f.q} onChange={(e) => set('q', e.target.value)} placeholder={tr('tx.search')} className="pl-9" aria-label={tr('common.searchLabel')} />
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input value={f.q} onChange={(e) => set('q', e.target.value)} placeholder={tr('tx.search')} className="ps-9" aria-label={tr('common.searchLabel')} />
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 lg:flex">
             <Select value={f.period} onChange={(e) => set('period', e.target.value as Filters['period'])} aria-label={tr('common.period')} className="lg:min-w-[150px]">
@@ -241,7 +241,7 @@ export default function Transactions() {
         )}
       </Card>
 
-      <div className="mb-3 grid grid-cols-3 gap-2 text-center sm:flex sm:gap-6 sm:text-left">
+      <div className="mb-3 grid grid-cols-3 gap-2 text-center sm:flex sm:gap-6 sm:text-start">
         <div><div className="label">{tr('tx.operations')}</div><div className="num font-semibold">{filtered.length}</div></div>
         <div><div className="label">{tr('common.income')}</div><div className="num font-semibold text-positive">{fmt.money(totals.income)}</div></div>
         <div><div className="label">{tr('common.expenses')}</div><div className="num font-semibold">{fmt.money(totals.expenses)}</div></div>
@@ -252,7 +252,7 @@ export default function Transactions() {
           <span className="px-2 text-sm font-medium">{tr('tx.selectedCount', { count: selected.size })}</span>
           <Button size="sm" variant="outline" icon={<Tags className="h-3.5 w-3.5" />} onClick={() => setRecatOpen(true)}>{tr('tx.changeCategory')}</Button>
           <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={bulkDelete}>{tr('common.delete')}</Button>
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setSelected(new Set())}>{tr('common.cancel')}</Button>
+          <Button size="sm" variant="ghost" className="ms-auto" onClick={() => setSelected(new Set())}>{tr('common.cancel')}</Button>
         </div>
       )}
 

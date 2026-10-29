@@ -161,7 +161,7 @@ export default function Accounts() {
         title={form?.id ? tr('acc.edit') : tr('acc.new')}
         footer={
           <>
-            {form?.id && !txCount.get(form.id) && <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => remove(form as Account)}>{tr('common.delete')}</Button>}
+            {form?.id && !txCount.get(form.id) && <Button variant="danger" className="me-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => remove(form as Account)}>{tr('common.delete')}</Button>}
             <Button variant="ghost" onClick={() => setForm(null)}>{tr('common.cancel')}</Button>
             <Button variant="primary" onClick={save}>{tr('common.save')}</Button>
           </>
@@ -229,7 +229,7 @@ function AccountHistory({ account, onClose }: { account: Account; onClose: () =>
             <AreaChart data={series}>
               <defs><linearGradient id="g-acc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={account.color} stopOpacity={0.35} /><stop offset="1" stopColor={account.color} stopOpacity={0} /></linearGradient></defs>
               <XAxis dataKey="date" {...chart.axis} minTickGap={40} />
-              <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={44} domain={['auto', 'auto']} />
+              <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(44)} domain={['auto', 'auto']} />
               <RTooltip content={<ChartTooltip valueFormatter={(v) => fmt.money(fromMajor(v, account.currency), account.currency)} />} />
               <Area dataKey="v" name={tr('common.balance')} stroke={account.color} fill="url(#g-acc)" strokeWidth={2} isAnimationActive={chart.animate} animationDuration={chart.duration} />
             </AreaChart>

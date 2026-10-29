@@ -32,7 +32,7 @@ export function InsightList({ insights, limit }: { insights: Insight[]; limit?: 
                 </span>
               </Tooltip>
             </div>
-            {i.href && <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted opacity-0 transition group-hover:opacity-100" />}
+            {i.href && <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted opacity-0 transition group-hover:opacity-100 rtl:-scale-x-100" />}
           </>
         );
         return (

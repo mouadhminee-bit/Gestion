@@ -41,7 +41,7 @@ function Delta({ current, previous, invert }: { current: number; previous: numbe
 function Kpi({ icon: Icon, label, info, children, footer, accent, delay }: { icon: typeof Wallet; label: string; info: string; children: React.ReactNode; footer?: React.ReactNode; accent: string; delay: number }) {
   return (
     <div className="card group relative overflow-hidden p-4 animate-fade-up sm:p-5" style={{ animationDelay: `${delay}ms` }}>
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl transition group-hover:opacity-40" style={{ background: accent }} />
+      <div className="pointer-events-none absolute -end-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl transition group-hover:opacity-40" style={{ background: accent }} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1 text-xs font-medium text-muted">
           {label}
@@ -164,7 +164,7 @@ export default function Dashboard() {
             <span className="gradient-text">{fmt.month(month)}</span>
           </h1>
         </div>
-        <div className="sm:text-right">
+        <div className="sm:text-end">
           <div className="flex items-center gap-1 text-xs text-muted sm:justify-end">
             {md.isCurrent ? t('dash.totalToday') : t('dash.totalAt', { date: fmt.date(md.asOf) })} <InfoTip>{DEFINITIONS.balance}</InfoTip>
           </div>
@@ -217,7 +217,7 @@ export default function Dashboard() {
                   </defs>
                   <CartesianGrid vertical={false} stroke={SERIES.grid} />
                   <XAxis dataKey="name" {...chart.axis} />
-                  <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={44} />
+                  <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(44)} />
                   <RTooltip cursor={{ fill: 'rgb(var(--surface-3) / 0.5)' }} content={<ChartTooltip valueFormatter={chart.money} />} />
                   <Bar dataKey="income" name={t('common.income')} fill="url(#g-inc)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={chart.animate} animationDuration={chart.duration} />
                   <Bar dataKey="expenses" name={t('common.expenses')} fill="url(#g-exp)" radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={chart.animate} animationDuration={chart.duration} />
@@ -251,7 +251,7 @@ export default function Dashboard() {
                   </defs>
                   <CartesianGrid vertical={false} stroke={SERIES.grid} />
                   <XAxis dataKey="day" {...chart.axis} interval="preserveStartEnd" minTickGap={16} />
-                  <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={44} domain={['auto', 'auto']} />
+                  <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(44)} domain={['auto', 'auto']} />
                   <RTooltip content={<ChartTooltip valueFormatter={chart.money} labelFormatter={(d) => t('dash.day', { day: String(d) })} />} />
                   <Area type="monotone" dataKey="balance" name={t('common.balance')} stroke={SERIES.cyan} strokeWidth={2} fill="url(#g-bal)" isAnimationActive={chart.animate} animationDuration={chart.duration} />
                 </AreaChart>

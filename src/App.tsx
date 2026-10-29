@@ -11,6 +11,7 @@ import { TransactionFormProvider } from '@/features/transactions/TransactionForm
 import { Onboarding } from '@/pages/Onboarding';
 import { I18nProvider, useI18n } from '@/i18n/I18nProvider';
 import { isLang } from '@/i18n/languages';
+import { t } from '@/i18n/core';
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Transactions = lazy(() => import('@/pages/Transactions'));
@@ -29,7 +30,7 @@ const Import = lazy(() => import('@/pages/Import'));
 
 function PageFallback() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Chargement">
+    <div className="space-y-4" aria-busy="true" aria-label={t('app.loading')}>
       <Skeleton className="h-8 w-56" />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -50,10 +51,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     if (!this.state.error) return this.props.children;
     return (
       <div className="mx-auto mt-20 max-w-md px-6 text-center">
-        <div className="display text-xl font-semibold">Un problème est survenu</div>
-        <p className="mt-2 text-sm text-muted">L’affichage de cette page a échoué. Vos données enregistrées ne sont pas affectées.</p>
+        <div className="display text-xl font-semibold">{t('app.error.title')}</div>
+        <p className="mt-2 text-sm text-muted">{t('app.error.text')}</p>
         <Button variant="primary" className="mt-6" onClick={() => (window.location.hash = '#/', window.location.reload())}>
-          Recharger l’application
+          {t('app.error.reload')}
         </Button>
       </div>
     );

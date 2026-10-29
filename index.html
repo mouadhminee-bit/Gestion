@@ -12,6 +12,12 @@
       try {
         var t = localStorage.getItem('nexora.theme');
         if (t === 'light') document.documentElement.classList.remove('dark');
+        // Langue mémorisée : appliquée avant le rendu pour éviter un saut de mise en page (RTL).
+        var l = localStorage.getItem('nexora.lang');
+        if (l) {
+          document.documentElement.lang = l;
+          if (l === 'ar' || l === 'he' || l === 'fa') document.documentElement.dir = 'rtl';
+        }
       } catch (e) {}
     </script>
   </head>

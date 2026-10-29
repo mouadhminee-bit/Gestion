@@ -77,13 +77,13 @@ export function Onboarding({ repo, existing }: { repo: LocalRepository; existing
               </ul>
             </div>
             <div className="card space-y-3 p-5 animate-fade-up" style={{ animationDelay: '120ms' }}>
-              <button onClick={startDemo} disabled={busy} className="group w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-violet/10 p-4 text-left transition hover:border-primary/60">
+              <button onClick={startDemo} disabled={busy} className="group w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-violet/10 p-4 text-start transition hover:border-primary/60">
                 <div className="flex items-center gap-2 font-semibold">
                   <FlaskConical className="h-4 w-4 text-cyan" /> {t('onb.demo')}
                 </div>
                 <p className="mt-1 text-xs text-muted">{t('onb.demoHint')}</p>
               </button>
-              <button onClick={() => setStep('setup')} disabled={busy} className="w-full rounded-2xl border border-line/15 bg-surface-2/60 p-4 text-left transition hover:border-line/40">
+              <button onClick={() => setStep('setup')} disabled={busy} className="w-full rounded-2xl border border-line/15 bg-surface-2/60 p-4 text-start transition hover:border-line/40">
                 <div className="flex items-center gap-2 font-semibold">
                   <ArrowRight className="h-4 w-4 text-primary rtl:-scale-x-100" /> {t('onb.fresh')}
                 </div>

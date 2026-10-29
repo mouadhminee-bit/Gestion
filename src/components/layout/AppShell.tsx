@@ -42,7 +42,7 @@ export function Logo({ compact }: { compact?: boolean }) {
 function Sidebar() {
   const groups = Object.entries(NAV_GROUPS) as [keyof typeof NAV_GROUPS, string][];
   return (
-    <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-line/10 bg-surface/70 backdrop-blur-xl lg:flex">
+    <aside className="no-print fixed inset-y-0 start-0 z-30 hidden w-[248px] flex-col border-e border-line/10 bg-surface/70 backdrop-blur-xl lg:flex">
       <div className="px-5 pb-4 pt-5">
         <Logo />
       </div>
@@ -65,7 +65,7 @@ function Sidebar() {
               >
                 {({ isActive }) => (
                   <>
-                    {isActive && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-cyan to-primary" />}
+                    {isActive && <span className="absolute start-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-e-full bg-gradient-to-b from-cyan to-primary" />}
                     <n.icon className={cn('h-[18px] w-[18px]', isActive ? 'text-cyan' : '')} aria-hidden />
                     {navLabel(n)}
                   </>
@@ -90,13 +90,13 @@ function MonthSwitcher() {
   return (
     <div className="flex items-center rounded-xl border border-line/15 bg-surface-2/60">
       <Button variant="ghost" size="icon-sm" aria-label={t('shell.prevMonth')} onClick={() => setMonth(addMonthsToKey(month, -1))}>
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4 rtl:-scale-x-100" />
       </Button>
       <button className="min-w-[104px] px-0.5 text-center text-sm font-medium sm:min-w-[132px]" onClick={() => setMonth(current)} title={t('shell.currentMonth')}>
         {fmt.month(month)}
       </button>
       <Button variant="ghost" size="icon-sm" aria-label={t('shell.nextMonth')} onClick={() => setMonth(addMonthsToKey(month, 1))}>
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
       </Button>
     </div>
   );
@@ -114,7 +114,7 @@ function Notifications() {
       <Popover.Trigger asChild>
         <Button variant="ghost" size="icon" aria-label={unread ? t('shell.notificationsUnread', { count: unread }) : t('shell.notifications')} className="relative">
           <Bell className="h-5 w-5" />
-          {unread > 0 && <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[10px] font-bold text-white">{unread}</span>}
+          {unread > 0 && <span className="absolute end-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[10px] font-bold text-white">{unread}</span>}
         </Button>
       </Popover.Trigger>
       <Popover.Portal>
@@ -133,7 +133,7 @@ function Notifications() {
               <div key={n.id} className={cn('group relative flex gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2', n.read && 'opacity-60')}>
                 <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', tone[n.severity])} />
                 <button
-                  className="min-w-0 flex-1 text-left"
+                  className="min-w-0 flex-1 text-start"
                   onClick={() => {
                     repo.setNotificationState([n.id], { read: true });
                     setOpen(false);
@@ -174,7 +174,7 @@ function TopBar() {
             </button>
           </Tooltip>
         )}
-        <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
+        <div className="ms-auto flex items-center gap-0.5 sm:gap-1">
           <Tooltip content={settings.privacyMode ? t('shell.showAmounts') : t('shell.hideAmounts')}>
             <Button variant="ghost" size="icon" aria-pressed={settings.privacyMode} aria-label={t('shell.privacyMode')} onClick={() => repo.updateSettings({ privacyMode: !settings.privacyMode })}>
               {settings.privacyMode ? <EyeOff className="h-5 w-5 text-cyan" /> : <Eye className="h-5 w-5" />}
@@ -186,10 +186,10 @@ function TopBar() {
             </Button>
           </Tooltip>
           <Notifications />
-          <Button variant="primary" className="ml-1 hidden sm:inline-flex" icon={<Plus className="h-4 w-4" />} onClick={() => openForm()}>
+          <Button variant="primary" className="ms-1 hidden sm:inline-flex" icon={<Plus className="h-4 w-4" />} onClick={() => openForm()}>
             {t('shell.addTransaction')}
           </Button>
-          <NavLink to="/settings" aria-label={t('shell.profile')} className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan/80 via-primary to-violet text-xs font-bold text-white">
+          <NavLink to="/settings" aria-label={t('shell.profile')} className="ms-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan/80 via-primary to-violet text-xs font-bold text-white">
             {(settings.displayName || 'N').slice(0, 1).toUpperCase()}
           </NavLink>
         </div>
@@ -245,11 +245,11 @@ function BottomNav() {
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2">
         {t('shell.skip')}
       </a>
       <Sidebar />
-      <div className="app-content lg:pl-[248px]">
+      <div className="app-content lg:ps-[248px]">
         <TopBar />
         <main id="main" className="print-full mx-auto max-w-[1400px] px-4 pb-28 pt-5 sm:px-6 sm:pt-7 lg:pb-12">
           {children}

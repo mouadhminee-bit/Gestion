@@ -102,7 +102,7 @@ export default function NetWorth() {
                 <defs><linearGradient id="g-nw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={SERIES.violet} stopOpacity={0.4} /><stop offset="1" stopColor={SERIES.violet} stopOpacity={0} /></linearGradient></defs>
                 <CartesianGrid vertical={false} stroke={SERIES.grid} />
                 <XAxis dataKey="name" {...chart.axis} />
-                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={48} domain={['auto', 'auto']} />
+                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(48)} domain={['auto', 'auto']} />
                 <RTooltip content={<ChartTooltip valueFormatter={chart.money} />} />
                 <Area type="monotone" dataKey="nw" name={t('nw.netWorth')} stroke={SERIES.violet} strokeWidth={2.5} fill="url(#g-nw)" isAnimationActive={chart.animate} animationDuration={chart.duration} />
               </AreaChart>
@@ -181,7 +181,7 @@ export default function NetWorth() {
                       <div className="font-medium">{a.name}</div>
                       <div className="mt-0.5 text-xs text-muted">{ASSET_TYPE_LABELS[a.type]}{a.linkedAccountId ? ` · ${t('nw.values', { name: ctx.accounts.get(a.linkedAccountId)?.name ?? '' })}` : ''}</div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="num font-semibold">{last ? fmt.money(last.value, a.currency) : '—'}</div>
                       <div className="text-[11px] text-muted">{last ? t('nw.asOf', { date: fmt.date(last.date) }) : t('nw.notValued')}</div>
                     </div>

@@ -1,5 +1,8 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/space-grotesk';
+/* Écritures arabe/persane et hébraïque (chargées uniquement si ces glyphes sont affichés, via unicode-range). */
+@import '@fontsource-variable/noto-sans-arabic';
+@import '@fontsource-variable/noto-sans-hebrew';
 
 @tailwind base;
 @tailwind components;
@@ -117,6 +120,10 @@
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum';
   }
+  /* Les graphiques restent orientés de gauche à droite (axe du temps), y compris en arabe/hébreu/persan. */
+  .recharts-wrapper {
+    direction: ltr;
+  }
   .display {
     @apply font-display tracking-tight;
   }
@@ -195,7 +202,7 @@
     break-inside: avoid;
   }
   .app-content {
-    padding-left: 0 !important;
+    padding-inline-start: 0 !important;
   }
   .print-full {
     margin: 0 !important;

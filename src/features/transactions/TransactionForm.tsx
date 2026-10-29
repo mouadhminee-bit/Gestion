@@ -255,10 +255,10 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
       <Dialog open onOpenChange={(o) => !o && onClose()} title={editing.label} description={tr('form.debt.description')} size="sm"
         footer={<Button variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={remove}>{tr('common.delete')}</Button>}>
         <dl className="grid grid-cols-2 gap-3 text-sm">
-          <dt className="text-muted">{tr('common.amount')}</dt><dd className="text-right num">{fmt.money(editing.amount, editing.currency)}</dd>
-          <dt className="text-muted">{tr('form.debt.interest')}</dt><dd className="text-right num">{fmt.money(editing.interestAmount ?? 0, editing.currency)}</dd>
-          <dt className="text-muted">{tr('common.date')}</dt><dd className="text-right">{fmt.date(editing.date)}</dd>
-          <dt className="text-muted">{tr('common.account')}</dt><dd className="text-right">{ctx.accounts.get(editing.accountId)?.name}</dd>
+          <dt className="text-muted">{tr('common.amount')}</dt><dd className="text-end num">{fmt.money(editing.amount, editing.currency)}</dd>
+          <dt className="text-muted">{tr('form.debt.interest')}</dt><dd className="text-end num">{fmt.money(editing.interestAmount ?? 0, editing.currency)}</dd>
+          <dt className="text-muted">{tr('common.date')}</dt><dd className="text-end">{fmt.date(editing.date)}</dd>
+          <dt className="text-muted">{tr('common.account')}</dt><dd className="text-end">{ctx.accounts.get(editing.accountId)?.name}</dd>
         </dl>
         <p className="mt-4 rounded-xl bg-surface-2 p-3 text-xs text-muted">
           {tr('form.debt.note')}{' '}
@@ -271,7 +271,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
   const footer = (
     <>
       {editing && (
-        <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={remove}>
+        <Button variant="danger" className="me-auto" icon={<Trash2 className="h-4 w-4" />} onClick={remove}>
           <span className="hidden sm:inline">{tr('common.delete')}</span>
         </Button>
       )}
@@ -485,7 +485,7 @@ function CategoryChip({ c, active, onClick }: { c: Category; active: boolean; on
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-xs font-medium transition',
+        'inline-flex items-center gap-1.5 rounded-full border py-1 ps-1 pe-2.5 text-xs font-medium transition',
         active ? 'border-primary/60 bg-primary/15 text-fg' : 'border-line/15 bg-surface-2/60 text-muted hover:text-fg hover:border-line/30',
       )}
     >

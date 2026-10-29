@@ -121,15 +121,15 @@ export default function Debts() {
                     <div className="label">{t('debt.remaining')}</div>
                     <div className="display text-2xl font-semibold num">{fmt.money(st.remaining, d.currency)}</div>
                   </div>
-                  <div className="text-right text-xs text-muted">{t('debt.ofPrincipal', { amount: fmt.money(d.principal, d.currency) })}<br />{t('debt.repaidPct', { pct: fmt.percent(st.progress, 0) })}</div>
+                  <div className="text-end text-xs text-muted">{t('debt.ofPrincipal', { amount: fmt.money(d.principal, d.currency) })}<br />{t('debt.repaidPct', { pct: fmt.percent(st.progress, 0) })}</div>
                 </div>
                 <ProgressBar className="mt-2" value={st.progress ?? 0} tone={payable ? 'violet' : 'positive'} />
                 <dl className="mt-3 grid grid-cols-2 gap-y-1 text-xs">
-                  <dt className="text-muted">{t('debt.start')}</dt><dd className="text-right">{fmt.date(d.startDate)}</dd>
-                  <dt className="text-muted">{t('debt.due')}</dt><dd className={cn('text-right', st.overdue && 'text-warning')}>{d.dueDate ? fmt.date(d.dueDate) : '—'}</dd>
-                  {d.interestRate != null && <><dt className="text-muted">{t('debt.annualRate')}</dt><dd className="text-right">{fmt.percent(d.interestRate / 100, 2)}</dd></>}
-                  {d.installmentAmount != null && <><dt className="text-muted">{t('debt.plannedInstallment')}</dt><dd className="text-right num">{fmt.money(d.installmentAmount, d.currency)} / {td(`debt.per.${d.installmentFrequency ?? 'monthly'}`)}</dd></>}
-                  <dt className="text-muted">{t('debt.paidInterest')}</dt><dd className="text-right num">{fmt.money(st.paidInterest, d.currency)}</dd>
+                  <dt className="text-muted">{t('debt.start')}</dt><dd className="text-end">{fmt.date(d.startDate)}</dd>
+                  <dt className="text-muted">{t('debt.due')}</dt><dd className={cn('text-end', st.overdue && 'text-warning')}>{d.dueDate ? fmt.date(d.dueDate) : '—'}</dd>
+                  {d.interestRate != null && <><dt className="text-muted">{t('debt.annualRate')}</dt><dd className="text-end">{fmt.percent(d.interestRate / 100, 2)}</dd></>}
+                  {d.installmentAmount != null && <><dt className="text-muted">{t('debt.plannedInstallment')}</dt><dd className="text-end num">{fmt.money(d.installmentAmount, d.currency)} / {td(`debt.per.${d.installmentFrequency ?? 'monthly'}`)}</dd></>}
+                  <dt className="text-muted">{t('debt.paidInterest')}</dt><dd className="text-end num">{fmt.money(st.paidInterest, d.currency)}</dd>
                 </dl>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {!st.settled && <Button size="sm" variant="outline" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setPayment({ debt: d, principal: d.installmentAmount ? Math.min(d.installmentAmount, st.remaining) : null, interest: 0, date: today, accountId: data.accounts.find((a) => !a.archived && a.currency === d.currency)?.id ?? '', note: '' })}>{payable ? t('debt.addRepayment') : t('debt.addCollection')}</Button>}
@@ -143,7 +143,7 @@ export default function Debts() {
 
       <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.id ? t('debt.edit') : t('debt.new')} size="lg"
         footer={<>
-          {form?.id && <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => remove(form)}>{t('common.delete')}</Button>}
+          {form?.id && <Button variant="danger" className="me-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => remove(form)}>{t('common.delete')}</Button>}
           <Button variant="ghost" onClick={() => setForm(null)}>{t('common.cancel')}</Button>
           <Button variant="primary" onClick={save}>{t('common.save')}</Button>
         </>}>
@@ -204,15 +204,15 @@ export default function Debts() {
           if (!pays.length) return <p className="py-6 text-center text-sm text-muted">{t('debt.noPayment')}</p>;
           return (
             <table className="w-full text-xs">
-              <thead><tr className="text-left text-muted"><th className="py-2">{t('common.date')}</th><th className="text-right">{t('debt.principalCol')}</th><th className="text-right">{t('debt.interestCol')}</th><th className="pl-2">{t('common.account')}</th><th /></tr></thead>
+              <thead><tr className="text-start text-muted"><th className="py-2">{t('common.date')}</th><th className="text-end">{t('debt.principalCol')}</th><th className="text-end">{t('debt.interestCol')}</th><th className="ps-2">{t('common.account')}</th><th /></tr></thead>
               <tbody className="divide-y divide-line/5">
                 {pays.map((p) => (
                   <tr key={p.id}>
                     <td className="py-2">{fmt.date(p.date)}</td>
-                    <td className="text-right num">{fmt.money(p.principal, detail.currency)}</td>
-                    <td className="text-right num">{fmt.money(p.interest, detail.currency)}</td>
-                    <td className="pl-2 text-muted">{p.accountId ? ctx.accounts.get(p.accountId)?.name : p.note ?? '—'}</td>
-                    <td className="text-right"><Button size="icon-sm" variant="ghost" aria-label={t('debt.deletePayment')} onClick={async () => { if (await confirm({ title: t('debt.deletePayment.title'), message: t('debt.deletePayment.message'), confirmLabel: t('common.delete') })) { await repo.deleteDebtPayment(p.id); toast.success(t('debt.paymentDeleted')); } }}><Trash2 className="h-3.5 w-3.5" /></Button></td>
+                    <td className="text-end num">{fmt.money(p.principal, detail.currency)}</td>
+                    <td className="text-end num">{fmt.money(p.interest, detail.currency)}</td>
+                    <td className="ps-2 text-muted">{p.accountId ? ctx.accounts.get(p.accountId)?.name : p.note ?? '—'}</td>
+                    <td className="text-end"><Button size="icon-sm" variant="ghost" aria-label={t('debt.deletePayment')} onClick={async () => { if (await confirm({ title: t('debt.deletePayment.title'), message: t('debt.deletePayment.message'), confirmLabel: t('common.delete') })) { await repo.deleteDebtPayment(p.id); toast.success(t('debt.paymentDeleted')); } }}><Trash2 className="h-3.5 w-3.5" /></Button></td>
                   </tr>
                 ))}
               </tbody>

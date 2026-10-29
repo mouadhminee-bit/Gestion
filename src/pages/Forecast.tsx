@@ -84,7 +84,7 @@ export default function Forecast() {
               <BarChart data={waterfall}>
                 <CartesianGrid vertical={false} stroke={SERIES.grid} />
                 <XAxis dataKey="name" {...chart.axis} interval={0} tick={{ fontSize: 10, fill: 'rgb(var(--muted))' }} />
-                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={52} domain={domain} allowDataOverflow />
+                <YAxis {...chart.axis} tickFormatter={chart.axisMoney} width={chart.yWidth(52)} domain={domain} allowDataOverflow />
                 <RTooltip cursor={{ fill: 'rgb(var(--surface-3) / 0.5)' }} content={({ active, payload, label }) => active && payload?.length ? <ChartTooltip active label={label} payload={[{ name: t('common.amount'), value: (payload[0].payload as { total: number }).total, color: (payload[0].payload as { c: string }).c }]} valueFormatter={chart.money} /> : null} />
                 <Bar dataKey="base" stackId="w" fill="transparent" isAnimationActive={false} />
                 <Bar dataKey="v" stackId="w" name={t('common.amount')} radius={[6, 6, 6, 6]} maxBarSize={48} isAnimationActive={chart.animate} animationDuration={chart.duration}>
@@ -174,7 +174,7 @@ export default function Forecast() {
             </div>
             <div className="lg:col-span-3">
               <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-muted"><th className="py-1.5">{t('fc.col.monthlyAvg')}</th><th className="text-right">{t('fc.col.current')}</th><th className="text-right">{t('fc.col.scenario')}</th><th className="text-right">{t('rep.col.gap')}</th></tr></thead>
+                <thead><tr className="text-start text-xs text-muted"><th className="py-1.5">{t('fc.col.monthlyAvg')}</th><th className="text-end">{t('fc.col.current')}</th><th className="text-end">{t('fc.col.scenario')}</th><th className="text-end">{t('rep.col.gap')}</th></tr></thead>
                 <tbody className="divide-y divide-line/5">
                   {[
                     [t('common.income'), result.baseline.income, result.scenario.income, false],
@@ -183,12 +183,12 @@ export default function Forecast() {
                   ].map(([l, a, b, inv]) => {
                     const d = (b as number) - (a as number);
                     return (
-                      <tr key={l as string}><td className="py-2">{l}</td><td className="text-right num">{fmt.money(a as number)}</td><td className="text-right num font-semibold">{fmt.money(b as number)}</td><td className={cn('text-right num', d === 0 ? 'text-muted' : (inv ? d < 0 : d > 0) ? 'text-positive' : 'text-negative')}>{fmt.money(d, undefined, { sign: true })}</td></tr>
+                      <tr key={l as string}><td className="py-2">{l}</td><td className="text-end num">{fmt.money(a as number)}</td><td className="text-end num font-semibold">{fmt.money(b as number)}</td><td className={cn('text-end num', d === 0 ? 'text-muted' : (inv ? d < 0 : d > 0) ? 'text-positive' : 'text-negative')}>{fmt.money(d, undefined, { sign: true })}</td></tr>
                     );
                   })}
-                  <tr><td className="py-2">{t('an.savingsRate')}</td><td className="text-right num">{fmt.percent(result.baseline.savingsRate)}</td><td className="text-right num font-semibold">{fmt.percent(result.scenario.savingsRate)}</td><td /></tr>
-                  {result.budgetRemainingBaseline != null && <tr><td className="py-2 flex items-center gap-1">{t('fc.budgetRemaining')} <InfoTip>{t('fc.budgetRemaining.info')}</InfoTip></td><td className="text-right num">{fmt.money(result.budgetRemainingBaseline)}</td><td className="text-right num font-semibold">{fmt.money(result.budgetRemainingScenario!)}</td><td /></tr>}
-                  <tr><td className="py-2 flex items-center gap-1">{t('fc.endOfMonth')} <InfoTip>{t('fc.endOfMonth.info')}</InfoTip></td><td className="text-right num">{fmt.money(result.endOfMonthBaseline)}</td><td className={cn('text-right num font-semibold', result.endOfMonthScenario < 0 && 'text-negative')}>{fmt.money(result.endOfMonthScenario)}</td><td /></tr>
+                  <tr><td className="py-2">{t('an.savingsRate')}</td><td className="text-end num">{fmt.percent(result.baseline.savingsRate)}</td><td className="text-end num font-semibold">{fmt.percent(result.scenario.savingsRate)}</td><td /></tr>
+                  {result.budgetRemainingBaseline != null && <tr><td className="py-2 flex items-center gap-1">{t('fc.budgetRemaining')} <InfoTip>{t('fc.budgetRemaining.info')}</InfoTip></td><td className="text-end num">{fmt.money(result.budgetRemainingBaseline)}</td><td className="text-end num font-semibold">{fmt.money(result.budgetRemainingScenario!)}</td><td /></tr>}
+                  <tr><td className="py-2 flex items-center gap-1">{t('fc.endOfMonth')} <InfoTip>{t('fc.endOfMonth.info')}</InfoTip></td><td className="text-end num">{fmt.money(result.endOfMonthBaseline)}</td><td className={cn('text-end num font-semibold', result.endOfMonthScenario < 0 && 'text-negative')}>{fmt.money(result.endOfMonthScenario)}</td><td /></tr>
                 </tbody>
               </table>
               {result.goals.length > 0 && (
@@ -198,7 +198,7 @@ export default function Forecast() {
                     {result.goals.map((g) => (
                       <li key={g.goal.id} className="flex justify-between gap-2 py-2">
                         <span className="truncate">{g.goal.name}</span>
-                        <span className="text-right text-xs">
+                        <span className="text-end text-xs">
                           <span className="text-muted">{g.baselineMonths == null ? t('fc.unreachable') : t('an.months', { count: g.baselineMonths })}</span>
                           {' → '}
                           <b className={cn(g.scenarioMonths != null && g.baselineMonths != null && g.scenarioMonths < g.baselineMonths ? 'text-positive' : g.scenarioMonths == null || (g.baselineMonths != null && g.scenarioMonths > g.baselineMonths) ? 'text-warning' : '')}>{g.scenarioMonths == null ? t('fc.unreachable') : t('an.months', { count: g.scenarioMonths })}</b>

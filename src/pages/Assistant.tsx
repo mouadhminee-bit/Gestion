@@ -75,7 +75,7 @@ export default function Assistant() {
                   {m.answer?.figures && m.answer.figures.length > 0 && (
                     <dl className="mt-3 space-y-1 rounded-xl bg-surface/60 p-3 text-xs">
                       {m.answer.figures.map((f) => (
-                        <div key={f.label} className="flex justify-between gap-3"><dt className="text-muted">{f.label}</dt><dd className="num text-right font-medium">{f.value}</dd></div>
+                        <div key={f.label} className="flex justify-between gap-3"><dt className="text-muted">{f.label}</dt><dd className="num text-end font-medium">{f.value}</dd></div>
                       ))}
                     </dl>
                   )}

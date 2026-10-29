@@ -22,8 +22,8 @@ export default {
         warning: token('warning'),
       },
       fontFamily: {
-        sans: ['"Inter Variable"', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk Variable"', '"Space Grotesk"', '"Inter Variable"', 'system-ui', 'sans-serif'],
+        sans: ['"Inter Variable"', 'Inter', '"Noto Sans Arabic Variable"', '"Noto Sans Hebrew Variable"', 'system-ui', 'sans-serif'],
+        display: ['"Space Grotesk Variable"', '"Space Grotesk"', '"Inter Variable"', '"Noto Sans Arabic Variable"', '"Noto Sans Hebrew Variable"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xl: '0.875rem',

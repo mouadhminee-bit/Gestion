@@ -64,7 +64,7 @@ export function TransactionRow({ t, onOpen, selected, onSelect, showAccount = tr
           className="h-4 w-4 shrink-0 accent-[rgb(var(--primary))]"
         />
       )}
-      <button onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+      <button onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-start">
         <TxIcon t={t} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
@@ -85,13 +85,13 @@ export function TransactionRow({ t, onOpen, selected, onSelect, showAccount = tr
             ))}
           </div>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 text-end">
           <div className={cn('num text-sm font-semibold', neutral ? 'text-fg/80' : sign > 0 ? 'text-positive' : 'text-fg')}>
             {fmt.money(sign * t.amount, t.currency, { sign: true })}
           </div>
           <div className="mt-0.5 text-[11px] text-muted">
             {fmt.date(t.date)}
-            {neutral && <span className="ml-1 hidden sm:inline">· {TRANSACTION_TYPE_LABELS[t.type]}</span>}
+            {neutral && <span className="ms-1 hidden sm:inline">· {TRANSACTION_TYPE_LABELS[t.type]}</span>}
           </div>
         </div>
       </button>

@@ -122,7 +122,7 @@ export default function Recurring() {
                       <div className="truncate text-sm font-medium">{o.rule.label}</div>
                       <div className="text-xs text-muted">{formatLongDate(o.dueDate, uiLocale)} · {ctx.accounts.get(o.rule.accountId)?.name}</div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className={cn('num text-sm font-semibold', o.rule.kind === 'income' && 'text-positive')}>{fmt.money(o.rule.kind === 'income' ? o.rule.amount : -o.rule.amount, o.rule.currency, { sign: true })}</div>
                       <Badge tone={st.tone}>{st.label}</Badge>
                     </div>
@@ -176,7 +176,7 @@ export default function Recurring() {
 
       <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.id ? t('rec.edit') : t('rec.new')} size="lg"
         footer={<>
-          {form?.id && <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => removeRule(form)}>{t('common.delete')}</Button>}
+          {form?.id && <Button variant="danger" className="me-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => removeRule(form)}>{t('common.delete')}</Button>}
           <Button variant="ghost" onClick={() => setForm(null)}>{t('common.cancel')}</Button>
           <Button variant="primary" onClick={save}>{t('common.save')}</Button>
         </>}>

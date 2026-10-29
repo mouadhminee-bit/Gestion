@@ -132,12 +132,12 @@ export default function Goals() {
                 </div>
                 {g.description && <p className="mt-3 text-xs text-muted">{g.description}</p>}
                 <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-                  <dt className="text-muted">{t('goal.remaining')}</dt><dd className="text-right num font-medium">{fmt.money(p.remaining)}</dd>
-                  <dt className="text-muted">{t('goal.targetDate')}</dt><dd className="text-right">{g.targetDate ? t('goal.monthsLeft', { date: fmt.date(g.targetDate), count: p.monthsLeft ?? 0 }) : '—'}</dd>
-                  <dt className="text-muted flex items-center gap-1">{t('goal.requiredMonthly')} <InfoTip>{t('goal.requiredMonthlyInfo')}</InfoTip></dt><dd className="text-right num font-medium">{p.requiredMonthly != null ? fmt.money(p.requiredMonthly) : '—'}</dd>
-                  <dt className="text-muted">{t('goal.plannedMonthly')}</dt><dd className="text-right num">{g.monthlyContribution != null ? fmt.money(g.monthlyContribution) : '—'}</dd>
-                  {p.contributionGap != null && <><dt className="text-muted">{t('goal.gap')}</dt><dd className={cn('text-right num font-medium', p.contributionGap >= 0 ? 'text-positive' : 'text-warning')}>{fmt.money(p.contributionGap, undefined, { sign: true })}</dd></>}
-                  {p.projectedDate && p.state !== 'achieved' && <><dt className="text-muted">{t('goal.estimated')}</dt><dd className="text-right">{fmt.date(p.projectedDate)}</dd></>}
+                  <dt className="text-muted">{t('goal.remaining')}</dt><dd className="text-end num font-medium">{fmt.money(p.remaining)}</dd>
+                  <dt className="text-muted">{t('goal.targetDate')}</dt><dd className="text-end">{g.targetDate ? t('goal.monthsLeft', { date: fmt.date(g.targetDate), count: p.monthsLeft ?? 0 }) : '—'}</dd>
+                  <dt className="text-muted flex items-center gap-1">{t('goal.requiredMonthly')} <InfoTip>{t('goal.requiredMonthlyInfo')}</InfoTip></dt><dd className="text-end num font-medium">{p.requiredMonthly != null ? fmt.money(p.requiredMonthly) : '—'}</dd>
+                  <dt className="text-muted">{t('goal.plannedMonthly')}</dt><dd className="text-end num">{g.monthlyContribution != null ? fmt.money(g.monthlyContribution) : '—'}</dd>
+                  {p.contributionGap != null && <><dt className="text-muted">{t('goal.gap')}</dt><dd className={cn('text-end num font-medium', p.contributionGap >= 0 ? 'text-positive' : 'text-warning')}>{fmt.money(p.contributionGap, undefined, { sign: true })}</dd></>}
+                  {p.projectedDate && p.state !== 'achieved' && <><dt className="text-muted">{t('goal.estimated')}</dt><dd className="text-end">{fmt.date(p.projectedDate)}</dd></>}
                 </dl>
                 {linked && (
                   <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted">
@@ -162,7 +162,7 @@ export default function Goals() {
         title={form?.id ? t('goal.edit') : t('goal.new')}
         size="lg"
         footer={<>
-          {form?.id && <Button variant="danger" className="mr-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => remove(form as SavingsGoal)}>{t('common.delete')}</Button>}
+          {form?.id && <Button variant="danger" className="me-auto" icon={<Trash2 className="h-4 w-4" />} onClick={() => remove(form as SavingsGoal)}>{t('common.delete')}</Button>}
           <Button variant="ghost" onClick={() => setForm(null)}>{t('common.cancel')}</Button>
           <Button variant="primary" onClick={save}>{t('common.save')}</Button>
         </>}

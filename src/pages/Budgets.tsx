@@ -118,7 +118,7 @@ export default function Budgets() {
                   <div className="text-[11px] text-muted">{t('budget.consumed')}</div>
                 </div>
               </ProgressRing>
-              <div className="mt-4 grid w-full grid-cols-2 gap-3 text-left">
+              <div className="mt-4 grid w-full grid-cols-2 gap-3 text-start">
                 <div className="rounded-xl bg-surface-2/60 p-3">
                   <div className="label">{t('budget.available')}</div>
                   <div className={cn('num mt-1 font-semibold', (overview.available ?? 0) < 0 && 'text-negative')}>{fmt.money(overview.available ?? 0)}</div>
@@ -144,7 +144,7 @@ export default function Budgets() {
                 {global && <Button size="sm" variant="ghost" aria-label={t('budget.deleteGlobal')} onClick={() => remove(global.budget)}><Trash2 className="h-3.5 w-3.5" /></Button>}
               </div>
               {md.forecast && md.forecast.budgetReference != null && (
-                <p className="mt-3 text-left text-xs text-muted">
+                <p className="mt-3 text-start text-xs text-muted">
                   {t('budget.projection')} <b className="num text-fg">{fmt.money(md.forecast.projectedExpenses)}</b>{' '}
                   {md.forecast.projectedBudgetOverrun! > 0 ? <span className="text-negative">{t('budget.overrunEstimated', { amount: fmt.money(md.forecast.projectedBudgetOverrun!) })}</span> : <span className="text-positive">{t('budget.withinBudget')}</span>} {t('budget.estimateNote')}
                 </p>
@@ -170,13 +170,13 @@ export default function Budgets() {
                             <span className="truncate text-sm font-medium">{l.category?.parentId ? `${ctx.categories.get(l.category.parentId)?.name} · ` : ''}{l.category?.name ?? t('common.deletedCategory')}</span>
                             <Badge tone={st.tone}>{st.label}</Badge>
                           </div>
-                          <div className="shrink-0 text-right text-sm num">
+                          <div className="shrink-0 text-end text-sm num">
                             <span className="font-semibold">{fmt.money(l.spent)}</span>
                             <span className="text-muted"> / {fmt.money(l.planned)}</span>
                           </div>
                         </div>
                         <ProgressBar value={l.consumption ?? (l.spent > 0 ? 2 : 0)} tone="auto" className="mt-2" label={t('budget.consumption', { name: l.category?.name ?? '' })} />
-                        {timing.isCurrent && l.planned > 0 && <div className="relative h-0"><span className="absolute -top-2 h-2 w-px bg-fg/50" style={{ left: `${(timing.elapsed / timing.total) * 100}%` }} title={t('budget.monthProgress')} /></div>}
+                        {timing.isCurrent && l.planned > 0 && <div className="relative h-0"><span className="absolute -top-2 h-2 w-px bg-fg/50" style={{ insetInlineStart: `${(timing.elapsed / timing.total) * 100}%` }} title={t('budget.monthProgress')} /></div>}
                         <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted">
                           <span>{t('budget.remaining')} <b className={cn('num', l.remaining < 0 ? 'text-negative' : 'text-fg')}>{fmt.money(l.remaining)}</b></span>
                           <span>{t('budget.consumedLabel')} <b className="num text-fg">{fmt.percent(l.consumption, 0)}</b></span>
@@ -204,19 +204,19 @@ export default function Budgets() {
           <div className="-mx-4 overflow-x-auto px-4 sm:-mx-5 sm:px-5">
             <table className="w-full min-w-[640px] text-xs">
               <thead>
-                <tr className="text-left text-muted">
-                  <th className="py-2 pr-3 font-medium">{t('common.category')}</th>
-                  {history.months.map((m) => <th key={m} className="px-2 py-2 text-right font-medium">{formatMonthShort(m, uiLocale)} {m.slice(2, 4)}</th>)}
+                <tr className="text-start text-muted">
+                  <th className="py-2 pe-3 font-medium">{t('common.category')}</th>
+                  {history.months.map((m) => <th key={m} className="px-2 py-2 text-end font-medium">{formatMonthShort(m, uiLocale)} {m.slice(2, 4)}</th>)}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/5">
                 {history.rows.map(([key, row]) => (
                   <tr key={key ?? 'global'}>
-                    <td className="py-2 pr-3 font-medium">{row.name}</td>
+                    <td className="py-2 pe-3 font-medium">{row.name}</td>
                     {row.cells.map((c, i) => {
                       const line = c.planned == null ? null : computeBudgetLine({ amount: c.planned } as Budget, null, c.spent, monthTiming(history.months[i], today), []);
                       return (
-                        <td key={i} className="px-2 py-2 text-right num">
+                        <td key={i} className="px-2 py-2 text-end num">
                           {c.planned == null ? <span className="text-muted/50">—</span> : (
                             <span className={cn(line!.status === 'over' ? 'text-negative' : 'text-fg')}>
                               {fmt.money(c.spent, undefined, { compact: true })}<span className="text-muted"> / {fmt.money(c.planned, undefined, { compact: true })}</span>
