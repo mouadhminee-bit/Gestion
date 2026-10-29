@@ -17,7 +17,7 @@ import type { Category, ID, Transaction } from '@/domain/types';
 import { PAYMENT_METHOD_LABELS } from '@/domain/types';
 import type { EditableTransactionType, TransactionDraft, ValidationErrors } from '@/domain/validation';
 import { hasErrors, validateTransactionDraft } from '@/domain/validation';
-import { addDays } from '@/domain/dates';
+import { addDays, gregorian } from '@/domain/dates';
 import { findDuplicates } from '@/domain/duplicates';
 import { ValidationError } from '@/data/repository';
 import { t as tr } from '@/i18n/core';
@@ -465,7 +465,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
             </Field>
             {editing && (
               <p className="text-[11px] text-muted sm:col-span-2">
-                {tr('form.createdAt', { created: new Date(editing.createdAt).toLocaleString(uiLocale), updated: new Date(editing.updatedAt).toLocaleString(uiLocale) })}
+                {tr('form.createdAt', { created: new Date(editing.createdAt).toLocaleString(gregorian(uiLocale)), updated: new Date(editing.updatedAt).toLocaleString(gregorian(uiLocale)) })}
                 {editing.importBatchId ? tr('form.imported') : ''}
                 {editing.recurringRuleId ? tr('form.fromRecurring') : ''}
               </p>

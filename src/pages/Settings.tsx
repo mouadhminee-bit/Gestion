@@ -14,7 +14,7 @@ import { downloadText } from '@/domain/csv';
 import { CURRENCIES, currencyInfo } from '@/domain/money';
 import { localeOptions, TIME_ZONES } from '@/domain/settings';
 import type { Category, CategoryKind, ExpenseNature, UserSettings } from '@/domain/types';
-import type { DateFormat } from '@/domain/dates';
+import { gregorian, type DateFormat } from '@/domain/dates';
 import { COLOR_SWATCHES, ICON_NAMES } from '@/lib/icons';
 import { cn } from '@/lib/cn';
 import { t, td } from '@/i18n/core';
@@ -61,7 +61,7 @@ export default function Settings() {
     if (file.size > 50 * 1024 * 1024) return toast.error(t('set.fileTooBig'));
     try {
       const parsed = JSON.parse(await file.text());
-      if (!(await confirm({ title: t('set.restore.title'), message: t('set.restore.message', { file: file.name, date: parsed?.exportedAt ? new Date(parsed.exportedAt).toLocaleString(uiLocale) : t('set.unknownDate') }), confirmLabel: t('set.restore.confirm') }))) return;
+      if (!(await confirm({ title: t('set.restore.title'), message: t('set.restore.message', { file: file.name, date: parsed?.exportedAt ? new Date(parsed.exportedAt).toLocaleString(gregorian(uiLocale)) : t('set.unknownDate') }), confirmLabel: t('set.restore.confirm') }))) return;
       await repo.restoreBackup(parsed);
       toast.success(t('set.restored'));
     } catch (e) {

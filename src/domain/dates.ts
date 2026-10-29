@@ -197,9 +197,17 @@ export function formatDate(date: ISODate | undefined | null, format: DateFormat 
   }
 }
 
+/**
+ * Les périodes de l’application sont des mois grégoriens : on impose ce calendrier
+ * (fa-IR afficherait sinon le calendrier persan, ar-SA l’hégirien…).
+ */
+export function gregorian(locale: string): string {
+  return /-u-.*ca-/.test(locale) ? locale : `${locale}${locale.includes('-u-') ? '' : '-u'}-ca-gregory`;
+}
+
 export function formatMonth(month: MonthKey, locale = 'fr-MA', style: 'long' | 'short' = 'long'): string {
   const [y, m] = month.split('-').map(Number);
-  const s = new Intl.DateTimeFormat(locale, { month: style, year: 'numeric', timeZone: 'UTC' }).format(
+  const s = new Intl.DateTimeFormat(gregorian(locale), { month: style, year: 'numeric', timeZone: 'UTC' }).format(
     new Date(Date.UTC(y, m - 1, 1)),
   );
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -211,14 +219,14 @@ export function formatMonthShort(month: MonthKey, locale = 'fr-MA'): string {
   const [y, m] = month.split('-').map(Number);
   // Certaines locales (fr-MA) abrègent juin et juillet de façon ambiguë (« jui. ») : libellés explicites.
   if (locale.startsWith('fr')) return FR_SHORT_MONTHS[m - 1];
-  return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' })
+  return new Intl.DateTimeFormat(gregorian(locale), { month: 'short', timeZone: 'UTC' })
     .format(new Date(Date.UTC(y, m - 1, 1)))
     .replace('.', '');
 }
 
 export function formatLongDate(date: ISODate, locale = 'fr-MA'): string {
   const { y, m, d } = parseISO(date);
-  const s = new Intl.DateTimeFormat(locale, {
+  const s = new Intl.DateTimeFormat(gregorian(locale), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

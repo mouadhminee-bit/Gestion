@@ -82,7 +82,7 @@ Les données sont générées de façon déterministe à partir de la date du jo
 
 ## Résultats des tests (exécutés)
 
-`npm test` — **175 tests, 8 fichiers, tous au vert** :
+`npm test` — **176 tests, 8 fichiers, tous au vert** :
 
 | Fichier | Tests | Couverture |
 |---|---|---|
@@ -92,7 +92,7 @@ Les données sont générées de façon déterministe à partir de la date du jo
 | `domain/calc/modules.test.ts` | 28 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur |
 | `domain/csv.test.ts` | 9 | CSV (guillemets, BOM, CRLF, injection de formules), dates, montants, doublons |
 | `domain/assistant.test.ts` | 9 | intentions de l’assistant, cohérence des chiffres, données insuffisantes, insights comparables, notifications |
-| `i18n/i18n.test.ts` | 54 | 24 dictionnaires complets (mêmes clés que le français, aucun texte vide, variables `{…}` identiques), pluriels (polonais, arabe, anglais, repli), chaque question suggérée de l’assistant retrouvée en saisie libre dans les 24 langues, réponses et insights dans la langue active, noms des catégories initiales |
+| `i18n/i18n.test.ts` | 55 | 24 dictionnaires complets (mêmes clés que le français, aucun texte vide, variables `{…}` identiques), pluriels (polonais, arabe, anglais, repli), chaque question suggérée de l’assistant retrouvée en saisie libre dans les 24 langues, réponses et insights dans la langue active, noms des catégories initiales, calendrier grégorien imposé (fa-IR) |
 | `data/repository.test.ts` | 24 | CRUD, validation, transferts (création, modification, conversion, suppression, multidevise), **persistance après réouverture**, sauvegarde/restauration, **isolation entre utilisateurs**, archivage, budgets, récurrences, dettes, objectifs, import, export, cohérence du jeu de démo et des totaux du dashboard |
 
 `npm run test:e2e` — parcours réel dans Chromium (exécuté, 11/11) : onboarding,

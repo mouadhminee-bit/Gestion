@@ -135,3 +135,13 @@ describe('Noms de catégories', () => {
     expect(displayCategoryName({ name: 'Ma catégorie' })).toBe('Ma catégorie');
   });
 });
+
+describe('Calendrier', () => {
+  it('affiche toujours les mois grégoriens (fa-IR utiliserait sinon le calendrier persan)', async () => {
+    const { formatMonth, formatLongDate } = await import('@/domain/dates');
+    expect(formatMonth('2026-10', 'fa-IR')).toMatch(/۲۰۲۶|2026/);
+    expect(formatMonth('2026-10', 'fa-IR')).not.toMatch(/مهر|۱۴۰۵/);
+    expect(formatLongDate('2026-10-29', 'fa-IR')).toMatch(/۲۹|29/);
+    expect(formatMonth('2026-10', 'en-US')).toBe('October 2026');
+  });
+});
