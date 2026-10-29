@@ -44,19 +44,22 @@ interface Row {
 
 function guessColumns(header: string[]): Partial<Record<ColKey, number>> {
   const n = header.map((h) => normalizeLabel(h));
-  const find = (re: RegExp) => {
-    const i = n.findIndex((h) => re.test(h));
+  /** En-tête exact dans la langue active (ex. un export CSV de NEXORA), sinon motifs français/anglais. */
+  const find = (re: RegExp, localized?: string) => {
+    const l = localized ? normalizeLabel(localized) : '';
+    let i = l ? n.findIndex((h) => h === l) : -1;
+    if (i < 0) i = n.findIndex((h) => re.test(h));
     return i >= 0 ? i : undefined;
   };
   return {
-    date: find(/date|jour/),
-    label: find(/libelle|description|label|intitule|operation|memo/),
-    amount: find(/^montant|amount|somme|valeur/),
-    debit: find(/debit|sortie|depense/),
-    credit: find(/credit|entree|recette/),
-    category: find(/categor/),
-    payee: find(/beneficiaire|commercant|tiers|payee|marchand/),
-    notes: find(/note|commentaire/),
+    date: find(/date|jour/, tr('csv.date')),
+    label: find(/libelle|description|label|intitule|operation|memo/, tr('csv.label')),
+    amount: find(/^montant|amount|somme|valeur/, tr('csv.amount')),
+    debit: find(/debit|sortie|depense/, tr('imp.col.debit')),
+    credit: find(/credit|entree|recette/, tr('imp.col.credit')),
+    category: find(/categor/, tr('csv.category')),
+    payee: find(/beneficiaire|commercant|tiers|payee|marchand/, tr('csv.payee')),
+    notes: find(/note|commentaire/, tr('csv.notes')),
   };
 }
 
