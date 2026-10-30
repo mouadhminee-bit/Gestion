@@ -10,6 +10,8 @@ import { computeDebtStatus, debtRemaining, validateDebtPayment } from './debts';
 import { computeNetWorth, netWorthHistory } from './networth';
 import { forecastMonth, variableDailyAverage } from './forecast';
 import { computeBaseline, EMPTY_SCENARIO, simulateScenario } from './scenario';
+import { recurringExpenseShares, trackedMonths } from './analytics';
+import { yearPeriod } from '../dates';
 
 const now = '2026-01-01T00:00:00.000Z';
 const budget = (p: Partial<Budget>): Budget => ({ id: 'b' + Math.random(), userId: UID, month: '2026-03', categoryId: null, amount: 0, currency: 'MAD', createdAt: now, updatedAt: now, ...p });
@@ -166,6 +168,43 @@ describe('Échéances récurrentes', () => {
     expect(occ2[0].status).toBe('overdue');
     const occ3 = listOccurrences([r], [{ id: 'r1:2026-03-03', userId: UID, ruleId: 'r1', dueDate: '2026-03-03', status: 'skipped', updatedAt: now }], [], monthPeriod('2026-03'), '2026-03-01');
     expect(occ3[0].status).toBe('skipped');
+  });
+});
+
+describe('Analyses — part des dépenses récurrentes', () => {
+  // Cas signalé : vue « Année 2026 », suivi commencé en octobre (4 396 DH de dépenses).
+  // L'ancienne formule divisait par 10 mois entamés : Loyer 637 %, Wifi 80 %, Claude 55 %.
+  const rules = [rule({ id: 'loyer', label: 'Loyer', amount: 280000 }), rule({ id: 'wifi', label: 'Wifi Home', amount: 35000 }), rule({ id: 'claude', label: 'Claude', amount: 24107 })];
+  const october = [tx({ accountId: 'acc', amount: 280000, date: '2026-10-01' }), tx({ accountId: 'acc', amount: 159600, date: '2026-10-15' })];
+  const ctx = ctxOf(emptySnapshot());
+
+  it('ne compte que les mois suivis de la période', () => {
+    expect(trackedMonths(october, yearPeriod(2026), '2026-10-30')).toBe(1);
+    expect(trackedMonths([tx({ accountId: 'acc', date: '2025-06-01' }), ...october], yearPeriod(2026), '2026-10-30')).toBe(10);
+    expect(trackedMonths(october, yearPeriod(2025), '2026-10-30')).toBe(1);
+    expect(trackedMonths([], monthPeriod('2026-10'), '2026-10-30')).toBe(1);
+  });
+
+  it('rapporte chaque récurrence aux dépenses mensuelles moyennes réelles (ratio, pas pourcentage)', () => {
+    const shares = recurringExpenseShares(ctx, rules, october, 439600, yearPeriod(2026), '2026-10-30');
+    expect(shares.map((x) => x.rule.label)).toEqual(['Loyer', 'Wifi Home', 'Claude']);
+    expect(shares.map((x) => x.monthly)).toEqual([280000, 35000, 24107]);
+    expect(shares[0].share).toBeCloseTo(0.637, 3);
+    expect(shares[1].share).toBeCloseTo(0.0796, 4);
+    expect(shares[2].share).toBeCloseTo(0.0548, 4);
+    // Même résultat en vue mensuelle : le mois d'octobre est la seule donnée.
+    expect(recurringExpenseShares(ctx, rules, october, 439600, monthPeriod('2026-10'), '2026-10-30')[0].share).toBeCloseTo(0.637, 3);
+  });
+
+  it('garde la moyenne sur 10 mois quand le suivi couvre toute l’année', () => {
+    const history = [tx({ accountId: 'acc', amount: 1000, date: '2026-01-05' }), ...october];
+    expect(recurringExpenseShares(ctx, rules, history, 440600, yearPeriod(2026), '2026-10-30')[0].share).toBeCloseTo(280000 / 44060, 6);
+  });
+
+  it('ignore les récurrences inactives ou de revenu et ne calcule rien sans dépense', () => {
+    const all = [...rules, rule({ id: 'off', active: false }), rule({ id: 'sal', kind: 'income', amount: 1000000 })];
+    expect(recurringExpenseShares(ctx, all, october, 439600, monthPeriod('2026-10'), '2026-10-30')).toHaveLength(3);
+    expect(recurringExpenseShares(ctx, rules, [], 0, monthPeriod('2026-10'), '2026-10-30').every((x) => x.share === null)).toBe(true);
   });
 });
 

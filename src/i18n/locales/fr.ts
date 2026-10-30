@@ -1140,7 +1140,7 @@ const fr = {
   'an.netWorth': "Évolution du patrimoine net",
   'an.endOfMonth': "Fin de mois",
   'an.recurring': "Dépenses récurrentes",
-  'an.recurring.info': "Équivalent mensuel des récurrences actives et part dans les dépenses mensuelles moyennes de la période.",
+  'an.recurring.info': "Équivalent mensuel des récurrences actives et part dans les dépenses mensuelles moyennes de la période, calculées sur les mois suivis (depuis votre première opération).",
   'an.perMonthShare': " /mois · {pct}",
   'an.noRecurring': "Aucune dépense récurrente configurée.",
   'an.exceptional': "Dépenses exceptionnelles",

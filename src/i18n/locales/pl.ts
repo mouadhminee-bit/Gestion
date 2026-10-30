@@ -1106,7 +1106,7 @@ const pl: Messages = {
   'an.netWorth': "Przebieg wartości netto",
   'an.endOfMonth': "Koniec miesiąca",
   'an.recurring': "Wydatki cykliczne",
-  'an.recurring.info': "Miesięczny ekwiwalent aktywnych płatności cyklicznych i ich udział w średnich miesięcznych wydatkach okresu.",
+  'an.recurring.info': "Miesięczny ekwiwalent aktywnych płatności cyklicznych i ich udział w średnich miesięcznych wydatkach okresu, liczonych za śledzone miesiące (od pierwszej transakcji).",
   'an.perMonthShare': " /mies. · {pct}",
   'an.noRecurring': "Nie skonfigurowano wydatków cyklicznych.",
   'an.exceptional': "Wydatki wyjątkowe",

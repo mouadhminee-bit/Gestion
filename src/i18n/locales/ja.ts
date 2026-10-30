@@ -1106,7 +1106,7 @@ const ja: Messages = {
   'an.netWorth': "純資産の推移",
   'an.endOfMonth': "月末",
   'an.recurring': "定期支出",
-  'an.recurring.info': "有効な定期支払いの月換算額と、期間の平均月間支出に占める割合。",
+  'an.recurring.info': "有効な定期支払いの月換算額と、期間の平均月間支出に占める割合（平均は最初の取引以降の記録月で算出）。",
   'an.perMonthShare': " /月 · {pct}",
   'an.noRecurring': "定期支出が設定されていません。",
   'an.exceptional': "臨時支出",

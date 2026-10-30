@@ -1106,7 +1106,7 @@ const nl: Messages = {
   'an.netWorth': "Ontwikkeling van het nettovermogen",
   'an.endOfMonth': "Eind van de maand",
   'an.recurring': "Terugkerende uitgaven",
-  'an.recurring.info': "Maandequivalent van de actieve terugkerende betalingen en hun aandeel in de gemiddelde maanduitgaven van de periode.",
+  'an.recurring.info': "Maandequivalent van de actieve terugkerende betalingen en hun aandeel in de gemiddelde maanduitgaven van de periode, berekend over de bijgehouden maanden (sinds de eerste transactie).",
   'an.perMonthShare': " /maand · {pct}",
   'an.noRecurring': "Geen terugkerende uitgave ingesteld.",
   'an.exceptional': "Uitzonderlijke uitgaven",

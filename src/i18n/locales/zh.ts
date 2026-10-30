@@ -1106,7 +1106,7 @@ const zh: Messages = {
   'an.netWorth': "净资产走势",
   'an.endOfMonth': "月末",
   'an.recurring': "定期支出",
-  'an.recurring.info': "活跃定期付款的月度等值及其在期间平均月支出中的占比。",
+  'an.recurring.info': "活跃定期付款的月度等值及其在期间平均月支出中的占比（平均值按首笔交易以来的记录月份计算）。",
   'an.perMonthShare': " /月 · {pct}",
   'an.noRecurring': "尚未设置定期支出。",
   'an.exceptional': "特殊支出",

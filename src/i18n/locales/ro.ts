@@ -1106,7 +1106,7 @@ const ro: Messages = {
   'an.netWorth': "Evoluția averii nete",
   'an.endOfMonth': "Sfârșit de lună",
   'an.recurring': "Cheltuieli recurente",
-  'an.recurring.info': "Echivalentul lunar al plăților recurente active și ponderea lor în cheltuielile lunare medii ale perioadei.",
+  'an.recurring.info': "Echivalentul lunar al plăților recurente active și ponderea lor în cheltuielile lunare medii ale perioadei, calculate pe lunile urmărite (de la prima tranzacție).",
   'an.perMonthShare': " /lună · {pct}",
   'an.noRecurring': "Nicio cheltuială recurentă configurată.",
   'an.exceptional': "Cheltuieli excepționale",

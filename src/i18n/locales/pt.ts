@@ -1106,7 +1106,7 @@ const pt: Messages = {
   'an.netWorth': "Evolução do património líquido",
   'an.endOfMonth': "Fim do mês",
   'an.recurring': "Despesas recorrentes",
-  'an.recurring.info': "Equivalente mensal das recorrências ativas e peso nas despesas mensais médias do período.",
+  'an.recurring.info': "Equivalente mensal das recorrências ativas e peso nas despesas mensais médias do período, calculadas sobre os meses registados (desde a primeira operação).",
   'an.perMonthShare': " /mês · {pct}",
   'an.noRecurring': "Nenhuma despesa recorrente configurada.",
   'an.exceptional': "Despesas excecionais",

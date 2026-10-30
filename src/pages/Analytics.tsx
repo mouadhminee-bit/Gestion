@@ -16,8 +16,7 @@ import type { Period } from '@/domain/dates';
 import { addMonthsToKey, formatMonthShort, inPeriod, minDate, monthEnd, monthKey, monthRange, monthStart, previousPeriod, quarterPeriod, yearPeriod, parseISO } from '@/domain/dates';
 import type { TransactionFilter } from '@/domain/calc/ledger';
 import { accountsInScope, matchesFilter, totalBalance } from '@/domain/calc/ledger';
-import { comparePeriods, dailyAverage, exceptionalExpenses, expensesByPayee, monthlySeries } from '@/domain/calc/analytics';
-import { monthlyEquivalent } from '@/domain/calc/recurring';
+import { comparePeriods, dailyAverage, exceptionalExpenses, expensesByPayee, monthlySeries, recurringExpenseShares } from '@/domain/calc/analytics';
 import { netWorthHistory } from '@/domain/calc/networth';
 import { fromMajor } from '@/domain/money';
 import type { TransactionType } from '@/domain/types';
@@ -81,7 +80,7 @@ export default function Analytics() {
   const maxCat = Math.max(1, ...cats.map((c) => c.amount));
   const daily = dailyAverage(s.expenses, period, today);
   const elapsedMonths = months.filter((m) => monthStart(m) <= today).length || 1;
-  const recurring = data.recurringRules.filter((r) => r.active && r.kind === 'expense').map((r) => ({ r, monthly: ctx.convert(monthlyEquivalent(r), r.currency, today) ?? 0 })).sort((a, b) => b.monthly - a.monthly);
+  const recurring = recurringExpenseShares(ctx, data.recurringRules, data.transactions, s.expenses, period, today);
   const tags = useMemo(() => [...new Set(data.transactions.flatMap((t) => t.tags))].sort(), [data.transactions]);
   const filtered = useMemo(() => data.transactions.filter((t) => inPeriod(t.date, period) && matchesFilter(ctx, t, filter)), [data.transactions, period, ctx, filter]);
 
@@ -273,8 +272,8 @@ export default function Analytics() {
         <Card title={tr('an.recurring')} info={tr('an.recurring.info')}>
           {recurring.length ? (
             <ul className="divide-y divide-line/5 text-sm">
-              {recurring.map(({ r, monthly }) => (
-                <li key={r.id} className="flex justify-between gap-2 py-2"><span className="truncate">{r.label}</span><span className="num">{fmt.money(monthly)}<span className="text-xs text-muted">{tr('an.perMonthShare', { pct: fmt.percent(s.expenses > 0 ? monthly / (s.expenses / elapsedMonths) : null, 0) })}</span></span></li>
+              {recurring.map(({ rule: r, monthly, share }) => (
+                <li key={r.id} className="flex justify-between gap-2 py-2"><span className="truncate">{r.label}</span><span className="num">{fmt.money(monthly)}<span className="text-xs text-muted">{tr('an.perMonthShare', { pct: fmt.percent(share, 0) })}</span></span></li>
               ))}
             </ul>
           ) : <NoData height={120}>{tr('an.noRecurring')}</NoData>}

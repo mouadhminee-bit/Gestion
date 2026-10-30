@@ -1106,7 +1106,7 @@ const tr: Messages = {
   'an.netWorth': "Net varlığın seyri",
   'an.endOfMonth': "Ay sonu",
   'an.recurring': "Düzenli giderler",
-  'an.recurring.info': "Aktif düzenli ödemelerin aylık karşılığı ve dönemin ortalama aylık giderleri içindeki payı.",
+  'an.recurring.info': "Aktif düzenli ödemelerin aylık karşılığı ve dönemin ortalama aylık giderleri içindeki payı; ortalama, takip edilen aylar üzerinden hesaplanır (ilk işlemden itibaren).",
   'an.perMonthShare': " /ay · {pct}",
   'an.noRecurring': "Ayarlanmış düzenli gider yok.",
   'an.exceptional': "İstisnai giderler",

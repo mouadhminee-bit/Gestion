@@ -8,7 +8,7 @@ import { detectIntent, answerIntent, registerEnglishKeywords, SUGGESTIONS } from
 import { displayCategoryName } from '@/domain/categories.seed';
 import { generateInsights } from '@/domain/calc/insights';
 import { forecastMonth } from '@/domain/calc/forecast';
-import { formatMoney } from '@/domain/money';
+import { formatMoney, formatPercent } from '@/domain/money';
 
 const modules = import.meta.glob<{ default: Messages }>('./locales/*.ts', { eager: true });
 const locales = new Map<Lang, Messages>(
@@ -134,6 +134,21 @@ describe('Noms de catégories', () => {
     expect(displayCategoryName({ key: 'restaurants', name: 'Sorties resto' })).toBe('Sorties resto');
     expect(displayCategoryName({ name: 'Ma catégorie' })).toBe('Ma catégorie');
   });
+});
+
+describe('Part des dépenses récurrentes', () => {
+  // Le ratio 0,637 doit s'afficher « 64 % » (et non « 637 % ») dans chaque langue et chaque locale.
+  for (const l of LANGUAGES) {
+    it(`${l.code} : un ratio est formaté une seule fois en pourcentage`, () => {
+      activateMessages(l.code, locales.get(l.code)!);
+      for (const locale of [l.locale, 'fr-MA']) {
+        const text = t('an.perMonthShare', { pct: formatPercent(0.637, locale, 0) });
+        const digits = text.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0)).replace(/[^\d]/g, '');
+        expect(digits, `${l.code} ${locale} « ${text} »`).toBe('64');
+        expect(text, `${l.code} ${locale}`).toMatch(/[%٪]/);
+      }
+    });
+  }
 });
 
 describe('Calendrier', () => {

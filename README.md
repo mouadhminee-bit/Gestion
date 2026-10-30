@@ -82,17 +82,17 @@ Les données sont générées de façon déterministe à partir de la date du jo
 
 ## Résultats des tests (exécutés)
 
-`npm test` — **176 tests, 8 fichiers, tous au vert** :
+`npm test` — **204 tests, 8 fichiers, tous au vert** :
 
 | Fichier | Tests | Couverture |
 |---|---|---|
 | `domain/money.test.ts` | 26 | parsing exact, séparateurs, devises à 0/3 décimales, 0,1 + 0,2, formats, arrondis, montants nuls/négatifs |
 | `domain/dates.test.ts` | 7 | bissextiles, dates limites, fins de mois, formats, périodes, fuseau Casablanca |
 | `domain/calc/ledger.test.ts` | 18 | revenus, dépenses, épargne, taux (non calculable), sous-catégories, fixes/variables, filtrage par période, transferts sans double comptage, remboursements, ajustements, intérêts seuls, soldes et ancrage, série quotidienne, multidevise avec/sans taux |
-| `domain/calc/modules.test.ts` | 28 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur |
+| `domain/calc/modules.test.ts` | 32 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur, part des dépenses récurrentes (mois suivis uniquement) |
 | `domain/csv.test.ts` | 9 | CSV (guillemets, BOM, CRLF, injection de formules), dates, montants, doublons |
 | `domain/assistant.test.ts` | 9 | intentions de l’assistant, cohérence des chiffres, données insuffisantes, insights comparables, notifications |
-| `i18n/i18n.test.ts` | 55 | 24 dictionnaires complets (mêmes clés que le français, aucun texte vide, variables `{…}` identiques), pluriels (polonais, arabe, anglais, repli), chaque question suggérée de l’assistant retrouvée en saisie libre dans les 24 langues, réponses et insights dans la langue active, noms des catégories initiales, calendrier grégorien imposé (fa-IR) |
+| `i18n/i18n.test.ts` | 79 | 24 dictionnaires complets (mêmes clés que le français, aucun texte vide, variables `{…}` identiques), pluriels (polonais, arabe, anglais, repli), chaque question suggérée de l’assistant retrouvée en saisie libre dans les 24 langues, réponses et insights dans la langue active, noms des catégories initiales, calendrier grégorien imposé (fa-IR), pourcentage de part récurrente formaté une seule fois (24 langues) |
 | `data/repository.test.ts` | 24 | CRUD, validation, transferts (création, modification, conversion, suppression, multidevise), **persistance après réouverture**, sauvegarde/restauration, **isolation entre utilisateurs**, archivage, budgets, récurrences, dettes, objectifs, import, export, cohérence du jeu de démo et des totaux du dashboard |
 
 `npm run test:e2e` — parcours réel dans Chromium (exécuté, 11/11) : onboarding,

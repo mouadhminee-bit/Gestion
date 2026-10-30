@@ -1106,7 +1106,7 @@ const de: Messages = {
   'an.netWorth': "Verlauf des Nettovermögens",
   'an.endOfMonth': "Monatsende",
   'an.recurring': "Wiederkehrende Ausgaben",
-  'an.recurring.info': "Monatsäquivalent der aktiven Wiederholungen und Anteil an den durchschnittlichen Monatsausgaben des Zeitraums.",
+  'an.recurring.info': "Monatsäquivalent der aktiven Wiederholungen und Anteil an den durchschnittlichen Monatsausgaben des Zeitraums, berechnet über die erfassten Monate (seit der ersten Buchung).",
   'an.perMonthShare': " /Monat · {pct}",
   'an.noRecurring': "Keine wiederkehrende Ausgabe eingerichtet.",
   'an.exceptional': "Außergewöhnliche Ausgaben",

@@ -1106,7 +1106,7 @@ const sv: Messages = {
   'an.netWorth': "Nettoförmögenhetens utveckling",
   'an.endOfMonth': "Månadsslut",
   'an.recurring': "Återkommande utgifter",
-  'an.recurring.info': "Månadsekvivalent för aktiva återkommande betalningar och deras andel av periodens genomsnittliga månadsutgifter.",
+  'an.recurring.info': "Månadsekvivalent för aktiva återkommande betalningar och deras andel av periodens genomsnittliga månadsutgifter, beräknade över de registrerade månaderna (sedan första transaktionen).",
   'an.perMonthShare': " /mån · {pct}",
   'an.noRecurring': "Ingen återkommande utgift upplagd.",
   'an.exceptional': "Exceptionella utgifter",

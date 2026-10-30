@@ -1106,7 +1106,7 @@ const it: Messages = {
   'an.netWorth': "Andamento del patrimonio netto",
   'an.endOfMonth': "Fine mese",
   'an.recurring': "Spese ricorrenti",
-  'an.recurring.info': "Equivalente mensile delle ricorrenze attive e quota sulle spese mensili medie del periodo.",
+  'an.recurring.info': "Equivalente mensile delle ricorrenze attive e quota sulle spese mensili medie del periodo, calcolate sui mesi registrati (dalla prima operazione).",
   'an.perMonthShare': " /mese · {pct}",
   'an.noRecurring': "Nessuna spesa ricorrente configurata.",
   'an.exceptional': "Spese eccezionali",

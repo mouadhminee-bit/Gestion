@@ -3,10 +3,11 @@
  * S'appuie exclusivement sur ledger.summarizePeriod / flowOf pour rester cohérent.
  */
 import type { ISODate, MonthKey, Period } from '../dates';
-import { inPeriod, monthPeriod, periodDays } from '../dates';
-import type { ID, Transaction } from '../types';
+import { inPeriod, monthKey, monthPeriod, monthRange, periodDays } from '../dates';
+import type { ID, RecurringRule, Transaction } from '../types';
 import type { LedgerContext, PeriodSummary, TransactionFilter } from './ledger';
 import { matchesFilter, summarizePeriod, topCategoryId } from './ledger';
+import { monthlyEquivalent } from './recurring';
 
 export interface MonthlyPoint {
   month: MonthKey;
@@ -136,4 +137,37 @@ export function dailyAverage(expenses: number, period: Period, today: ISODate): 
   if (end < period.start) return null;
   const days = periodDays({ start: period.start, end });
   return days > 0 ? expenses / days : null;
+}
+
+/**
+ * Mois de la période couverts par le suivi : du mois de la première opération enregistrée
+ * (ou du début de la période) jusqu'au mois en cours (ou à la fin de la période). Au moins 1.
+ * Les mois antérieurs au début du suivi ne sont pas des mois « sans dépense » : les compter
+ * diluerait la moyenne (vue Année avec des données depuis octobre : 10 mois au lieu de 1).
+ */
+export function trackedMonths(transactions: Transaction[], period: Period, today: ISODate): number {
+  const first = transactions.reduce<ISODate | null>((min, t) => (min == null || t.date < min ? t.date : min), null);
+  const from = first && first > period.start ? first : period.start;
+  const to = period.end < today ? period.end : today;
+  return to < from ? 1 : monthRange(monthKey(from), monthKey(to)).length;
+}
+
+export interface RecurringExpenseShare {
+  rule: RecurringRule;
+  /** Équivalent mensuel en devise de base (unités minimales). */
+  monthly: number;
+  /** Part dans les dépenses mensuelles moyennes des mois suivis de la période (ratio, 0,637 = 63,7 %). */
+  share: number | null;
+}
+
+/** Récurrences de dépense actives, de la plus lourde à la plus légère, avec leur part dans les dépenses. */
+export function recurringExpenseShares(ctx: LedgerContext, rules: RecurringRule[], transactions: Transaction[], periodExpenses: number, period: Period, today: ISODate): RecurringExpenseShare[] {
+  const monthlyExpenses = periodExpenses > 0 ? periodExpenses / trackedMonths(transactions, period, today) : 0;
+  return rules
+    .filter((r) => r.active && r.kind === 'expense')
+    .map((rule) => {
+      const monthly = ctx.convert(monthlyEquivalent(rule), rule.currency, today) ?? 0;
+      return { rule, monthly, share: monthlyExpenses > 0 ? monthly / monthlyExpenses : null };
+    })
+    .sort((a, b) => b.monthly - a.monthly);
 }

@@ -1106,7 +1106,7 @@ const ko: Messages = {
   'an.netWorth': "순자산 추이",
   'an.endOfMonth': "월말",
   'an.recurring': "정기 지출",
-  'an.recurring.info': "활성 정기 결제의 월 환산액과 기간 월평균 지출 대비 비중.",
+  'an.recurring.info': "활성 정기 결제의 월 환산액과 기간 월평균 지출 대비 비중(평균은 첫 거래 이후 기록된 달 기준).",
   'an.perMonthShare': " /월 · {pct}",
   'an.noRecurring': "설정된 정기 지출이 없습니다.",
   'an.exceptional': "특별 지출",

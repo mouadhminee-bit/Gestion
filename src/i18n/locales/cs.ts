@@ -1106,7 +1106,7 @@ const cs: Messages = {
   'an.netWorth': "Vývoj čistého jmění",
   'an.endOfMonth': "Konec měsíce",
   'an.recurring': "Opakované výdaje",
-  'an.recurring.info': "Měsíční ekvivalent aktivních opakovaných plateb a jejich podíl na průměrných měsíčních výdajích období.",
+  'an.recurring.info': "Měsíční ekvivalent aktivních opakovaných plateb a jejich podíl na průměrných měsíčních výdajích období, počítaných za sledované měsíce (od první transakce).",
   'an.perMonthShare': " /měs. · {pct}",
   'an.noRecurring': "Není nastaven žádný opakovaný výdaj.",
   'an.exceptional': "Mimořádné výdaje",

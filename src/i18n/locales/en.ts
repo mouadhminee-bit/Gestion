@@ -1106,7 +1106,7 @@ const en: Messages = {
   'an.netWorth': "Net worth over time",
   'an.endOfMonth': "End of month",
   'an.recurring': "Recurring expenses",
-  'an.recurring.info': "Monthly equivalent of active recurring payments and their share of the period’s average monthly spending.",
+  'an.recurring.info': "Monthly equivalent of active recurring payments and their share of the period’s average monthly spending, over the months tracked (since your first transaction).",
   'an.perMonthShare': " /month · {pct}",
   'an.noRecurring': "No recurring expense set up.",
   'an.exceptional': "Exceptional expenses",

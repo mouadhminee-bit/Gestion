@@ -1106,7 +1106,7 @@ const id: Messages = {
   'an.netWorth': "Perkembangan kekayaan bersih",
   'an.endOfMonth': "Akhir bulan",
   'an.recurring': "Pengeluaran berulang",
-  'an.recurring.info': "Setara bulanan pembayaran berulang aktif dan porsinya terhadap rata-rata pengeluaran bulanan periode.",
+  'an.recurring.info': "Setara bulanan pembayaran berulang aktif dan porsinya terhadap rata-rata pengeluaran bulanan periode, dihitung atas bulan yang tercatat (sejak transaksi pertama).",
   'an.perMonthShare': " /bulan · {pct}",
   'an.noRecurring': "Belum ada pengeluaran berulang.",
   'an.exceptional': "Pengeluaran luar biasa",

@@ -1106,7 +1106,7 @@ const vi: Messages = {
   'an.netWorth': "Diễn biến tài sản ròng",
   'an.endOfMonth': "Cuối tháng",
   'an.recurring': "Chi tiêu định kỳ",
-  'an.recurring.info': "Quy đổi theo tháng của các khoản thanh toán định kỳ đang hoạt động và tỷ trọng của chúng trong chi tiêu trung bình mỗi tháng của kỳ.",
+  'an.recurring.info': "Quy đổi theo tháng của các khoản thanh toán định kỳ đang hoạt động và tỷ trọng của chúng trong chi tiêu trung bình mỗi tháng của kỳ, tính trên các tháng được theo dõi (từ giao dịch đầu tiên).",
   'an.perMonthShare': " /tháng · {pct}",
   'an.noRecurring': "Chưa thiết lập khoản chi định kỳ nào.",
   'an.exceptional': "Chi tiêu bất thường",

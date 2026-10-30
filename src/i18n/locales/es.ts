@@ -1106,7 +1106,7 @@ const es: Messages = {
   'an.netWorth': "Evolución del patrimonio neto",
   'an.endOfMonth': "Fin de mes",
   'an.recurring': "Gastos recurrentes",
-  'an.recurring.info': "Equivalente mensual de las recurrencias activas y su peso en los gastos mensuales medios del periodo.",
+  'an.recurring.info': "Equivalente mensual de las recurrencias activas y su peso en los gastos mensuales medios del periodo, calculados sobre los meses registrados (desde la primera operación).",
   'an.perMonthShare': " /mes · {pct}",
   'an.noRecurring': "No hay gastos recurrentes configurados.",
   'an.exceptional': "Gastos excepcionales",
