@@ -9,8 +9,10 @@ create schema tests;
 create extension if not exists dblink schema tests;
 grant usage on schema tests to anon, authenticated;
 
-create table tests.config (dsn text not null);
-insert into tests.config values (:'dsn');
+-- dsn : connexion des sessions concurrentes (dblink) ; admin_role : rôle « administrateur »
+-- des tests (postgres en local ; sur Supabase, service_role si postgres ne contourne pas la RLS).
+create table tests.config (dsn text not null, admin_role text not null);
+insert into tests.config values (:'dsn', :'admin_role');
 
 create table tests.results (
   n bigserial primary key,
@@ -107,19 +109,24 @@ end $$;
 
 create function tests.as_admin() returns void language plpgsql as $$
 begin
-  perform set_config('role', 'postgres', true);
+  perform set_config('role', (select admin_role from tests.config), true);
   perform set_config('request.jwt.claims', '', true);
 end $$;
 
 grant execute on all functions in schema tests to anon, authenticated;
 
+-- Utilisateur FICTIF (@example.test). Créé par l'utilisateur de session (auth.users n'est pas
+-- accessible aux rôles applicatifs), puis le rôle courant est rétabli.
 create function tests.new_user(label text default 'test') returns uuid
 language plpgsql as $$
 declare
   uid uuid := gen_random_uuid();
+  prev text := current_setting('role');
 begin
-  insert into auth.users (id, email, raw_user_meta_data)
-  values (uid, label || '-' || uid || '@example.test', jsonb_build_object('display_name', label));
+  perform set_config('role', session_user, true);
+  insert into auth.users (id, email, raw_user_meta_data, aud, role)
+  values (uid, label || '-' || uid || '@example.test', jsonb_build_object('display_name', label), 'authenticated', 'authenticated');
+  perform set_config('role', prev, true);
   return uid;
 end $$;
 
@@ -221,6 +228,17 @@ end $$;
 
 grant execute on all functions in schema tests to anon, authenticated;
 
+-- Suppression d'un utilisateur fictif (auth.users : utilisateur de session uniquement).
+create function tests.delete_user(uid uuid) returns void
+language plpgsql as $$
+declare
+  prev text := current_setting('role');
+begin
+  perform set_config('role', session_user, true);
+  delete from auth.users where id = uid;
+  perform set_config('role', prev, true);
+end $$;
+
 -- Tables NEXORA portant user_id (référentiel des tests génériques).
 create view tests.user_tables as
   select c.oid as relid, c.relname::text as name
@@ -257,3 +275,9 @@ begin
 end $$;
 
 grant select on all tables in schema tests to anon, authenticated;
+
+-- Rôle administrateur alternatif (Supabase, si postgres ne contourne pas la RLS forcée).
+grant usage on schema tests to service_role;
+grant all on all tables in schema tests to service_role;
+grant all on all sequences in schema tests to service_role;
+grant execute on all functions in schema tests to service_role;

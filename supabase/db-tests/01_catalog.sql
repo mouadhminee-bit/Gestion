@@ -31,7 +31,9 @@ begin
           and format_type(a.atttypid, a.atttypmod) = c.typ), format('%s : colonne serveur %s (%s)', t.name, c.col, c.typ));
     end loop;
     perform tests.ok(exists (select 1 from pg_trigger g where g.tgrelid = t.relid and not g.tgisinternal
-        and g.tgfoid = 'private.tg_sync_metadata'::regproc), format('%s : déclencheur de métadonnées serveur', t.name));
+        and g.tgfoid = (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                        where n.nspname = 'private' and p.proname = 'tg_sync_metadata')),
+      format('%s : déclencheur de métadonnées serveur', t.name));
     perform tests.ok(exists (
       select 1 from pg_index i where i.indrelid = t.relid
         and (select array_agg(a.attname order by k.ord) from unnest(i.indkey) with ordinality k(attnum, ord)

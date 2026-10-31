@@ -1,9 +1,28 @@
-# Configuration du CLI Supabase pour un usage LOCAL (`supabase start`, `supabase db reset`).
-# Aucun secret ici. Les migrations sont dans supabase/migrations/.
-# Les tests SQL (supabase/db-tests/) ne sont PAS des tests pgTAP : ils s'exécutent avec
-# `npm run test:db` (base PostgreSQL éphémère) — voir docs/LOT3_SCHEMA.md.
+# Configuration du CLI Supabase pour la pile LOCALE uniquement (`supabase start`).
+# Aucun secret ici ; aucun projet hébergé n'est lié à ce dépôt.
+# Migrations : supabase/migrations/. Tests SQL (non pgTAP) : supabase/db-tests/,
+# exécutés par `npm run test:db` (PostgreSQL éphémère) et par
+# `bash scripts/qualify-supabase.sh local` (pile Supabase locale, étape 3b).
 project_id = "nexora"
 
+[api]
+port = 54321
+schemas = ["public", "graphql_public"]
+
 [db]
-# Version majeure de PostgreSQL : à aligner sur celle du projet Supabase de développement.
-major_version = 15
+port = 54322
+# Version des nouveaux projets Supabase ; les migrations sont qualifiées sur 16 et 17.
+major_version = 17
+
+[studio]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Comptes de test fictifs (@example.test) : aucune confirmation par e-mail.
+enable_confirmations = false

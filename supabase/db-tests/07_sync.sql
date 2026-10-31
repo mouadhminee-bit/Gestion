@@ -27,6 +27,9 @@ begin
   perform tests.dblink_connect('s2', dsn);
   perform tests.dblink_connect('s3', dsn);
   perform tests.dblink_connect('pull', dsn);
+  -- Les sessions concurrentes agissent avec le rôle administrateur des tests.
+  perform tests.dblink_exec(c, format('set role %I', (select admin_role from tests.config)))
+    from unnest(array['s1', 's2', 's3', 'pull']) c;
 end $$;
 
 create function pg_temp.disconnect_all() returns void language plpgsql as $$

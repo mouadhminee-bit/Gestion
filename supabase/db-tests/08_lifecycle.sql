@@ -58,7 +58,7 @@ begin
   end loop;
   perform tests.ok(total_a > 0, format('suppression du compte : A possède %s lignes avant', total_a));
   select sum(c) into nb_before from (select (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I where user_id = %L', name, b), false, true, '')))[1]::text::bigint as c from tests.user_tables) s;
-  perform tests.lives_keep(format('delete from auth.users where id = %L', a), 'suppression du compte : cascade valide (clés différées comprises)');
+  perform tests.lives_keep(format('select tests.delete_user(%L)', a), 'suppression du compte : cascade valide (clés différées comprises)');
   for t in select * from tests.user_tables loop
     execute format('select count(*) from public.%I where user_id = $1', t.name) into na using a;
     perform tests.eq(na, 0::bigint, format('suppression du compte : %s vidée pour A', t.name));

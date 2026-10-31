@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:e2e": "node e2e/smoke.cjs",
     "check": "npm run typecheck && npm test && npm run build",
-    "test:db": "bash scripts/db-test.sh"
+    "test:db": "bash scripts/db-test.sh",
+    "qualify:supabase": "bash scripts/qualify-supabase.sh local"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.1.1",

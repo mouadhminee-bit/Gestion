@@ -1,6 +1,9 @@
 {
   "name": "NEXORA — développement (sans Netlify)",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
   "hostRequirements": { "cpus": 2, "memory": "4gb" },
   "postCreateCommand": "npm ci",
   "forwardPorts": [5173, 4173],
