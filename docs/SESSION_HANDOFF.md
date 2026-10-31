@@ -1,187 +1,204 @@
 # NEXORA — Synthèse de passation de session
 
-État au 30/10/2026, commit `30cf76f` sur `claude/nexora-finance-platform-81blaa`
-(local = distant, arbre propre au moment de la rédaction). Documents de référence :
-[`README.md`](../README.md) et [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).
+État au 31/10/2026, commit `27defa5` sur `claude/nexora-finance-platform-81blaa`
+(local = distant, arbre propre, 27 commits, aucune PR). Version publique vérifiée :
+<https://mflous.netlify.app/#/>. Documents de référence : [`README.md`](../README.md) et
+[`docs/ARCHITECTURE.md`](ARCHITECTURE.md) (§ 5 : règles métier des récurrences et des
+mois suivis ; § 9 : limites).
 
-Légende : ✅ confirmé (preuve : code, commit ou test exécuté) · 🟡 en cours / partiel ·
-⏳ à faire · ❓ à vérifier.
+Légende : ✅ confirmé (preuve : code, commit, test ou vérification effectuée) ·
+🟡 partiel · ⏳ à faire · ❓ à vérifier.
 
 ---
 
 ## 1. Vision du produit
 
 * **Objectif** : « Personal Finance OS » — piloter ses finances personnelles avec des
-  indicateurs **calculés, vérifiables, jamais inventés** (chaque chiffre a une définition
-  ou une source affichée).
+  indicateurs **calculés, vérifiables, jamais inventés** (définition ou source affichée).
 * **Utilisateurs cibles** : particuliers, configuration par défaut **Maroc** (français,
-  MAD/DH, `Africa/Casablanca`, JJ/MM/AAAA, semaine au lundi, mois civil), désormais
-  multilingue (24 langues).
+  MAD/DH, `Africa/Casablanca`, JJ/MM/AAAA, semaine au lundi, mois civil), 24 langues.
 * **Proposition de valeur** : local-first (IndexedDB, aucune connexion bancaire, aucun
-  serveur), calculs exacts en unités minimales, assistant déterministe sans IA externe,
-  interface premium sombre/clair responsive.
+  serveur applicatif), montants exacts en unités minimales, assistant déterministe sans IA
+  externe, interface premium sombre/clair responsive.
 
 ## 2. État technique ✅
 
 * **Stack** : React 18 + TypeScript strict + Vite 6, Tailwind 3, react-router-dom 6
-  (**routage par hash** `#/...`), Recharts 2, Dexie 4 (IndexedDB), Radix (dialog,
-  popover, tooltip), lucide-react, polices Inter / Space Grotesk / Noto Sans Arabic &
-  Hebrew. Tests : Vitest 3 + fake-indexeddb ; e2e Playwright (`e2e/smoke.cjs`).
-* **Structure** : `src/domain/` (règles pures : `money.ts`, `dates.ts`, `types.ts`,
-  `validation.ts`, `csv.ts`, `duplicates.ts`, `assistant.ts`, `categories.seed.ts`,
-  `settings.ts`, `calc/` = ledger, fx, budgets, goals, recurring, debts, networth,
-  forecast, scenario, analytics, insights, notifications), `src/data/` (`db.ts` schéma
-  Dexie versionné, `repository.ts` scopé par `userId`, `demo.ts` jeu déterministe),
-  `src/i18n/`, `src/app/` (contexte, nav), `src/components/` (ui, layout, charts),
-  `src/features/`, `src/pages/` (15 fichiers : 14 écrans + Onboarding), `supabase/schema.sql`.
+  (**routage par hash** `#/...`), Recharts 2, Dexie 4 (IndexedDB), Radix, lucide-react,
+  polices Inter / Space Grotesk / Noto Sans Arabic & Hebrew. Tests : Vitest 3 +
+  fake-indexeddb ; e2e Playwright (`e2e/smoke.cjs`).
+* **Structure** : `src/domain/` (règles pures ; `calc/` = ledger, fx, budgets, goals,
+  recurring, debts, networth, forecast, scenario, analytics, insights, notifications),
+  `src/data/` (`db.ts` schéma Dexie versionné — **inchangé**, `repository.ts` scopé par
+  `userId`, `demo.ts`), `src/i18n/`, `src/app/`, `src/components/`, `src/features/`
+  (dont `recurring/` : `status.ts`, `RecurringChargesCard.tsx`,
+  `LinkOccurrenceDialog.tsx`), `src/pages/` (14 écrans + Onboarding), `supabase/schema.sql`.
 * **Routes** : `/`, `/transactions`, `/budgets`, `/accounts`, `/goals`, `/recurring`,
   `/debts`, `/net-worth`, `/analytics`, `/report`, `/forecast`, `/assistant`,
   `/settings`, `/import`.
-* **Moteur de calcul** : montants entiers (unités minimales), définitions communes à tous
-  les écrans (revenus, dépenses nettes des remboursements, épargne nette, taux, budget
-  disponible…). Transfert = 2 transactions liées par `transferId` (jamais revenu/dépense) ;
-  dettes : seuls les intérêts comptent ; prévisionnel **calculé**, jamais stocké.
-* **Modèle de données** : voir ARCHITECTURE § 4 (UserSettings, Account à solde initial
-  daté, Category 1 niveau de sous-catégorie, Transaction 6 types, Budget, SavingsGoal,
-  RecurringRule/Occurrence, Debt/DebtPayment, Asset/Valuation, ExchangeRate,
-  NotificationState, ImportBatch). Archivage plutôt que suppression si historique.
-* **Tests (dernier passage, commit `30cf76f`)** : `npm test` → **176 tests, 8 fichiers,
-  tous verts** ; `tsc` OK ; `npm run build` OK. E2E français 11/11 vert (exécuté avant
-  les 2 derniers commits, cf. § 8).
+* **Scripts** : `npm test` · `npm run typecheck` (= `tsc -b --noEmit` ; **`npm run lint`
+  est le même typecheck**, pas d’ESLint) · `npm run build` · e2e : `npm run build` puis
+  `npx vite preview --port 4173` et `BASE_URL=http://localhost:4173 node e2e/smoke.cjs`.
+  ⚠ `npx tsc -p .` ne vérifie rien (tsconfig racine à références) : utiliser `tsc -b`.
+* **Dernier passage (commit `27defa5`)** : **232 tests, 9 fichiers, verts** ;
+  typecheck OK ; build OK ; e2e français **11/11**, aucune erreur de page.
 
 ## 3. Fonctionnalités
 
-* ✅ **Terminées** (table détaillée README « Fonctionnalités et état réel ») : dashboard
-  (6 KPI, graphiques, insights), transactions (5 types de saisie, filtres, multi-sélection,
-  export), catégories, comptes multidevises, budgets, objectifs, récurrences, dettes &
-  créances, patrimoine, analyses & rapports imprimables, prévisions + simulateur,
-  assistant à règles (10 intentions), import CSV en assistant, exports CSV/JSON,
-  paramètres, notifications in-app, onboarding (démo ou départ vierge), mode
-  confidentialité, thèmes, **24 langues**.
-* 🟡 **Préparées, non activées** : mode cloud Supabase (schéma + RLS dans
-  `supabase/schema.sql`, interface repository ; aucun identifiant, RLS jamais exécutée),
+* ✅ **Terminées** (détail : README « Fonctionnalités et état réel ») : dashboard,
+  transactions, catégories, comptes multidevises, budgets, objectifs, récurrences, dettes
+  & créances, patrimoine, analyses & rapports imprimables, prévisions + simulateur,
+  assistant à règles, import CSV, exports CSV/JSON, paramètres, notifications in-app,
+  onboarding, mode confidentialité, thèmes, 24 langues.
+* ✅ **Ajouté dans cette session (commits `6e5f81f`, `331cecb`, `27defa5`)** :
+  * **Carte « Dépenses récurrentes »** (Analyses) en 3 onglets jamais mélangés :
+    Composition (mensuel ÷ total des charges, Σ = 100,0 %) ; Dépenses réelles
+    (décaissements **confirmés** datés dans la période ÷ dépenses enregistrées ; détectés
+    non confirmés, échéances de la période — peut dépasser 100 % avec explication — et
+    reste à payer affichés à part) ; Revenus (mensuel ÷ revenus perçus par mois suivi).
+    Pourcentages à 1 décimale fixe, montants selon la devise.
+  * **Échéance ≠ décaissement** : la transaction porte le lien (`recurringRuleId` +
+    `recurringDueDate`) ; sa `date` reste celle du paiement réel (paiement anticipé non
+    déplacé). Une échéance peut être réglée par plusieurs opérations ; une opération ne
+    règle qu’une échéance.
+  * **Rapprochement manuel** « Associer des opérations » (total, partiel, fractionné,
+    anticipé, excédent), dissocier, **Clôturer** (reliquat abandonné, `closure: 'waived'`),
+    **Rouvrir**. Aucune transaction créée lors d’une association.
+  * **Statuts** : Payée / Reçue (intégralement) · Payée / Reçue partiellement (reliquat
+    dû ; rouge si en retard) · Clôturée (abandon explicite, ou ancienne échéance marquée
+    payée pour moins — donnée jamais réécrite) · Détecté, à confirmer · En retard ·
+    À venir · Ignorée. « Reçue » pour les revenus, « Payée » pour les dépenses.
+  * **Retards** : indicateur et notifications incluent les reliquats dus après échéance ;
+    prévisions, insights et notifications n’attendent que le reliquat.
+  * **« Moyenne / mois »** (Analyses) : ÷ **mois suivis** (méthode : ARCHITECTURE § 5) ;
+    0 mois → « non calculable ».
+  * **Badge Netlify** : règle CSS `#nl-badge-frame` (mobile < lg) qui le place au-dessus
+    de la barre de navigation (vérifié sur le site public : 5 boutons cliquables).
+* 🟡 **Préparées, non activées** : mode cloud Supabase (schéma + RLS, jamais exécutés),
   extension IA (`AssistantProvider`, aucun appel externe).
-* ⏳ **Restantes / non implémentées** : authentification et synchro multi-appareils,
-  chiffrement au repos, push/e-mail, sources externes de cours/taux, pièces jointes
-  dans la sauvegarde JSON, transactions en devise ≠ devise du compte.
+* ⏳ **Non implémentées** : authentification / synchro multi-appareils, chiffrement au
+  repos, push / e-mail, sources externes de taux, pièces jointes dans la sauvegarde JSON,
+  transactions en devise ≠ devise du compte, **répartition d’une opération sur plusieurs
+  échéances** (reporté par décision utilisateur : nécessiterait une migration).
 
-## 4. Internationalisation ✅ (avec relecture humaine à faire)
+## 4. Internationalisation ✅ (relecture native à faire)
 
-* **Langues** (`src/i18n/languages.ts`) : fr (référence), en, ar, es, pt, de, it, nl, tr,
-  ru, uk, pl, ro, sv, el, cs, **he, fa, ar = RTL**, hi, zh, ja, ko, id, vi. Un fichier par
-  langue dans `src/i18n/locales/` (~1 450 clés), chargement à la demande.
-* **Règles** : `fr.ts` source (`MessageKey`), autres typés `Messages` (TS refuse clé
-  manquante/en trop). Interpolation `{var}` ; pluriels `{zero?,one,two?,few?,many?,other}`
-  via `Intl.PluralRules`, repli `other`. **`{pct}` déjà formaté avec %**, sauf
-  `notif.budgetThreshold.title`, `assist.whatIf.textCategory/Total`, `budget.dayOf`,
-  `budget.thresholdsHint` (`{values}`), `goal.realPct` (nombre brut → écrire « % »).
-  Mots-clés `assist.kw.*` séparés par `|`, sans accents ; fr + en toujours actifs.
-  `imp.letter.D/M/Y` et `set.dateFormat.*` par langue ; en RTL `fc.hint` = « à droite »,
-  flèches ←. Changement de langue = remontage de l’app ; `localStorage nexora.lang` ;
-  `index.html` applique `lang`/`dir` avant rendu ; Root ne synchronise sur
-  `settings.language` que si le profil est onboardé. `uiLocale` pour mois/jours,
-  `settings.locale` pour les nombres ; la langue ne change jamais la devise.
-* **Corrections déjà faites** : `%` doublé en turc ; langue réinitialisée pendant
-  l’onboarding ; axe Y arabe tronqué (`yWidth`) ; assistant : lettres non décomposées
-  par NFD repliées (ł ı đ ø æ œ ß…), `%15` turc, catégories déclinées (préfixe commun,
-  mots ≥ 6 lettres — désactivé pour les mots courts, faux positif vietnamien), mots-clés
-  he/hi corrigés, questions ja/ko alignées sur les noms de catégories ; espaces avant
-  particules japonaises ; **calendrier grégorien imposé** (`gregorian()` dans
-  `dates.ts`, fa-IR affichait « مهر ۱۴۰۵ ») ; débordement mobile (voir § 5).
-* **Vigilance** : traductions **produites par IA, non relues** par des natifs (dit dans
-  README et ARCHITECTURE). `normalizeLabel` retire les signes combinants (matras hindi,
-  dakuten japonais) — mots-clés trop courts risquent des collisions (ex. « बिल » ⊂
-  « बैलेंस » corrigé). Tout nouveau mot-clé doit passer `src/i18n/i18n.test.ts`.
+* 24 langues (`src/i18n/languages.ts`) : fr (référence), en, ar, es, pt, de, it, nl, tr,
+  ru, uk, pl, ro, sv, el, cs, he, fa, hi, zh, ja, ko, id, vi ; **ar, he, fa en RTL**.
+* Règles : `fr.ts` source (`MessageKey`), autres typés `Messages` ; pluriels via
+  `Intl.PluralRules` ; `{pct}` déjà formaté avec % sauf `notif.budgetThreshold.title`,
+  `assist.whatIf.textCategory/Total`, `budget.dayOf`, `budget.thresholdsHint`,
+  `goal.realPct`. Mots-clés `assist.kw.*` sans accents ; fr + en toujours actifs.
+  Calendrier grégorien imposé (`gregorian()`).
+* Cette session : ~55 clés ajoutées / modifiées dans les 24 langues (carte récurrente,
+  rapprochement, statuts, vocabulaire « reçu », mois suivis). En RTL, montants et
+  pourcentages isolés par `<bdi>` dans la carte (vérifié ar / he / fa).
+* `src/i18n/i18n.test.ts` (79 tests) : clés, variables, pluriels, assistant, pourcentages
+  formatés une seule fois et à décimale fixe dans les 24 langues.
+* ❓ Traductions **produites par IA, non relues** par des natifs.
 
 ## 5. Interface et expérience utilisateur
 
-* ✅ Design system maison (Tailwind, tokens sombre/clair, cartes, `ChartKit` avec
-  `axisMoney`/`yWidth`), navigation latérale groupée (Pilotage/Gestion/Analyse/Système)
-  + barre mobile 5 entrées avec bouton central d’ajout, raccourci **N**, sélecteur de mois.
-* ✅ RTL : utilitaires logiques (`ms/me`, `ps/pe`, `start/end`, `text-start`…),
-  `rtl:-scale-x-100` sur les icônes directionnelles, `.recharts-wrapper{direction:ltr}`.
-* ✅ Responsive : 31 grilles reçoivent `grid-cols-1` sous leur breakpoint ; tableau du
-  simulateur (Prévisions) en `overflow-x-auto`. Captures desktop 1440 + mobile 390 des
-  14 dernières langues : aucun débordement, aucune clé brute, `dir` correct, aucune
-  erreur console.
-* ⏳ / ❓ Non vérifié dans cette session : thème clair dans les nouvelles langues,
-  impression du rapport en RTL, passage complet de captures pour fr/es/pt/de/it/nl/tr/ru
-  après les derniers correctifs (seule la page Prévisions mobile a été re-sondée pour
-  uk, pl, de, ru).
+* ✅ Design system maison, navigation latérale + barre mobile, RTL logique, grilles
+  `grid-cols-1` sous breakpoint, tableau du simulateur en `overflow-x-auto`.
+* ✅ Vérifié dans cette session (Playwright, Chromium ; ordinateur 1440 et émulation
+  iPhone 13) : carte à 3 onglets, dialogue d’association, statuts partiel / clôturé /
+  rouvert / en retard, prévisions avec reliquat, « Moyenne / mois », aucun débordement,
+  aucune erreur console ; site public : badge au-dessus de la barre.
+* ❓ Non vérifié : Safari réel sur iPhone, thème clair pour les nouveaux écrans,
+  impression du rapport en RTL.
 
-## 6. État du code (vérifié par `git` au moment de la rédaction)
+## 6. État du code (vérifié par `git`)
 
-* Branche active : `claude/nexora-finance-platform-81blaa` ; `HEAD` = `origin` =
-  `30cf76f` ; aucune modification non commitée (avant ajout de ce fichier).
-* 23 commits ; les 5 derniers : `30cf76f` calendrier grégorien · `e708745` ja particules ·
-  `e3b7259` grilles mobiles + docs · `c4db27c` tests i18n + correctifs assistant ·
-  `c36db50` vietnamien.
-* Aucune PR créée (ne pas en créer sans demande explicite).
-* `dist/` présent localement mais ignoré par git. Les scripts de captures
-  (`i18n-shots.cjs`, `overflow.cjs`…) sont dans le scratchpad de session, **pas dans le
-  dépôt** (perdus à la fin du conteneur).
-* Blocage : aucun côté code.
+* Branche : `claude/nexora-finance-platform-81blaa` ; `HEAD` = `origin` = `27defa5`
+  (avant le commit de ce fichier) ; arbre propre ; 27 commits ; aucune PR.
+* Derniers commits : `27defa5` statuts de clôture, vocabulaire revenus, mois suivis,
+  badge mobile · `331cecb` charges récurrentes en 3 lectures + rapprochement manuel ·
+  `6e5f81f` part récurrente sur mois suivis · `5133522` passation · `30cf76f` calendrier
+  grégorien.
+* Aucune migration de schéma Dexie dans cette session (champ optionnel `closure` sur
+  `RecurringOccurrence`, non indexé ; la restauration JSON recopie les échéances telles
+  quelles).
 
-## 7. Déploiement Netlify ❌ non déployé
+## 7. Déploiement ✅
 
-* ✅ `netlify.toml` commité : `npm run build`, `publish = "dist"`, Node 22, repli SPA
-  `/* → /index.html`, en-têtes de sécurité, cache long sur `/assets/*`.
-  `VITE_DATA_BACKEND=local` y est défini mais **n’est lu nulle part dans `src/`** (inerte).
-* Blocages constatés : `api.netlify.com` répond 403 via le proxy de l’environnement et
-  aucun `NETLIFY_AUTH_TOKEN` n’est configuré. **Aucune URL n’existe.**
-* Étapes restantes (au choix de l’utilisateur) : (a) sur netlify.com, « Import from
-  Git » → dépôt `mouadhminee-bit/Gestion`, branche ci-dessus (réglages lus dans
-  `netlify.toml`) ; ou (b) configurer un secret `NETLIFY_AUTH_TOKEN` dans l’environnement
-  et autoriser l’hôte `api.netlify.com`, puis déployer via la CLI. Ne jamais demander de
-  coller un jeton dans la conversation. Ne jamais annoncer un déploiement sans URL
-  vérifiée.
+* **Architecture** : déploiement **automatique** GitHub → Netlify ; **tout push sur la
+  branche déclenche un déploiement** de <https://mflous.netlify.app/>. L’absence de
+  `NETLIFY_AUTH_TOKEN` dans l’environnement n’empêche pas le déploiement.
+* Vérifié pour `27defa5` : publication ≈ 20 s après le push ; les 77 fichiers publiés
+  sont identiques octet par octet au build local ; règle CSS du badge servie.
+* Accès réseau : `mflous.netlify.app` a été autorisé par l’utilisateur dans les réglages
+  de l’environnement (sinon 403 du proxy). Le tableau de bord Netlify reste inaccessible
+  d’ici ; GitHub n’affiche ni statut ni déploiement Netlify sur les commits.
+* Méthode de vérification : comparer `assets/index-*.js` servi à celui de `dist/`
+  (puis `cmp` de chaque fichier) ; contrôle fonctionnel Playwright sur le site public
+  avec les données de démo (profil isolé, jamais les données réelles).
+* `netlify.toml` : build `npm run build`, publish `dist`, Node 22, repli SPA, en-têtes de
+  sécurité ; `VITE_DATA_BACKEND=local` n’est lu nulle part (inerte).
 
 ## 8. Bugs et corrections
 
-* ✅ Résolus : voir § 4 (i18n/assistant/calendrier) ; débordement mobile Prévisions
-  (uk, pl) ; remplacement d’import interrompu (motifs dupliqués) lors de l’extraction.
-* Ouverts / à surveiller ❓ :
-  * E2E non relancé après `e708745` et `30cf76f` (risque faible : texte ja et formatage
-    de dates).
-  * Ajout de mots-clés d’assistant → collisions possibles (scripts sans espaces ou à
-    marques combinantes) ; le test « suggestion tapée librement » protège seulement les
-    9 questions suggérées.
-  * Formulations financières non relues (langues hors fr).
-  * Commentaires/libellés : aucune régression connue.
+* ✅ Résolus cette session :
+  * Part récurrente gonflée (637 %) : division par les mois entamés d’une période sans
+    données → mois suivis (`6e5f81f`).
+  * 174 % (vue Mois) : dépenses enregistrées < loyer non saisi → indicateur repensé en
+    3 lectures ; détections non confirmées jamais comptées comme payées.
+  * Double comptage possible d’un paiement partiel (prévisions attendaient le montant
+    plein) → seul le reliquat est attendu.
+  * Badge Netlify masquant +, Budgets, Plus sur iPhone → CSS.
+  * Ordre montant / % inversé en RTL dans la carte → `<bdi>`.
+* ❓ À surveiller / limites :
+  * « Annuler » une échéance réglée par « Marquer payée / reçue » (nouvelle version) ne
+    propose plus de supprimer l’opération créée : elle est seulement dissociée (à
+    supprimer depuis Opérations). Les anciennes échéances gardent la proposition.
+  * Détection automatique : montant exact, ±5 jours ; un paiement partiel saisi à la main
+    se rattache via « Associer des opérations ».
+  * Candidats au rapprochement : même type et devise, ±62 jours, non associés ailleurs.
+  * Collisions possibles de mots-clés de l’assistant (scripts sans espaces / marques
+    combinantes).
 
 ## 9. Décisions déjà prises (ne pas remettre en cause sans raison)
 
-* Local-first IndexedDB ; Supabase uniquement préparé ; **données de démo fictives
-  uniquement**.
-* Montants exacts en entiers ; transferts = 2 transactions ; prévisionnel jamais stocké ;
-  archivage au lieu de suppression quand il y a de l’historique.
-* Assistant **déterministe** à règles, aucun appel IA externe ; suggestions appelées via
-  `answerIntent` directement.
-* Français = langue de référence ; dictionnaires typés ; calendrier grégorien partout ;
+* Local-first IndexedDB ; Supabase seulement préparé ; **données de démo fictives
+  uniquement** ; ne jamais modifier ni réinitialiser les données réelles de l’utilisateur
+  (Edge) — tests et captures uniquement dans des profils de navigateur isolés.
+* Montants entiers ; transferts = 2 transactions ; prévisionnel jamais stocké ;
+  archivage plutôt que suppression avec historique.
+* Récurrences : jamais de transaction créée automatiquement ; trois indicateurs séparés
+  (engagements prévisionnels / décaissements réels / revenus perçus) ; statut détecté
+  « à confirmer » réutilisant le rapprochement existant ; revenus de référence = revenus
+  réellement perçus ; anciennes données jamais transformées automatiquement ; une
+  opération = une échéance (répartition multi-échéances reportée, sans migration).
+* Assistant déterministe à règles ; français = référence ; calendrier grégorien ;
   routage par hash.
-* Règles Git : travailler/pousser uniquement sur la branche ci-dessus
-  (`git push -u origin <branche>`), pas de PR sans demande, messages de commit terminés
-  par les lignes `Co-Authored-By` / `Claude-Session` fournies, aucun identifiant de
-  modèle dans le code ou les commits. Ne pas modifier inutilement le code fonctionnel.
+* Git : travailler et pousser uniquement sur `claude/nexora-finance-platform-81blaa`
+  (`git push -u origin <branche>`) ; **pousser = déployer** : ne pousser qu’avec l’accord
+  explicite de l’utilisateur quand il l’a demandé ; pas de PR sans demande ; messages de
+  commit terminés par les lignes `Co-Authored-By` / `Claude-Session` ; aucun identifiant
+  de modèle dans le code ou les commits ; ne jamais demander de jeton en clair.
 
-## 10. Prochaines étapes (ordre proposé)
+## 10. Prochaines étapes (sur demande de l’utilisateur)
 
-1. **Déploiement** (dépend d’une action utilisateur, § 7) → critère : URL Netlify qui
-   charge l’app, démo fonctionnelle, rechargement sur `#/transactions` OK.
-2. Relancer `BASE_URL=http://localhost:4173 node e2e/smoke.cjs` après `npm run build` +
-   `npx vite preview --port 4173` → critère : 11/11 PASS, aucune erreur de page.
-3. Passage de captures pour fr/es/pt/de/it/nl/tr/ru + thème clair + impression RTL
-   (Playwright ; Chromium préinstallé) → critère : 0 débordement, 0 clé brute.
-4. Relecture native des traductions (hors périmètre technique ; dépend de l’utilisateur).
-5. Ensuite seulement, éventuels chantiers listés en § 3 « restantes » sur demande.
+1. Validation fonctionnelle sur iPhone réel (Safari) et dans Edge avec les données
+   réelles (rechargement de l’onglet pour charger `27defa5`).
+2. Arbitrer : retrouver la suppression de l’opération créée lors d’« Annuler » (marqueur
+   à ajouter sur l’échéance ou la transaction).
+3. Contrôle du thème clair et de l’impression RTL ; captures des autres langues.
+4. Relecture native des traductions.
+5. Plus tard : répartition d’une opération sur plusieurs échéances (migration), et les
+   chantiers ⏳ du § 3.
 
 ## 11. Instructions de reprise
 
 * **Immédiatement** : `cd /home/user/Gestion && git status && git log --oneline -3` ;
   vérifier `HEAD` = `origin/claude/nexora-finance-platform-81blaa` ; `npm test`
-  (attendu 176 verts) ; lire ce fichier puis attendre la demande de l’utilisateur.
-* **Ne pas refaire** : extraction des chaînes, les 24 dictionnaires, la mise en RTL, les
-  tests i18n, les correctifs assistant/calendrier/grilles, `netlify.toml`, la
-  documentation i18n. Ne pas recréer l’application ni changer de stack.
-* **Ne pas** : prétendre que Netlify est déployé, demander un jeton en clair, créer une
-  PR non demandée, pousser sur une autre branche, introduire des données réelles.
+  (attendu **232** verts) ; lire ce fichier puis attendre la demande de l’utilisateur.
+* **Vérifier la version publique** : `curl -sS https://mflous.netlify.app/ | grep -o
+  'assets/index-[^"]*\.js'` comparé à `dist/index.html` après `npm run build`.
+* **Ne pas refaire** : dictionnaires, RTL, tests i18n, carte récurrente, rapprochement
+  manuel, statuts, mois suivis, correctif du badge, `netlify.toml`, documentation.
+* **Ne pas** : pousser sans accord quand l’utilisateur l’a exigé, créer une PR non
+  demandée, toucher aux données réelles, introduire des données réelles dans la démo.
+* **Piège shell** : ne jamais arrêter le serveur de prévisualisation avec
+  `pkill -f "vite preview"` ou `ps … | grep "vite preview"` (tue le shell courant) ;
+  utiliser `fuser -k 4173/tcp`.
