@@ -4,7 +4,7 @@ import { Logo } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, MoneyInput, Select } from '@/components/ui/Field';
 import { errorMessage, useToast } from '@/components/ui/Toast';
-import type { LocalRepository } from '@/data/repository';
+import type { NexoraRepository } from '@/data/contracts';
 import { generateDemoData } from '@/data/demo';
 import { CURRENCIES } from '@/domain/money';
 import { todayISO } from '@/domain/dates';
@@ -15,7 +15,7 @@ import { languageInfo } from '@/i18n/languages';
 import { LanguageSelect } from '@/components/ui/LanguageSelect';
 import { currencyName } from '@/i18n/labels';
 
-export function Onboarding({ repo, existing }: { repo: LocalRepository; existing?: UserSettings }) {
+export function Onboarding({ repo, existing }: { repo: NexoraRepository; existing?: UserSettings }) {
   const toast = useToast();
   const [step, setStep] = useState<'welcome' | 'setup'>('welcome');
   const [name, setName] = useState(existing?.displayName ?? '');

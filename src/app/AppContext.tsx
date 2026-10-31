@@ -9,6 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getDB } from '@/data/db';
 import { LocalRepository } from '@/data/repository';
+import type { NexoraRepository } from '@/data/contracts';
 import { LOCAL_USER_ID } from '@/domain/settings';
 import type { DataSnapshot, UserSettings } from '@/domain/types';
 import type { LedgerContext } from '@/domain/calc/ledger';
@@ -31,7 +32,7 @@ export interface Formatters {
 }
 
 interface AppState {
-  repo: LocalRepository;
+  repo: NexoraRepository;
   data: DataSnapshot;
   settings: UserSettings;
   ctx: LedgerContext;
@@ -72,7 +73,7 @@ export function makeFormatters(settings: UserSettings): Formatters {
   };
 }
 
-export function useRepository(): LocalRepository {
+export function useRepository(): NexoraRepository {
   return useMemo(() => new LocalRepository(getDB(), LOCAL_USER_ID), []);
 }
 
@@ -87,7 +88,7 @@ function useToday(timeZone: string): ISODate {
   return today;
 }
 
-export function AppProvider({ repo, data: rawData, children }: { repo: LocalRepository; data: DataSnapshot; children: ReactNode }) {
+export function AppProvider({ repo, data: rawData, children }: { repo: NexoraRepository; data: DataSnapshot; children: ReactNode }) {
   // Catégories initiales affichées dans la langue active (sauf si renommées).
   const data = useMemo(() => ({ ...rawData, categories: rawData.categories.map((c) => ({ ...c, name: displayCategoryName(c) })) }), [rawData]);
   const settings = data.settings;
@@ -133,6 +134,6 @@ export function useApp(): AppState {
 }
 
 /** Charge l'instantané en direct ; `null` = aucun profil (onboarding), `undefined` = chargement. */
-export function useSnapshot(repo: LocalRepository) {
+export function useSnapshot(repo: NexoraRepository) {
   return useLiveQuery(() => repo.snapshot(), [repo]);
 }
