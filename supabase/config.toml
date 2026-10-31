@@ -1,0 +1,9 @@
+# Configuration du CLI Supabase pour un usage LOCAL (`supabase start`, `supabase db reset`).
+# Aucun secret ici. Les migrations sont dans supabase/migrations/.
+# Les tests SQL (supabase/db-tests/) ne sont PAS des tests pgTAP : ils s'exécutent avec
+# `npm run test:db` (base PostgreSQL éphémère) — voir docs/LOT3_SCHEMA.md.
+project_id = "nexora"
+
+[db]
+# Version majeure de PostgreSQL : à aligner sur celle du projet Supabase de développement.
+major_version = 15

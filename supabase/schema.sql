@@ -1,4 +1,11 @@
 -- =============================================================================
+-- ARCHIVE — NE PLUS UTILISER (remplacé au Lot 3, voir docs/LOT3_SCHEMA.md)
+-- Le schéma de référence est désormais défini par les migrations versionnées de
+-- supabase/migrations/ et validé par `npm run test:db`. Ce fichier est conservé tel quel
+-- (décision D3-5) pour mémoire ; il n'a jamais été exécuté et ne doit pas l'être.
+-- =============================================================================
+
+-- =============================================================================
 -- NEXORA — schéma PostgreSQL / Supabase (mode cloud PRÉPARÉ, non activé)
 --
 -- Ce fichier décrit la cible cloud. L'application livrée fonctionne en mode local
