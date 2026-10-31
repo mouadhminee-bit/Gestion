@@ -141,16 +141,27 @@ export function dailyAverage(expenses: number, period: Period, today: ISODate): 
 }
 
 /**
- * Mois de la période couverts par le suivi : du mois de la première opération enregistrée
- * (ou du début de la période) jusqu'au mois en cours (ou à la fin de la période). Au moins 1.
- * Les mois antérieurs au début du suivi ne sont pas des mois « sans dépense » : les compter
- * diluerait la moyenne (vue Année avec des données depuis octobre : 10 mois au lieu de 1).
+ * Mois suivis d'une période — dénominateur des moyennes mensuelles (« Par mois », revenus
+ * mensuels perçus).
+ *  - Début du suivi : date de la première opération enregistrée (tout type, virements
+ *    compris) sur les comptes retenus (tous, ou ceux du filtre de compte). Les filtres de
+ *    catégorie, type ou étiquette ne le déplacent pas : une catégorie rare reste moyennée
+ *    sur toute la durée suivie.
+ *  - Fin : la fin de la période, sans dépasser aujourd'hui (les mois futurs ne comptent pas).
+ *  - Mois suivis = mois civils de max(début du suivi, début de période) à cette fin, bornes
+ *    incluses ; un mois entamé compte pour un mois entier. Les mois sans opération situés
+ *    après le début du suivi comptent (dépense ou revenu nul ce mois-là, ex. revenus
+ *    irréguliers).
+ *  - 0 si aucune opération n'est antérieure à la fin : la moyenne n'est pas calculable.
+ * Exemple : vue Année 2026 au 30/10, première opération le 12/10 → 1 mois (et non 10).
  */
-export function trackedMonths(transactions: Transaction[], period: Period, today: ISODate): number {
-  const first = transactions.reduce<ISODate | null>((min, t) => (min == null || t.date < min ? t.date : min), null);
-  const from = first && first > period.start ? first : period.start;
+export function trackedMonths(transactions: Transaction[], period: Period, today: ISODate, accountIds?: ID[]): number {
+  const scope = accountIds?.length ? transactions.filter((t) => accountIds.includes(t.accountId)) : transactions;
+  const first = scope.reduce<ISODate | null>((min, t) => (min == null || t.date < min ? t.date : min), null);
   const to = period.end < today ? period.end : today;
-  return to < from ? 1 : monthRange(monthKey(from), monthKey(to)).length;
+  if (!first || first > to) return 0;
+  const from = first > period.start ? first : period.start;
+  return to < from ? 0 : monthRange(monthKey(from), monthKey(to)).length;
 }
 
 /**
@@ -218,7 +229,8 @@ export function recurringChargesReport(
   const toBase = (amount: number, currency: string, date: ISODate) => ctx.convert(amount, currency, date) ?? 0;
   const expenses = summarizePeriod(ctx, data.transactions, period, filter).expenses;
   const income = summarizePeriod(ctx, data.transactions, period).income;
-  const monthlyIncome = income > 0 ? income / trackedMonths(data.transactions, period, today) : null;
+  const incomeMonths = trackedMonths(data.transactions, period, today);
+  const monthlyIncome = income > 0 && incomeMonths > 0 ? income / incomeMonths : null;
   const opts = { convert: ctx.convert };
   const occ = listOccurrences(rules, data.occurrences, data.transactions, period, today, opts);
   // Détections : fenêtre élargie de la tolérance de rapprochement (±5 jours), opérations datées dans la période.

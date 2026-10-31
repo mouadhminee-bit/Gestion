@@ -210,3 +210,14 @@
     max-width: none !important;
   }
 }
+
+/*
+ * Badge « Powered by Netlify » (iframe injectée par l'hébergeur, fixée en bas à droite) :
+ * sur mobile il recouvrait la barre de navigation (+, Budgets, Plus). On le place juste
+ * au-dessus de la barre, sans le masquer ; la barre est absente à partir de lg.
+ */
+@media (max-width: 1023.98px) {
+  #nl-badge-frame {
+    bottom: calc(4.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}

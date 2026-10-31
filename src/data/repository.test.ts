@@ -269,7 +269,10 @@ describe('Budgets, objectifs, récurrences, dettes', () => {
       const t = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 200000 }));
       await repo.linkOccurrence(r.id, '2026-03-03', t[0].id);
       await repo.settleOccurrence(r.id, '2026-03-03');
-      expect(await occ()).toMatchObject({ status: 'paid', settled: true, remaining: 0 });
+      expect(await occ()).toMatchObject({ status: 'paid', closure: 'waived', remaining: 0 });
+      await repo.reopenOccurrence(r.id, '2026-03-03');
+      expect(await occ()).toMatchObject({ status: 'partial', remaining: 80000 });
+      await repo.settleOccurrence(r.id, '2026-03-03');
       await repo.unlinkTransaction(t[0].id);
       expect(await occ()).toMatchObject({ status: 'overdue', paid: 0 });
       await repo.linkOccurrence(r.id, '2026-03-03', t[0].id);
@@ -277,6 +280,20 @@ describe('Budgets, objectifs, récurrences, dettes', () => {
       const s = (await repo.snapshot())!;
       expect(s.transactions).toHaveLength(1); // opération saisie à la main : dissociée, jamais supprimée
       expect(s.transactions[0].recurringRuleId).toBeUndefined();
+    });
+
+    it('ancienne échéance marquée payée pour moins : affichée close (ancien), jamais réécrite automatiquement', async () => {
+      const r = await loyer();
+      const t = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 250000, date: '2026-03-04' }), { recurringRuleId: r.id, recurringDueDate: '2026-03-03' });
+      // État tel qu'enregistré par l'ancienne version (sans marqueur de clôture).
+      const legacy = { id: `${r.id}:2026-03-03`, userId: 'u1', ruleId: r.id, dueDate: '2026-03-03', status: 'paid' as const, transactionId: t[0].id, updatedAt: '2026-03-04T10:00:00.000Z' };
+      await db.occurrences.put(legacy);
+      expect(await occ()).toMatchObject({ status: 'paid', closure: 'legacy', paid: 250000, remaining: 0 });
+      await repo.snapshot();
+      expect(await db.occurrences.get(legacy.id)).toEqual(legacy); // donnée intacte
+      await expect(repo.markOccurrencePaid(r.id, '2026-03-03', { date: '2026-03-10', amount: 30000, accountId: bank.id })).rejects.toThrow(ValidationError);
+      await repo.reopenOccurrence(r.id, '2026-03-03'); // action explicite de l'utilisateur
+      expect(await occ()).toMatchObject({ status: 'partial', remaining: 30000 });
     });
 
     it('supprimer une des opérations d’un paiement fractionné garde le lien des autres', async () => {

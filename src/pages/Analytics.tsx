@@ -16,7 +16,7 @@ import type { Period } from '@/domain/dates';
 import { addMonthsToKey, formatMonthShort, inPeriod, minDate, monthEnd, monthKey, monthRange, monthStart, previousPeriod, quarterPeriod, yearPeriod, parseISO } from '@/domain/dates';
 import type { TransactionFilter } from '@/domain/calc/ledger';
 import { accountsInScope, matchesFilter, totalBalance } from '@/domain/calc/ledger';
-import { comparePeriods, dailyAverage, exceptionalExpenses, expensesByPayee, monthlySeries, recurringChargesReport } from '@/domain/calc/analytics';
+import { comparePeriods, dailyAverage, exceptionalExpenses, expensesByPayee, monthlySeries, recurringChargesReport, trackedMonths } from '@/domain/calc/analytics';
 import { RecurringChargesCard } from '@/features/recurring/RecurringChargesCard';
 import { netWorthHistory } from '@/domain/calc/networth';
 import { fromMajor } from '@/domain/money';
@@ -80,7 +80,7 @@ export default function Analytics() {
   const cats = [...s.expensesByCategory.values()].filter((c) => c.amount !== 0).sort((a, b) => b.amount - a.amount);
   const maxCat = Math.max(1, ...cats.map((c) => c.amount));
   const daily = dailyAverage(s.expenses, period, today);
-  const elapsedMonths = months.filter((m) => monthStart(m) <= today).length || 1;
+  const tracked = trackedMonths(data.transactions, period, today, filter.accountIds);
   const recurring = useMemo(() => recurringChargesReport(ctx, data, period, today, filter), [ctx, data, period, today, filter]);
   const tags = useMemo(() => [...new Set(data.transactions.flatMap((t) => t.tags))].sort(), [data.transactions]);
   const filtered = useMemo(() => data.transactions.filter((t) => inPeriod(t.date, period) && matchesFilter(ctx, t, filter)), [data.transactions, period, ctx, filter]);
@@ -157,7 +157,7 @@ export default function Analytics() {
           { l: tr('an.netSavings'), v: fmt.money(s.netSavings), c: <span className="text-[11px] text-muted">{tr('an.prev', { value: fmt.money(cmp.previous.netSavings) })}</span>, i: DEFINITIONS.savings },
           { l: tr('an.savingsRate'), v: fmt.percent(s.savingsRate), c: <span className="text-[11px] text-muted">{tr('an.prev', { value: fmt.percent(cmp.previous.savingsRate) })}</span>, i: DEFINITIONS.rate },
           { l: tr('an.perDay'), v: daily == null ? '—' : fmt.money(Math.round(daily)), c: <span className="text-[11px] text-muted">{tr('an.perDay.hint')}</span>, i: tr('an.perDay.info') },
-          { l: tr('an.perMonth'), v: fmt.money(Math.round(s.expenses / elapsedMonths)), c: <span className="text-[11px] text-muted">{tr('an.months', { count: elapsedMonths })}</span>, i: tr('an.perMonth.info') },
+          { l: tr('an.perMonth'), v: tracked ? fmt.money(Math.round(s.expenses / tracked)) : tr('common.notComputable'), c: <span className="text-[11px] text-muted">{tr('an.months', { count: tracked })}</span>, i: tr('an.perMonth.info') },
         ].map((k, i) => (
           <Card key={k.l} className="!p-4" delay={i * 30}>
             <div className="flex items-center gap-1 text-xs text-muted">{k.l} <InfoTip>{k.i}</InfoTip></div>

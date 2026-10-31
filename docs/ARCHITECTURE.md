@@ -145,10 +145,46 @@ remboursement de dette. Les catégories `savings` ne servent qu’à qualifier d
 l’historique et les analyses de sa période, sans modifier le solde actuel (déjà inclus
 dans le solde déclaré). L’interface le signale lors de la saisie et de l’import.
 
-**Récurrences** : une règle ne crée jamais de transaction. « Marquer comme payée »
-crée explicitement la transaction liée. Une transaction saisie manuellement qui
-correspond à une échéance (même compte, sens, montant, ±5 jours, même catégorie ou
-libellé) est détectée et n’est pas recomptée dans les prévisions.
+**Récurrences** : une règle ne crée jamais de transaction. « Marquer comme payée /
+reçue » crée explicitement la transaction liée (montant et date ajustables). Une
+transaction saisie manuellement qui correspond à une échéance (même compte, sens,
+montant exact, ±5 jours, même catégorie ou libellé) est **détectée, à confirmer** : elle
+n’est pas recomptée dans les prévisions, mais n’est jamais présentée comme réglée.
+
+*Échéance et décaissement* : le lien est porté par la transaction (`recurringRuleId` +
+`recurringDueDate` = échéance soldée) ; sa `date` reste celle du paiement réel. Un
+paiement anticipé solde l’échéance sans déplacer la dépense vers son mois. Une échéance
+peut être réglée par plusieurs opérations (paiement fractionné) ; une opération ne règle
+qu’une seule échéance. « Associer des opérations » rattache des transactions existantes
+(même type et devise, ±2 mois, non associées ailleurs) sans en créer.
+
+*Statut d’une échéance* (calculé, jamais stocké sauf décision de l’utilisateur) :
+
+| Statut | Règle | Libellé dépense / revenu |
+|---|---|---|
+| Payée intégralement | Σ opérations associées ≥ montant prévu | Payée / Reçue |
+| Partielle | 0 < Σ associées < prévu ; reliquat attendu (prévisions, notifications) ; en retard si la date est passée | Payée / Reçue partiellement |
+| Clôturée | état `paid` stocké et Σ < prévu : `closure: 'waived'` = reliquat abandonné par l’utilisateur ; sans marqueur = échéance marquée payée par une version antérieure au suivi des reliquats (conservée telle quelle, « Rouvrir » la rend partielle) | Clôturée |
+| Détecté, à confirmer | opération correspondante non associée | Détecté, à confirmer |
+| En retard / À venir / Ignorée | aucun paiement associé, date passée / future ; ignorée par l’utilisateur | — |
+
+« En retard » (indicateur et notifications) = aucun paiement ou reliquat dû après la date
+d’échéance.
+
+**Charges récurrentes (Analyses)** : trois lectures séparées, jamais additionnées.
+Composition = équivalent mensuel ÷ total des charges récurrentes. Dépenses réelles =
+décaissements **confirmés** datés dans la période ÷ dépenses enregistrées (déjà incluses :
+pas de double comptage) ; détections non confirmées, échéances de la période et reste à
+payer affichés à part (échéances ÷ dépenses peut dépasser 100 %, avec explication).
+Revenus = équivalent mensuel ÷ revenus perçus par mois suivi.
+
+**Mois suivis** (dénominateur de « Par mois » et des revenus mensuels) : du mois de la
+première opération enregistrée (tout type, virements compris) sur les comptes retenus
+— tous, ou ceux du filtre de compte ; les filtres de catégorie, type et étiquette ne le
+déplacent pas — jusqu’au mois en cours ou à la fin de la période, bornés à la période.
+Un mois entamé compte pour un mois ; les mois sans opération après le début du suivi
+comptent (revenus irréguliers : la moyenne inclut les mois sans revenu). Aucune
+opération antérieure à la fin de la période → 0 mois, moyenne « non calculable ».
 
 **Objectifs** : affectations, jamais ajoutés au patrimoine. Un objectif qui suit un
 compte reflète son solde (l’argent reste compté une seule fois, via le compte).
@@ -252,3 +288,11 @@ locuteurs natifs reste à faire.
 * Les pièces jointes ne sont pas incluses dans la sauvegarde JSON.
 * Transactions dans une devise différente de celle de leur compte : non gérées (la
   devise d’une opération est celle du compte ; utiliser un compte par devise).
+* Une opération ne règle qu’une seule échéance : un virement unique couvrant plusieurs
+  échéances (ex. deux loyers) ne peut pas être réparti entre elles. Il faudrait une table
+  d’affectation (migration de schéma), reportée. Contournement : saisir une opération par
+  échéance, ou associer l’opération à une échéance et clôturer l’autre.
+* La détection automatique exige le montant exact (±5 jours) ; un paiement partiel saisi
+  à la main se rattache par « Associer des opérations ».
+* Le badge « Powered by Netlify » est injecté par l’hébergeur : sur mobile, une règle CSS
+  (`#nl-badge-frame`) le place au-dessus de la barre de navigation.

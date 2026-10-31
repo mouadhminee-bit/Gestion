@@ -12,6 +12,8 @@ import { useBalances } from '@/features/hooks';
 import { forecastMonth, HISTORY_WINDOW_DAYS } from '@/domain/calc/forecast';
 import { computeBaseline, EMPTY_SCENARIO, simulateScenario, type ScenarioInput } from '@/domain/calc/scenario';
 import { computeGoalProgress } from '@/domain/calc/goals';
+import { isLate } from '@/domain/calc/recurring';
+import { occurrenceBadge } from '@/features/recurring/status';
 import { daysInMonth, formatMonth, monthKey, parseISO } from '@/domain/dates';
 import { cn } from '@/lib/cn';
 import { t } from '@/i18n/core';
@@ -134,8 +136,8 @@ export default function Forecast() {
             <ul className="divide-y divide-line/5 text-sm">
               {f.pending.map((o) => (
                 <li key={o.id} className="flex justify-between gap-2 py-2">
-                  <span className="min-w-0"><span className="block truncate">{o.rule.label}</span><span className="text-xs text-muted">{fmt.date(o.dueDate)} {o.status === 'overdue' && <Badge tone="warning">{t('fc.overdue')}</Badge>}</span></span>
-                  <span className={cn('num font-medium', o.rule.kind === 'income' && 'text-positive')}>{fmt.money(o.rule.kind === 'income' ? o.rule.amount : -o.rule.amount, o.rule.currency, { sign: true })}</span>
+                  <span className="min-w-0"><span className="block truncate">{o.rule.label}</span><span className="text-xs text-muted">{fmt.date(o.dueDate)} {isLate(o, today) && <Badge tone="warning">{t('fc.overdue')}</Badge>} {o.status === 'partial' && <Badge tone="warning">{occurrenceBadge(o, today).label}</Badge>}</span></span>
+                  <span className={cn('num font-medium', o.rule.kind === 'income' && 'text-positive')}>{fmt.money(o.rule.kind === 'income' ? o.remaining : -o.remaining, o.rule.currency, { sign: true })}</span>
                 </li>
               ))}
             </ul>

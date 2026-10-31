@@ -11,10 +11,10 @@ import { occurrenceBadge } from './status';
 type Tab = 'composition' | 'real' | 'income';
 
 /** Statuts des échéances de la période, regroupés (« Payée ×2 »). */
-function StatusBadges({ row }: { row: RecurringChargeRow }) {
+function StatusBadges({ row, today }: { row: RecurringChargeRow; today: string }) {
   const groups = new Map<string, { tone: ReturnType<typeof occurrenceBadge>['tone']; n: number }>();
   for (const o of row.occurrences) {
-    const b = occurrenceBadge(o);
+    const b = occurrenceBadge(o, today);
     const g = groups.get(b.label);
     if (g) g.n += 1;
     else groups.set(b.label, { tone: b.tone, n: 1 });
@@ -33,7 +33,7 @@ function StatusBadges({ row }: { row: RecurringChargeRow }) {
  * décaissements réellement enregistrés, poids dans les revenus perçus.
  */
 export function RecurringChargesCard({ report }: { report: RecurringChargesReport }) {
-  const { fmt } = useApp();
+  const { fmt, today } = useApp();
   const [tab, setTab] = usePersistentState<Tab>('analytics.recurringTab', 'composition');
   const pct = (v: number | null) => fmt.percent(v, 1, true);
   const perMonth = (amount: number, ratio: number | null) => (
@@ -72,7 +72,7 @@ export function RecurringChargesCard({ report }: { report: RecurringChargesRepor
                     </div>
                     {(r.occurrences.length > 0 || r.detected > 0) && (
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
-                        <StatusBadges row={r} />
+                        <StatusBadges row={r} today={today} />
                         {r.detected > 0 && <span className="num">{t('an.rc.toConfirm', { amount: fmt.money(r.detected) })}</span>}
                         {r.remaining > 0 && <span className="num">{t('an.rc.remaining', { amount: fmt.money(r.remaining) })}</span>}
                       </div>

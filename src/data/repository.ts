@@ -643,12 +643,8 @@ export class LocalRepository {
       const linked = await this.linkedTransactions(ruleId, dueDate);
       const paid = linked.filter((t) => t.currency === rule.currency).reduce((a, t) => a + t.amount, 0);
       if (st?.status === 'paid' || paid >= rule.amount) throw new ValidationError(tr('err.occurrenceAlreadyPaid'));
+      // Seul le lien est posé : le statut (intégral ou partiel) se déduit des montants associés.
       await this.db.transactions.add(tx);
-      // Paiement complet : l'échéance est marquée réglée et garde la trace de l'opération créée.
-      // Paiement partiel : seul le lien est posé, le reliquat reste attendu.
-      if (paid + (tx.currency === rule.currency ? tx.amount : rule.amount) >= rule.amount) {
-        await this.db.occurrences.put({ id, userId: this.userId, ruleId, dueDate, status: 'paid', transactionId: tx.id, updatedAt: nowISO() });
-      } else if (st) await this.db.occurrences.delete(id);
     });
     return tx;
   }
@@ -696,11 +692,21 @@ export class LocalRepository {
     if ((st.transactionId && removed.has(st.transactionId)) || remaining.length === 0) await this.db.occurrences.delete(id);
   }
 
-  /** Solde une échéance partiellement payée : le reliquat n'est plus attendu. */
+  /** Clôture une échéance partiellement payée : le reliquat est abandonné et n'est plus attendu. */
   async settleOccurrence(ruleId: ID, dueDate: string): Promise<void> {
     await this.own<RecurringRule>('recurringRules', ruleId);
     if (!(await this.linkedTransactions(ruleId, dueDate)).length) throw new ValidationError(tr('err.settleNoPayment'));
-    await this.db.occurrences.put({ id: occurrenceId(ruleId, dueDate), userId: this.userId, ruleId, dueDate, status: 'paid', updatedAt: nowISO() });
+    await this.db.occurrences.put({ id: occurrenceId(ruleId, dueDate), userId: this.userId, ruleId, dueDate, status: 'paid', closure: 'waived', updatedAt: nowISO() });
+  }
+
+  /**
+   * Rouvre une échéance clôturée (reliquat abandonné ou ancienne échéance marquée payée) :
+   * les opérations restent associées et le reliquat redevient attendu.
+   */
+  async reopenOccurrence(ruleId: ID, dueDate: string): Promise<void> {
+    await this.own<RecurringRule>('recurringRules', ruleId);
+    const id = occurrenceId(ruleId, dueDate);
+    if ((await this.db.occurrences.get(id))?.status === 'paid') await this.db.occurrences.delete(id);
   }
 
   async skipOccurrence(ruleId: ID, dueDate: string): Promise<void> {

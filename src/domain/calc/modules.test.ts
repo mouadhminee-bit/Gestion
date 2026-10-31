@@ -179,8 +179,27 @@ describe('Analyses — mois suivis', () => {
   it('ne compte que les mois suivis de la période', () => {
     expect(trackedMonths(october, yearPeriod(2026), '2026-10-30')).toBe(1);
     expect(trackedMonths([tx({ accountId: 'acc', date: '2025-06-01' }), ...october], yearPeriod(2026), '2026-10-30')).toBe(10);
-    expect(trackedMonths(october, yearPeriod(2025), '2026-10-30')).toBe(1);
-    expect(trackedMonths([], monthPeriod('2026-10'), '2026-10-30')).toBe(1);
+    expect(trackedMonths(october, yearPeriod(2025), '2026-10-30')).toBe(0); // période antérieure au suivi
+  });
+
+  it('sans opération, ou période future : 0 mois, moyenne non calculable', () => {
+    expect(trackedMonths([], monthPeriod('2026-10'), '2026-10-30')).toBe(0);
+    expect(trackedMonths(october, monthPeriod('2026-12'), '2026-10-30')).toBe(0);
+    expect(trackedMonths([tx({ accountId: 'acc', date: '2026-11-15' })], yearPeriod(2026), '2026-10-30')).toBe(0); // opération future seulement
+  });
+
+  it('plusieurs comptes : le filtre de compte fixe le début du suivi, sinon la première opération de tous les comptes', () => {
+    const multi = [tx({ accountId: 'acc', date: '2026-02-03' }), tx({ accountId: 'acc2', date: '2026-09-20' })];
+    expect(trackedMonths(multi, yearPeriod(2026), '2026-10-30')).toBe(9); // février → octobre
+    expect(trackedMonths(multi, yearPeriod(2026), '2026-10-30', ['acc2'])).toBe(2); // septembre → octobre
+    expect(trackedMonths(multi, yearPeriod(2026), '2026-10-30', ['acc', 'acc2'])).toBe(9);
+  });
+
+  it('revenus irréguliers : les mois sans revenu après le début du suivi comptent', () => {
+    // Revenus en janvier et en juin seulement, dépenses chaque mois : 10 mois suivis au 30/10.
+    const txs = [tx({ accountId: 'acc', type: 'income', amount: 600000, date: '2026-01-10' }), tx({ accountId: 'acc', type: 'income', amount: 400000, date: '2026-06-10' }), tx({ accountId: 'acc', date: '2026-10-02' })];
+    expect(trackedMonths(txs, yearPeriod(2026), '2026-10-30')).toBe(10);
+    expect(trackedMonths(txs, monthPeriod('2026-06'), '2026-10-30')).toBe(1);
   });
 });
 

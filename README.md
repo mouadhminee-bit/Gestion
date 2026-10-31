@@ -66,7 +66,7 @@ Les données sont générées de façon déterministe à partir de la date du jo
 | Comptes | ✅ | 6 types, multidevise, solde initial daté, archivage, historique + courbe 90 j, transfert, périmètre du solde total, export CSV |
 | Budgets | ✅ | Global + par catégorie/sous-catégorie, copie du mois précédent, application aux mois suivants, seuils d’alerte, restant / consommation / écarts / projection, historique 6 mois, export CSV |
 | Objectifs | ✅ | Progression plafonnée, contribution nécessaire, écart, date estimée, objectifs atteints / dépassés, suivi de compte, affectations et historique |
-| Récurrences | ✅ | 7 fréquences dont personnalisée, fins de mois et bissextiles, échéancier, payer (création explicite de l’opération), ignorer, associer un paiement détecté (« Détecté, à confirmer »), **associer une ou plusieurs opérations existantes** (paiement total, partiel, fractionné, anticipé), solder un reliquat, dissocier, annuler ; date d’échéance et date réelle du décaissement distinctes |
+| Récurrences | ✅ | 7 fréquences dont personnalisée, fins de mois et bissextiles, échéancier, payer (création explicite de l’opération), ignorer, associer un paiement détecté (« Détecté, à confirmer »), **associer une ou plusieurs opérations existantes** (paiement total, partiel, fractionné, anticipé), clôturer ou rouvrir un reliquat, dissocier, annuler ; statuts Payée / Reçue (intégralement ou partiellement), Clôturée, En retard (y compris reliquat dû) ; date d’échéance et date réelle du décaissement distinctes |
 | Dettes & créances | ✅ | 6 types, mouvement initial optionnel, remboursements principal/intérêts, restant dû, retards, historique |
 | Patrimoine | ✅ | Actifs/passifs, répartition, évolution 12 mois, variation mensuelle, valorisations manuelles marquées « Estimation » |
 | Analyses & rapports | ✅ | Filtres (période, catégorie, compte, type, étiquette), comparaison explicite, fixes/variables, commerçants, moyennes, soldes, patrimoine, charges récurrentes en trois lectures séparées (composition des engagements, décaissements réels confirmés, poids dans les revenus perçus), exceptionnels ; rapports mensuel / trimestriel / annuel imprimables (PDF via le navigateur) |
@@ -82,19 +82,19 @@ Les données sont générées de façon déterministe à partir de la date du jo
 
 ## Résultats des tests (exécutés)
 
-`npm test` — **225 tests, 9 fichiers, tous au vert** :
+`npm test` — **232 tests, 9 fichiers, tous au vert** :
 
 | Fichier | Tests | Couverture |
 |---|---|---|
 | `domain/money.test.ts` | 26 | parsing exact, séparateurs, devises à 0/3 décimales, 0,1 + 0,2, formats, arrondis, montants nuls/négatifs |
 | `domain/dates.test.ts` | 7 | bissextiles, dates limites, fins de mois, formats, périodes, fuseau Casablanca |
 | `domain/calc/ledger.test.ts` | 18 | revenus, dépenses, épargne, taux (non calculable), sous-catégories, fixes/variables, filtrage par période, transferts sans double comptage, remboursements, ajustements, intérêts seuls, soldes et ancrage, série quotidienne, multidevise avec/sans taux |
-| `domain/calc/modules.test.ts` | 29 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur, mois suivis (moyennes non diluées) |
-| `domain/calc/recurringCharges.test.ts` | 18 | charges récurrentes sur les 7 charges réelles : composition, décaissements confirmés vs détectés, échéances vs dépenses (> 100 % expliqué), revenus ; paiements partiels, fractionnés, excédentaires, anticipés d’un mois sur l’autre, reliquat soldé, absence d’opération, échéance ignorée, aucune double comptabilisation, reliquat seul dans le prévisionnel, compatibilité des anciennes échéances payées, candidats au rapprochement |
+| `domain/calc/modules.test.ts` | 32 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur, mois suivis (sans opération, période future, plusieurs comptes et filtre de compte, revenus irréguliers) |
+| `domain/calc/recurringCharges.test.ts` | 21 | charges récurrentes sur les 7 charges réelles : composition, décaissements confirmés vs détectés, échéances vs dépenses (> 100 % expliqué), revenus ; paiements partiels, fractionnés, excédentaires, anticipés d’un mois sur l’autre, reliquat clôturé, absence d’opération, échéance ignorée, aucune double comptabilisation, reliquat seul dans le prévisionnel, anciennes échéances payées pour moins (closes, distinguées d’un abandon), retards avec reliquat, vocabulaire Payée / Reçue, candidats au rapprochement |
 | `domain/csv.test.ts` | 9 | CSV (guillemets, BOM, CRLF, injection de formules), dates, montants, doublons |
 | `domain/assistant.test.ts` | 9 | intentions de l’assistant, cohérence des chiffres, données insuffisantes, insights comparables, notifications |
 | `i18n/i18n.test.ts` | 79 | 24 dictionnaires complets (mêmes clés que le français, aucun texte vide, variables `{…}` identiques), pluriels (polonais, arabe, anglais, repli), chaque question suggérée de l’assistant retrouvée en saisie libre dans les 24 langues, réponses et insights dans la langue active, noms des catégories initiales, calendrier grégorien imposé (fa-IR), pourcentages formatés une seule fois, à une décimale fixe pour les charges récurrentes (24 langues) |
-| `data/repository.test.ts` | 30 | CRUD, validation, transferts (création, modification, conversion, suppression, multidevise), **persistance après réouverture**, sauvegarde/restauration, **isolation entre utilisateurs**, archivage, budgets, récurrences (rapprochement manuel multi-opérations, refus des doubles associations, reliquat, solde, dissociation sans suppression), dettes, objectifs, import, export, cohérence du jeu de démo et des totaux du dashboard |
+| `data/repository.test.ts` | 31 | CRUD, validation, transferts (création, modification, conversion, suppression, multidevise), **persistance après réouverture**, sauvegarde/restauration, **isolation entre utilisateurs**, archivage, budgets, récurrences (rapprochement manuel multi-opérations, refus des doubles associations, reliquat, clôture et réouverture, ancienne donnée jamais réécrite, dissociation sans suppression), dettes, objectifs, import, export, cohérence du jeu de démo et des totaux du dashboard |
 
 `npm run test:e2e` — parcours réel dans Chromium (exécuté, 11/11) : onboarding,
 saisie d’une dépense et mise à jour du solde et des KPI, persistance après
@@ -140,6 +140,9 @@ Ajouter ou corriger une langue : voir [`docs/ARCHITECTURE.md` § 8](docs/ARCHITE
 * Les intérêts de dettes sont classés en « Échéances de crédit » (dépense) ou
   « Dividendes et intérêts » (revenu).
 * Une opération est dans la devise de son compte ; les taux de change sont saisis manuellement.
+* Une opération règle une seule échéance récurrente (pas de répartition d’un virement sur
+  plusieurs échéances, reporté) ; une échéance peut en revanche être réglée en plusieurs
+  opérations. « Par mois » divise par les mois suivis (méthode : `docs/ARCHITECTURE.md` §5).
 
 ## Sécurité et confidentialité
 

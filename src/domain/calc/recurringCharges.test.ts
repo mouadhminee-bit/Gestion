@@ -4,7 +4,8 @@ import { monthPeriod, yearPeriod } from '../dates';
 import type { RecurringOccurrence, RecurringRule, Transaction } from '../types';
 import { recurringChargesReport } from './analytics';
 import { forecastMonth } from './forecast';
-import { linkCandidates, listOccurrences, pendingOccurrences } from './recurring';
+import { isLate, linkCandidates, listOccurrences, pendingOccurrences } from './recurring';
+import { occurrenceBadge } from '@/features/recurring/status';
 
 const now = '2026-01-01T00:00:00.000Z';
 const R = (id: string, label: string, amount: number, day: number, p: Partial<RecurringRule> = {}): RecurringRule => ({
@@ -103,10 +104,10 @@ describe('Charges récurrentes — cas de paiement', () => {
     expect(row(r, 'loyer').paid).toBe(300000);
   });
 
-  it('reliquat soldé par l’utilisateur : réglée, le reste n’est plus attendu', () => {
-    const st: RecurringOccurrence = { id: 'orange:2026-10-20', userId: UID, ruleId: 'orange', dueDate: '2026-10-20', status: 'paid', updatedAt: now };
+  it('reliquat clôturé par l’utilisateur : clôturée, le reste n’est plus attendu', () => {
+    const st: RecurringOccurrence = { id: 'orange:2026-10-20', userId: UID, ruleId: 'orange', dueDate: '2026-10-20', status: 'paid', closure: 'waived', updatedAt: now };
     const o = row(report([paidTx('orange', '2026-10-20', 6000, '2026-10-20')], monthPeriod('2026-10'), today, [st]), 'orange').occurrences[0];
-    expect(o).toMatchObject({ status: 'paid', settled: true, remaining: 0, paid: 6000 });
+    expect(o).toMatchObject({ status: 'paid', closure: 'waived', remaining: 0, paid: 6000 });
   });
 
   it('paiement anticipé d’un mois sur l’autre : la dépense reste au mois du décaissement', () => {
@@ -166,10 +167,13 @@ describe('Échéances partielles dans les prévisions et le rapprochement', () =
     expect(forecastMonth(ctxOf(s), s, '2026-10-10').expectedRecurringExpenses).toBe(4000);
   });
 
-  it('compatibilité : une ancienne échéance « payée » pour un montant inférieur reste réglée', () => {
+  it('compatibilité : une ancienne échéance « payée » pour un montant inférieur reste close, distinguée d’un abandon explicite', () => {
     const st: RecurringOccurrence = { id: 'loyer:2026-10-01', userId: UID, ruleId: 'loyer', dueDate: '2026-10-01', status: 'paid', transactionId: 't-old', updatedAt: now };
     const occ = listOccurrences(rules, [st], [paidTx('loyer', '2026-10-01', 250000, '2026-10-02', { id: 't-old' })], monthPeriod('2026-10'), today);
-    expect(occ.find((o) => o.rule.id === 'loyer')).toMatchObject({ status: 'paid', settled: true, remaining: 0, transactionId: 't-old' });
+    expect(occ.find((o) => o.rule.id === 'loyer')).toMatchObject({ status: 'paid', closure: 'legacy', paid: 250000, remaining: 0, transactionId: 't-old' });
+    // Payée intégralement : aucune mention de clôture.
+    const full = listOccurrences(rules, [st], [paidTx('loyer', '2026-10-01', 280000, '2026-10-02', { id: 't-old' })], monthPeriod('2026-10'), today);
+    expect(full.find((o) => o.rule.id === 'loyer')!.closure).toBeUndefined();
   });
 
   it('candidats au rapprochement manuel : même type et devise, non associés ailleurs, les plus proches d’abord', () => {
@@ -182,5 +186,44 @@ describe('Échéances partielles dans les prévisions et le rapprochement', () =
     const usd = tx({ id: 'usd', accountId: 'acc', amount: 280000, date: '2026-10-01', currency: 'USD' });
     const old = tx({ id: 'old', accountId: 'acc', amount: 280000, date: '2026-06-01' });
     expect(linkCandidates(loyer, '2026-10-01', [far, elsewhere, income, usd, old, near, own]).map((t) => t.id)).toEqual(['near', 'own', 'far']);
+  });
+});
+
+describe('Statuts : retards, vocabulaire et cohérence', () => {
+  const occOf = (txs: Transaction[], at: string, states: RecurringOccurrence[] = [], rs = rules) => listOccurrences(rs, states, txs, monthPeriod('2026-10'), at);
+
+  it('un reliquat dû après l’échéance est en retard, pas avant', () => {
+    const part = [paidTx('loyer', '2026-10-01', 100000, '2026-10-01')];
+    expect(isLate(occOf(part, '2026-10-15').find((o) => o.rule.id === 'loyer')!, '2026-10-15')).toBe(true);
+    const early = [paidTx('ms', '2026-10-31', 1000, '2026-10-20')];
+    expect(isLate(occOf(early, '2026-10-25').find((o) => o.rule.id === 'ms')!, '2026-10-25')).toBe(false);
+    // Clôturée ou payée intégralement : jamais en retard.
+    const closed: RecurringOccurrence = { id: 'loyer:2026-10-01', userId: UID, ruleId: 'loyer', dueDate: '2026-10-01', status: 'paid', closure: 'waived', updatedAt: now };
+    expect(isLate(occOf(part, '2026-10-15', [closed]).find((o) => o.rule.id === 'loyer')!, '2026-10-15')).toBe(false);
+  });
+
+  it('« Payée » pour une dépense, « Reçue » pour un revenu ; trois issues distinctes', () => {
+    const salary = R('sal', 'Salaire', 1000000, 1, { kind: 'income' });
+    const incomeTx = (amount: number) => tx({ accountId: 'acc', type: 'income', amount, date: '2026-10-01', recurringRuleId: 'sal', recurringDueDate: '2026-10-01' });
+    const label = (txs: Transaction[], id: string, states: RecurringOccurrence[] = []) => occurrenceBadge(occOf(txs, '2026-10-15', states, [...rules, salary]).find((o) => o.rule.id === id)!, '2026-10-15').label;
+    expect(label([paidTx('loyer', '2026-10-01', 280000, '2026-10-01')], 'loyer')).toBe('Payée');
+    expect(label([incomeTx(1000000)], 'sal')).toBe('Reçue');
+    expect(label([paidTx('loyer', '2026-10-01', 100000, '2026-10-01')], 'loyer')).toBe('Payée partiellement');
+    expect(label([incomeTx(400000)], 'sal')).toBe('Reçue partiellement');
+    const closed: RecurringOccurrence = { id: 'loyer:2026-10-01', userId: UID, ruleId: 'loyer', dueDate: '2026-10-01', status: 'paid', closure: 'waived', updatedAt: now };
+    expect(label([paidTx('loyer', '2026-10-01', 100000, '2026-10-01')], 'loyer', [closed])).toBe('Clôturée');
+    expect(label([tx({ accountId: 'acc', amount: 280000, date: '2026-10-02', label: 'Loyer' })], 'loyer')).toBe('Détecté, à confirmer');
+  });
+
+  it('paiement partiel : jamais compté deux fois (dépenses, payé, reste, prévisionnel)', () => {
+    const part = paidTx('loyer', '2026-10-01', 100000, '2026-10-01');
+    const r = report([part]);
+    expect(r.expenses).toBe(100000); // l'opération n'apparaît qu'une fois dans les dépenses
+    expect(row(r, 'loyer')).toMatchObject({ paid: 100000, detected: 0, remaining: 180000, committed: 280000 });
+    expect(row(r, 'loyer').paid + row(r, 'loyer').remaining).toBe(row(r, 'loyer').committed);
+    const s = emptySnapshot({ recurringRules: [rules[0]], transactions: [part] });
+    const f = forecastMonth(ctxOf(s), s, '2026-10-10');
+    expect(f.recordedExpenses).toBe(100000);
+    expect(f.expectedRecurringExpenses).toBe(180000); // seul le reliquat est attendu
   });
 });

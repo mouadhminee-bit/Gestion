@@ -257,6 +257,12 @@ export interface RecurringOccurrence {
   dueDate: ISODate;
   status: OccurrenceStatus;
   transactionId?: ID;
+  /**
+   * 'waived' : échéance clôturée par l'utilisateur, reliquat abandonné (champ facultatif,
+   * sans index : aucune migration). Un état « paid » sans ce champ et inférieur au prévu
+   * provient d'une version antérieure au suivi des reliquats ; il est affiché tel quel.
+   */
+  closure?: 'waived';
   updatedAt: string;
 }
 

@@ -115,8 +115,12 @@ export type OccurrenceView = {
   paid: number;
   /** Reste attendu (0 si réglée, soldée ou ignorée). */
   remaining: number;
-  /** Soldée par l'utilisateur alors que le payé est inférieur au prévu (reliquat abandonné). */
-  settled: boolean;
+  /**
+   * Réglée pour moins que le prévu (statut paid) : 'waived' = clôturée par l'utilisateur,
+   * reliquat abandonné ; 'legacy' = marquée payée avant le suivi des reliquats (donnée
+   * conservée telle quelle). Absent : payée intégralement.
+   */
+  closure?: 'waived' | 'legacy';
   /** Date de la dernière opération confirmée. */
   paidDate?: ISODate;
 };
@@ -176,7 +180,7 @@ export function listOccurrences(
     for (const due of occurrenceDates(rule, period.start, period.end)) {
       const id = occurrenceId(rule.id, due);
       const st = stateById.get(id);
-      const base = { id, rule, dueDate: due, expected: rule.amount, transactionIds: [] as ID[], paid: 0, remaining: rule.amount, settled: false };
+      const base = { id, rule, dueDate: due, expected: rule.amount, transactionIds: [] as ID[], paid: 0, remaining: rule.amount };
       if (st?.status === 'skipped') {
         out.push({ ...base, status: 'skipped', remaining: 0 });
         continue;
@@ -187,7 +191,8 @@ export function listOccurrences(
         const done = st?.status === 'paid' || paid >= rule.amount;
         const main = st?.transactionId ?? links[0]?.id;
         const paidDate = links.reduce<ISODate | undefined>((d, t) => (!d || t.date > d ? t.date : d), undefined);
-        out.push({ ...base, status: done ? 'paid' : 'partial', transactionId: main, transactionIds: links.map((t) => t.id), paid, remaining: done ? 0 : rule.amount - paid, settled: done && paid < rule.amount && links.length > 0, paidDate });
+        const closure = done && paid < rule.amount ? (st?.closure === 'waived' ? 'waived' : 'legacy') : undefined;
+        out.push({ ...base, status: done ? 'paid' : 'partial', transactionId: main, transactionIds: links.map((t) => t.id), paid, remaining: done ? 0 : rule.amount - paid, closure, paidDate });
         continue;
       }
       const tx = findMatchingTransaction(rule, due, transactions, used);
@@ -198,6 +203,11 @@ export function listOccurrences(
     }
   }
   return out.sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0));
+}
+
+/** En retard : aucun paiement après l'échéance, ou reliquat encore dû après l'échéance. */
+export function isLate(o: OccurrenceView, today: ISODate): boolean {
+  return o.status === 'overdue' || (o.status === 'partial' && o.dueDate < today);
 }
 
 /** Échéances restant à payer (à venir, en retard ou partiellement réglées) dans une période. */
