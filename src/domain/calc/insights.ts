@@ -99,7 +99,7 @@ export function generateInsights(
 
   // 2. Budgets : seuils atteints (mois en cours).
   const monthSummary = summarizePeriod(ctx, data.transactions, monthPeriod(month));
-  const overview = monthBudgetOverview(data.budgets, month, monthSummary, ctx.categories, today, opt.thresholds, forecast?.committedByCategory);
+  const overview = monthBudgetOverview(data.budgets, month, monthSummary, ctx.categories, today, opt.thresholds, forecast?.committedByCategory, forecast?.atypicalByCategory);
   for (const line of overview.lines) {
     if (line.consumption == null || line.thresholdReached == null || line.thresholdReached < 75) continue;
     // Une charge fixe payée exactement à son montant prévu n'est pas une alerte.
@@ -120,24 +120,30 @@ export function generateInsights(
 
   // 3. Rythme de dépenses vs budget mensuel.
   if (forecast && forecast.budgetReference != null && forecast.projectedBudgetOverrun != null) {
-    if (forecast.projectedBudgetOverrun > 0 && forecast.variableMethod !== 'insufficient') {
+    // Le texte nomme la base : dépenses totales vs budget global, ou dépenses budgétées seules.
+    const cats = forecast.budgetBasis === 'categories';
+    // Un minimum (réalisé + échéances connues) qui dépasse déjà le budget est un signal fiable ;
+    // en revanche, « sous contrôle » n'est affirmé que sur une projection complète.
+    const minimum = forecast.budgetProjectionStatus === 'minimum';
+    if (forecast.projectedBudgetOverrun > 0) {
       out.push({
         id: `pace:${month}`,
         kind: 'pace',
         severity: 'warning',
-        title: t('ins.pace.title'),
-        message: t('ins.pace.message', { projected: opt.fmt(forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
-        source: t('ins.pace.source'),
+        // Minimum : le dépassement est déjà engagé, sans présenter le minimum comme une prévision.
+        title: t(minimum ? 'ins.paceMin.title' : 'ins.pace.title'),
+        message: t(minimum ? (cats ? 'ins.paceMin.messageCategories' : 'ins.paceMin.message') : cats ? 'ins.pace.messageCategories' : 'ins.pace.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
+        source: t(minimum ? 'ins.pace.sourceMinimum' : cats ? 'ins.pace.sourceCategories' : 'ins.pace.source'),
         href: '/forecast',
       });
-    } else if (forecast.projectedBudgetOverrun <= 0 && forecast.variableMethod === 'history') {
+    } else if (!minimum && (cats || forecast.variableMethod !== 'insufficient')) {
       out.push({
         id: `pace-ok:${month}`,
         kind: 'pace',
         severity: 'success',
         title: t('ins.paceOk.title'),
-        message: t('ins.paceOk.message', { projected: opt.fmt(forecast.projectedExpenses), budget: opt.fmt(forecast.budgetReference), margin: opt.fmt(-forecast.projectedBudgetOverrun) }),
-        source: t('ins.paceOk.source'),
+        message: t(cats ? 'ins.paceOk.messageCategories' : 'ins.paceOk.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), budget: opt.fmt(forecast.budgetReference), margin: opt.fmt(-forecast.projectedBudgetOverrun) }),
+        source: t(cats ? 'ins.pace.sourceCategories' : 'ins.paceOk.source'),
         href: '/forecast',
       });
     }

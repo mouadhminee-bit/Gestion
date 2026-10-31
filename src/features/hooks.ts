@@ -17,7 +17,7 @@ export function useMonthData(month: MonthKey) {
     const prev = summarizePeriod(ctx, data.transactions, monthPeriod(prevMonth));
     const isCurrent = month === monthKey(today);
     const forecast = isCurrent ? forecastMonth(ctx, data, today) : null;
-    const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today, settings.budgetAlertThresholds, forecast?.committedByCategory);
+    const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today, settings.budgetAlertThresholds, forecast?.committedByCategory, forecast?.atypicalByCategory);
     const asOf = minDate(monthEnd(month), today);
     const balance = totalBalance(ctx, accountsInScope(data.accounts), data.transactions, asOf);
     return { period, summary, prev, prevMonth, isCurrent, forecast, overview, asOf, balance };

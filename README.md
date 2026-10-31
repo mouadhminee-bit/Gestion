@@ -44,6 +44,12 @@ n’est nécessaire en mode local ; le fichier ne contient aucun secret.
 `dist/` est un site statique (routage par hash) déployable sur n’importe quel
 hébergement statique.
 
+**GitHub Codespaces (sans Netlify)** : le dépôt contient `.devcontainer/devcontainer.json`
+(Node 22, `npm ci` automatique, ports 5173 et 4173 redirigés). Dans le Codespace :
+`npm run dev:host` → lien `https://<codespace>-5173.app.github.dev/#/` ; `npm run check`
+(typecheck + tests + build) ; `npm run build && npm run preview:host` (port 4173). Guide
+complet : [`docs/CODESPACES.md`](docs/CODESPACES.md).
+
 ## Données de démonstration
 
 Au premier lancement, choisissez **« Explorer avec des données de démonstration »**
@@ -82,13 +88,16 @@ Les données sont générées de façon déterministe à partir de la date du jo
 
 ## Résultats des tests (exécutés)
 
-`npm test` — **232 tests, 9 fichiers, tous au vert** :
+`npm test` — **277 tests, 12 fichiers, tous au vert** :
 
 | Fichier | Tests | Couverture |
 |---|---|---|
 | `domain/money.test.ts` | 26 | parsing exact, séparateurs, devises à 0/3 décimales, 0,1 + 0,2, formats, arrondis, montants nuls/négatifs |
 | `domain/dates.test.ts` | 7 | bissextiles, dates limites, fins de mois, formats, périodes, fuseau Casablanca |
 | `domain/calc/ledger.test.ts` | 18 | revenus, dépenses, épargne, taux (non calculable), sous-catégories, fixes/variables, filtrage par période, transferts sans double comptage, remboursements, ajustements, intérêts seuls, soldes et ancrage, série quotidienne, multidevise avec/sans taux |
+| `domain/calc/atypical.test.ts` | 12 | dépenses atypiques : exceptionnelle isolée, exceptionnelle avec dépenses habituelles, importante mais récurrente (détectée), importante avec historique comparable, même montant dans une autre catégorie, dépenses habituelles multiples, mois avec très peu de transactions, moyenne 90 jours non alourdie, ligne de budget (comptée une fois), libellés « minimum » des insights |
+| `domain/calc/projection.test.ts` | 15 | projection de fin de mois : début / milieu / fin de mois, historique absent ou insuffisant (minimum, jamais le reste du budget), rythme du mois, historique prioritaire, échéances à venir, budget global, budgets par catégorie, hors budget, mois passé / futur, charge fixe, insights selon le statut |
+| `domain/calc/budgets.test.ts` | 18 | consommation des catégories budgétées (cas signalé 1 800 DH / 99 DH), plusieurs catégories, budget sans dépense, opérations sans catégorie, catégories sans budget, sous-catégories sans double comptage, budget global saisi, transferts / revenus / remboursements, identité total = budgété + hors budget avec filtre de compte, mois passé / futur, projection sur la même base (catégories ou global), simulateur sur le même périmètre (budget global, plusieurs catégories, sous-catégories, remboursements, nouvelle charge récurrente, hausse de loyer), insights nommant leur base |
 | `domain/calc/modules.test.ts` | 32 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur, mois suivis (sans opération, période future, plusieurs comptes et filtre de compte, revenus irréguliers) |
 | `domain/calc/recurringCharges.test.ts` | 21 | charges récurrentes sur les 7 charges réelles : composition, décaissements confirmés vs détectés, échéances vs dépenses (> 100 % expliqué), revenus ; paiements partiels, fractionnés, excédentaires, anticipés d’un mois sur l’autre, reliquat clôturé, absence d’opération, échéance ignorée, aucune double comptabilisation, reliquat seul dans le prévisionnel, anciennes échéances payées pour moins (closes, distinguées d’un abandon), retards avec reliquat, vocabulaire Payée / Reçue, candidats au rapprochement |
 | `domain/csv.test.ts` | 9 | CSV (guillemets, BOM, CRLF, injection de formules), dates, montants, doublons |

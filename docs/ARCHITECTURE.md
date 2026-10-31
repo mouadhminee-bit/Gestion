@@ -132,7 +132,13 @@ n’est jamais stocké comme transaction.
 | Taux d’épargne | Épargne nette ÷ Revenus ; « Non calculable » si revenus ≤ 0 |
 | Solde d’un compte | solde initial + mouvements datés à partir de la date du solde initial |
 | Solde total | somme des comptes actifs `includeInTotal`, convertis au dernier taux connu |
-| Budget disponible | budget global (sinon somme des budgets de catégories) − dépenses du mois |
+| Catégories budgétées | budgets de 1er niveau + budgets de sous-catégorie sans budget parent (jamais de double comptage) |
+| Consommation des budgets | dépenses des catégories budgétées ÷ Σ de leurs budgets (jauge, disponible, référence et projection de la carte Budgets) |
+| Hors budget | dépenses totales − dépenses des catégories budgétées (catégories sans budget, opérations sans catégorie) ; affiché à part |
+| Budget global (saisi) | enveloppe de **toutes** les dépenses : dépenses totales ÷ budget global ; suivi dans son propre encadré |
+| Disponible sur budget (tableau de bord, rapport) | budget global − dépenses totales s’il existe ; sinon Σ budgets des catégories − dépenses de ces catégories. Enveloppe de dépenses, **à ne pas confondre** avec le « Solde total » des comptes (trésorerie réelle), ni avec les « Dépenses hors budget » |
+| Disponible sur budget (simulateur) | même périmètre (`budgetScope`, `budgets.ts`) : budget global − dépenses totales mensuelles moyennes simulées ; sinon Σ budgets des catégories − dépenses moyennes simulées de ces seules catégories (nettes des remboursements ; sous-catégorie seule réduite comme sa parente ; nouvelle charge sans catégorie et autres dépenses hors budget exclues) |
+| Projection budgétaire (Budgets, Prévisions, insights — la base est nommée dans chaque texte) | base globale : dépenses totales projetées (Prévisions) vs budget global ; base catégories : Σ projections des lignes budgétées (rythme du mois + échéances récurrentes connues) vs Σ budgets |
 | Restant (budget) | budget − dépenses éligibles ; consommation = dépenses ÷ budget (non affichée si budget nul) ; écart = dépenses − budget |
 | Progression objectif | constitué ÷ cible (affichage plafonné à 100 %) ; contribution nécessaire = restant ÷ mois restants |
 | Patrimoine net | actifs (comptes une fois, valorisations, créances) − passifs (dettes) |
@@ -195,9 +201,28 @@ dernière valorisation manuelle (une seule valorisation par compte, contrôlée)
 **Multidevise** : aucune addition de devises différentes sans taux daté ≤ date de
 valorisation ; sinon les montants sont affichés séparément et exclus des totaux.
 
-**Prévisions** : solde actuel + récurrents attendus − dépenses variables projetées
-(moyenne quotidienne observée sur 90 jours si ≥ 30 jours et ≥ 10 dépenses ; sinon
-reste des budgets variables ; sinon « données insuffisantes »). Hypothèses affichées.
+**Prévisions** : solde actuel + récurrents attendus − dépenses variables projetées.
+Dépenses projetées = réalisé + échéances récurrentes connues non payées (reliquats compris)
++ dépenses variables projetées, selon la première méthode exploitable : (1) moyenne
+quotidienne observée sur 90 jours (≥ 30 jours et ≥ 10 dépenses) × jours restants ;
+(2) rythme du mois (dépenses variables du mois ÷ jours écoulés × jours restants, dès 10 jours
+écoulés et 3 dépenses) ; (3) sinon **aucune** dépense variable projetée : la projection est
+un **minimum** (réalisé + échéances connues), signalé comme tel. Le reste d’un budget n’est
+jamais projeté comme une dépense certaine ; le dernier jour, il n’y a rien à projeter.
+Charges récurrentes identifiées (paiements associés **ou détectés** par le rapprochement) :
+hors rythme variable. **Dépense atypique** : montant > 3 × la médiane des autres dépenses
+variables observées (au moins 2 points de comparaison) **et** opération isolée — aucune
+dépense de la même catégorie de 1er niveau d’au moins 50 % de son montant dans la fenêtre
+observée ni dans les 180 jours qui la précèdent. Elle est comptée dans le réalisé, jamais
+extrapolée (moyenne 90 jours, rythme du mois et lignes de budget), et signalée dans les
+hypothèses ; les seuils de durée et de nombre s’appliquent aux seules dépenses habituelles.
+Projection incomplète : Prévisions titre « Budget pas encore évaluable complètement » (ou
+« Dépassement déjà engagé »), les insights parlent de « dépenses déjà engagées », et le
+tableau de bord affiche un bandeau compact du minimum engagé avec un lien vers Prévisions.
+Lignes de budget : même seuil de 10 jours avant d’extrapoler le rythme d’une catégorie
+variable (sinon minimum) ; charge fixe = réalisé + échéances ; mois passé = réalisé ; mois
+futur = pas de projection. Les insights n’affirment « sous contrôle » que sur une projection
+complète ; un minimum qui dépasse déjà le budget déclenche une alerte. Hypothèses affichées.
 
 **Insights** : uniquement si les données sont comparables (même période du mois
 précédent, ≥ 2 opérations par catégorie sur chaque période) ; chaque insight expose
