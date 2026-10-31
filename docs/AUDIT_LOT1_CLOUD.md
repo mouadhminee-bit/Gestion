@@ -1,7 +1,28 @@
 # NEXORA — Lot 1 : audit technique et architecture multi-utilisateurs Cloud-first
 
-*Audit réalisé le 31/10/2026 sur le commit `5fd37c3` (identique sur
-`claude/nexora-finance-platform-81blaa` et `claude/stoic-edison-8s0vhq`).*
+*Audit réalisé le 31/10/2026 sur le commit `5fd37c3` (branche de production
+`claude/nexora-finance-platform-81blaa`), **rectifié le même jour sur la base
+`nexora-dev` = `341f3da`** (voir l'encadré ci-dessous).*
+
+> **Rectificatif (31/10/2026).** La première version de cet audit affirmait que la branche
+> `nexora-dev` et le dossier `.devcontainer/` n'existaient pas, et comptait 232 tests.
+> C'était faux : le clone de la session d'audit ne contenait que deux branches et aucun
+> `git fetch` n'avait été lancé. État vérifié (`git ls-remote`, `git fetch`) :
+>
+> | Branche | HEAD | Rôle |
+> |---|---|---|
+> | `claude/nexora-finance-platform-81blaa` | `5fd37c3` | production (Netlify) |
+> | `nexora-dev` | `341f3da` | développement = production + 5 commits (budgets, prévisions, Codespaces) |
+>
+> * `nexora-dev` contient `.devcontainer/devcontainer.json` (Node 22, `npm ci`) et
+>   `docs/CODESPACES.md` ; scripts `dev:host`, `preview:host`, `check`.
+> * Sur `341f3da` : **277 tests dans 12 fichiers, 276 réussis, 1 échec**
+>   (`src/domain/dates.test.ts:48`, voir § A.8).
+> * **Conclusions techniques inchangées** : `src/data/`, `src/app/`, `supabase/schema.sql`
+>   et `src/domain/dates.ts` sont identiques entre les deux branches (`repository.ts`
+>   identique à l'octet). Les 5 commits supplémentaires modifient des calculs
+>   (`budgets.ts`, `forecast.ts`, `scenario.ts`, `insights.ts`), des écrans et les 24
+>   dictionnaires, sans effet sur la persistance.
 
 **Périmètre respecté** : aucun fichier de code, de schéma ou de configuration n'a été
 modifié ; aucune base (IndexedDB ou PostgreSQL) n'a été ouverte en écriture ni migrée ;
@@ -26,8 +47,8 @@ Légende : ✅ conforme · 🟡 partiel / à corriger · ❌ absent · ⚠ risqu
 | 4 | 🟡 `supabase/schema.sql` est un **brouillon jamais exécuté** : bon socle (16 tables, BIGINT, CHECK, RLS `owner_all`), mais pas de migrations versionnées, pas de profils, cohérence de propriétaire incomplète (⚠ fuite possible par clé étrangère), pas de mécanisme de synchronisation (suppressions, versions), pas de Storage. | À transformer en migrations (`supabase/migrations/`) corrigées et complétées. |
 | 5 | ⚠ L'identifiant utilisateur local est la constante `'local-user'` (non UUID) et la base IndexedDB `nexora` contient les **données réelles Edge**. | Le cache cloud doit vivre dans une **autre base IndexedDB** ; `nexora` ne doit jamais être ouverte en mode cloud. |
 | 6 | ⚠ Routage par hash (`HashRouter`) + flux d'authentification Supabase par défaut (jetons dans le fragment `#access_token=…`) = conflit. | Utiliser le flux **PKCE** (`?code=` en query string). |
-| 7 | 🟡 Tests : 232 tests (9 fichiers), domaine et repository bien couverts ; **1 échec** dans cet environnement (`dates.test.ts:48`, dépendant des données de fuseau, voir § A.8) ; aucun test UI, aucune CI, aucun outil de couverture. | Ajouter des tests de contrat du repository exécutés sur les deux adaptateurs + tests RLS SQL. |
-| 8 | ❓ La branche `nexora-dev` citée dans la demande **n'existe pas** sur le dépôt distant (seules `claude/nexora-finance-platform-81blaa` et `claude/stoic-edison-8s0vhq`). Aucun `.devcontainer/` (Codespaces) ni `.github/` (CI) dans le dépôt. | À clarifier avant le Lot 2 (décision D10). |
+| 7 | 🟡 Tests (sur `nexora-dev`) : 277 tests (12 fichiers), domaine et repository bien couverts ; **1 échec** dans cet environnement (`dates.test.ts:48`, dépendant des données de fuseau, voir § A.8) ; aucun test UI, aucune CI, aucun outil de couverture. | Ajouter des tests de contrat du repository exécutés sur les deux adaptateurs + tests RLS SQL. |
+| 8 | ✅ La branche de développement `nexora-dev` existe (`341f3da`, production + 5 commits) et contient `.devcontainer/` (Codespaces). ❌ Aucun `.github/` (CI). *(La première version de l'audit affirmait à tort l'inverse, voir le rectificatif.)* | Décision D10 retenue : `nexora-dev` = branche de développement principale. |
 
 ---
 
@@ -164,7 +185,11 @@ Aucun écran n'utilise `indexedDB`, `Dexie` ou `getDB` directement ✅.
   `VITE_ASSISTANT_PROXY_URL` — aucun n'est lu par le code.
 * Dépendance `@supabase/supabase-js` : **absente**.
 * Déploiement automatique Netlify depuis `claude/nexora-finance-platform-81blaa`
-  (= production, `mflous.netlify.app`, selon `SESSION_HANDOFF.md`).
+  (= production, `mflous.netlify.app`, selon `SESSION_HANDOFF.md`). Le comportement de
+  Netlify pour les autres branches (déploiements de branche) n'est pas visible depuis le
+  dépôt : ❓ à vérifier dans la configuration Netlify avant tout push sur `nexora-dev`.
+* Développement : GitHub Codespaces via `.devcontainer/devcontainer.json` (sur
+  `nexora-dev`), guide `docs/CODESPACES.md` ; `npm run check` = typecheck + tests + build.
 
 ### A.8 Tests et couverture
 
@@ -174,16 +199,25 @@ Aucun écran n'utilise `indexedDB`, `Dexie` ou `getDB` directement ✅.
 | `domain/calc/modules.test.ts` | 32 | budgets, objectifs, dettes, patrimoine, prévisions, scénarios, analyses, récurrences |
 | `domain/calc/recurringCharges.test.ts` | 21 | charges récurrentes, statuts |
 | `domain/calc/ledger.test.ts` | 18 | moteur comptable, fx |
+| `domain/calc/budgets.test.ts` | 18 | budgets : catégories budgétées, hors budget, projection *(nexora-dev)* |
+| `domain/calc/projection.test.ts` | 15 | prévisions : méthodes de projection, minimum engagé *(nexora-dev)* |
+| `domain/calc/atypical.test.ts` | 12 | dépenses atypiques *(nexora-dev)* |
 | `domain/money.test.ts`, `dates.test.ts`, `csv.test.ts` | 11 / 7 / 9 | montants, dates, CSV, doublons |
 | `domain/assistant.test.ts` | 9 | assistant |
-| `i18n/i18n.test.ts` | 10 (79 cas paramétrés) | 24 dictionnaires |
+| `i18n/i18n.test.ts` | 10 (cas paramétrés sur les 24 langues) | 24 dictionnaires |
 | `e2e/smoke.cjs` | 11 contrôles | parcours FR, lancé à la main |
 
-Résultat ici : **231/232 verts**, typecheck OK. L'échec (`dates.test.ts:48`) attend
+Le nombre de `it()` ci-dessus est indicatif ; les cas paramétrés (`it.each`) portent le
+total exécuté à **277 tests dans 12 fichiers** sur `nexora-dev` (`341f3da`).
+
+Résultat ici : **276/277 verts**, typecheck OK. L'échec (`dates.test.ts:48`) attend
 `2027-01-01` pour `todayISO('Africa/Casablanca', 2026-12-31T23:30Z)` en supposant UTC+1 ;
 les données de fuseau de cet environnement (ICU 78.3, tzdata **2026e**) placent Casablanca
 à **UTC+0** à cette date. Le code (`Intl`) est correct ; c'est le test qui fige un décalage
-horaire. À corriger au Lot 2 (fuseau à décalage fixe dans le test).
+horaire. **Corrigé** (sans toucher `dates.ts`) : changement de jour vérifié sur des zones
+à décalage fixe (`Etc/GMT-1`, `Etc/GMT+5`) ; pour Casablanca, date attendue calculée à
+partir du décalage réel de la zone lu dans les règles de l'environnement, et cas à midi UTC
+valable quel que soit le décalage.
 
 Non couverts ❌ : `calc/notifications.ts` (aucun test dédié), pages et composants,
 `AppContext`, Onboarding, flux de restauration côté UI, toute partie cloud. Pas d'outil
@@ -555,7 +589,7 @@ n'ont **aucun effet visible** pour l'utilisateur et ne touchent pas aux données
 | Fichiers | `src/data/contracts.ts` (+), `src/data/storage.ts` (+), `src/data/local/LocalAdapter.ts` (+), `src/data/repository.ts`, `src/data/db.ts`, `src/domain/errors.ts` (+), `src/app/AppContext.tsx`, `src/App.tsx`, `src/pages/Onboarding.tsx`, `src/domain/dates.test.ts` |
 | Dépendances | Aucune |
 | Risques | Régression d'une opération composée lors du passage au `ChangeSet` ; ordre des écritures ; `useLiveQuery` ne se déclenche plus si l'adaptateur n'écrit pas dans une transaction Dexie. |
-| Tests | Suite existante inchangée (231 + test de fuseau corrigé) ; nouveaux : un test par opération composée vérifiant le `ChangeSet` produit ; atomicité (échec simulé au milieu du commit → aucune écriture). |
+| Tests | Suite existante inchangée (276 + test de fuseau corrigé) ; nouveaux : un test par opération composée vérifiant le `ChangeSet` produit ; atomicité (échec simulé au milieu du commit → aucune écriture). |
 | Validation | 0 test existant modifié (hors fuseau) ; `git diff` sans changement dans `src/domain/calc/` ni `src/i18n/locales/` ; e2e FR 11/11 ; schéma Dexie `nexora` v1 strictement identique. |
 
 ### Lot 3 — Schéma Supabase versionné (projet de développement uniquement)
@@ -637,7 +671,7 @@ Le lot 3 peut démarrer en parallèle du lot 2.
 | **D7** | Propagation multi-appareils | pull périodique / Supabase Realtime | pull (au premier plan + 60 s) ; Realtime optionnel. |
 | **D8** | Mode de la production | `local` jusqu'à validation complète / bascule directe | `local` ; cloud activé d'abord sur un contexte d'aperçu Netlify. |
 | **D9** | Projet Supabase | Existe-t-il déjà une instance (et le brouillon y a-t-il été exécuté) ? Région (UE pour le RGPD ?) ; projets dev / prod séparés ; sort de `schema.sql` | Deux projets (dev, prod), région UE ; `schema.sql` remplacé par les migrations. |
-| **D10** | Branches et environnement | `nexora-dev` n'existe pas sur le dépôt ; quelle branche est la branche de développement, laquelle est la production Netlify ? Ajouter `.devcontainer/` pour Codespaces ? | Créer `nexora-dev` depuis la production sur accord ; production = branche déployée actuelle. |
+| **D10** | Branches et environnement | `nexora-dev` (existante, `341f3da`, avec `.devcontainer/`) comme branche de développement ; production = `claude/nexora-finance-platform-81blaa` | ✅ Retenu : `nexora-dev` = branche de développement principale ; aucun push avant vérification de la configuration Netlify. |
 | **D11** | Démo en mode cloud | réservée au mode local / compte de démonstration dédié / bouton « démo » écrivant dans le compte | réservée au mode local au premier jalon. |
 | **D12** | Unicité des taux de change `(user, base, quote, date)` | imposer / laisser les doublons | imposer (le calcul prend de toute façon le dernier taux daté). |
 | **D13** | Suppressions | suppression logique `deleted_at` + purge / journal `deletions` séparé | `deleted_at` + purge planifiée. |

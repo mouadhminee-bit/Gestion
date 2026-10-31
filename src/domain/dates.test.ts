@@ -43,9 +43,36 @@ describe('dates', () => {
     expect(monthsBetweenCeil('2026-10-28', '2026-10-01')).toBe(0);
   });
 
-  it('aujourd’hui dans le fuseau Africa/Casablanca', () => {
-    // 23h30 UTC le 31/12 → déjà le 01/01 à Casablanca (UTC+1).
-    expect(todayISO('Africa/Casablanca', new Date('2026-12-31T23:30:00Z'))).toBe('2027-01-01');
-    expect(todayISO('UTC', new Date('2026-12-31T23:30:00Z'))).toBe('2026-12-31');
+  describe('aujourd’hui dans un fuseau donné', () => {
+    // Les décalages réels d'un fuseau (ex. Africa/Casablanca) évoluent avec les données
+    // tzdata de l'environnement : aucun test ne fige un décalage supposé pour une zone
+    // géographique. Le changement de jour est vérifié sur des zones à décalage fixe.
+    const instant = new Date('2026-12-31T23:30:00Z');
+
+    it('change de jour à minuit local (zones à décalage fixe)', () => {
+      expect(todayISO('UTC', instant)).toBe('2026-12-31');
+      // Etc/GMT-1 = UTC+1 en permanence (signe POSIX inversé).
+      expect(todayISO('Etc/GMT-1', instant)).toBe('2027-01-01');
+      // Etc/GMT+5 = UTC-5 en permanence.
+      expect(todayISO('Etc/GMT+5', new Date('2027-01-01T03:00:00Z'))).toBe('2026-12-31');
+      expect(todayISO('Etc/GMT+5', new Date('2027-01-01T05:00:00Z'))).toBe('2027-01-01');
+    });
+
+    it('Africa/Casablanca : date locale = UTC + décalage réel de la zone à cet instant', () => {
+      // Décalage lu dans les règles de fuseau de l'environnement, puis date attendue
+      // calculée arithmétiquement (indépendant de l'hypothèse UTC+0 / UTC+1).
+      const name = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Casablanca', timeZoneName: 'longOffset' })
+        .formatToParts(instant)
+        .find((p) => p.type === 'timeZoneName')!.value; // « GMT », « GMT+01:00 »…
+      const m = /GMT(?:([+-])(\d{2}):(\d{2}))?/.exec(name)!;
+      const offsetMin = m[1] ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0;
+      const expected = new Date(instant.getTime() + offsetMin * 60_000).toISOString().slice(0, 10);
+      expect(todayISO('Africa/Casablanca', instant)).toBe(expected);
+    });
+
+    it('Africa/Casablanca : à midi UTC, même date quel que soit le décalage', () => {
+      expect(todayISO('Africa/Casablanca', new Date('2026-12-31T12:00:00Z'))).toBe('2026-12-31');
+      expect(todayISO('Africa/Casablanca', new Date('2026-06-15T12:00:00Z'))).toBe('2026-06-15');
+    });
   });
 });
