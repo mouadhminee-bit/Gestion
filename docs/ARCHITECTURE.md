@@ -201,9 +201,18 @@ dernière valorisation manuelle (une seule valorisation par compte, contrôlée)
 **Multidevise** : aucune addition de devises différentes sans taux daté ≤ date de
 valorisation ; sinon les montants sont affichés séparément et exclus des totaux.
 
-**Prévisions** : solde actuel + récurrents attendus − dépenses variables projetées
-(moyenne quotidienne observée sur 90 jours si ≥ 30 jours et ≥ 10 dépenses ; sinon
-reste des budgets variables ; sinon « données insuffisantes »). Hypothèses affichées.
+**Prévisions** : solde actuel + récurrents attendus − dépenses variables projetées.
+Dépenses projetées = réalisé + échéances récurrentes connues non payées (reliquats compris)
++ dépenses variables projetées, selon la première méthode exploitable : (1) moyenne
+quotidienne observée sur 90 jours (≥ 30 jours et ≥ 10 dépenses) × jours restants ;
+(2) rythme du mois (dépenses variables du mois ÷ jours écoulés × jours restants, dès 10 jours
+écoulés et 3 dépenses) ; (3) sinon **aucune** dépense variable projetée : la projection est
+un **minimum** (réalisé + échéances connues), signalé comme tel. Le reste d’un budget n’est
+jamais projeté comme une dépense certaine ; le dernier jour, il n’y a rien à projeter.
+Lignes de budget : même seuil de 10 jours avant d’extrapoler le rythme d’une catégorie
+variable (sinon minimum) ; charge fixe = réalisé + échéances ; mois passé = réalisé ; mois
+futur = pas de projection. Les insights n’affirment « sous contrôle » que sur une projection
+complète ; un minimum qui dépasse déjà le budget déclenche une alerte. Hypothèses affichées.
 
 **Insights** : uniquement si les données sont comparables (même période du mois
 précédent, ≥ 2 opérations par catégorie sur chaque période) ; chaque insight expose

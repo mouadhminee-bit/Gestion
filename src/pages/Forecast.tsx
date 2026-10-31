@@ -45,7 +45,7 @@ export default function Forecast() {
   );
   const changed = JSON.stringify(input) !== JSON.stringify(EMPTY_SCENARIO);
   const setI = <K extends keyof ScenarioInput>(k: K, v: ScenarioInput[K]) => setInput((p) => ({ ...p, [k]: v }));
-  const methodLabel = { history: t('fc.method.history', { days: f.variableHistoryDays }), budget: t('fc.method.budget'), insufficient: t('fc.method.insufficient') }[f.variableMethod];
+  const methodLabel = { history: t('fc.method.history', { days: f.variableHistoryDays }), month: t('fc.method.month', { days: f.variableMonthDays }), insufficient: t('fc.method.insufficient') }[f.variableMethod];
 
   // Cascade : chaque barre flotte entre le solde avant et après l'étape.
   const steps = [
@@ -78,8 +78,9 @@ export default function Forecast() {
               <div className={cn('display text-4xl font-semibold num', f.projectedEndBalance < 0 && 'text-negative')}>{fmt.money(f.projectedEndBalance)}</div>
               <div className="mt-1 text-xs text-muted">{t('fc.vsToday', { current: fmt.money(f.currentBalance), delta: fmt.money(f.projectedEndBalance - f.currentBalance, undefined, { sign: true }) })}</div>
             </div>
-            <Badge tone={f.variableMethod === 'history' ? 'cyan' : f.variableMethod === 'budget' ? 'warning' : 'negative'}>{t('fc.method', { method: methodLabel })}</Badge>
+            <Badge tone={f.variableMethod === 'history' ? 'cyan' : f.variableMethod === 'month' ? 'warning' : 'negative'}>{t('fc.method', { method: methodLabel })}</Badge>
           </div>
+          {f.projectionStatus === 'minimum' && <p className="mt-2 rounded-lg bg-warning/10 p-2 text-xs text-warning">{t('fc.minimumNote')}</p>}
           <p className="mt-2 text-[11px] text-muted">{t('fc.axisNote')}</p>
           <div className="mt-3 h-56">
             <ResponsiveContainer>
@@ -120,6 +121,7 @@ export default function Forecast() {
             <div className={cn('mt-4 rounded-xl border p-3 text-xs', (f.projectedBudgetOverrun ?? 0) > 0 ? 'border-warning/30 bg-warning/10' : 'border-positive/25 bg-positive/10')}>
               <div className="flex items-center gap-1.5 font-semibold">{(f.projectedBudgetOverrun ?? 0) > 0 ? <><TriangleAlert className="h-3.5 w-3.5 text-warning" /> {t('fc.overrunRisk')}</> : t('fc.budgetOk')}</div>
               <div className="mt-1 text-muted">{t(f.budgetBasis === 'categories' ? 'fc.budgetDetailCategories' : 'fc.budgetDetail', { reference: fmt.money(f.budgetReference), gap: fmt.money(f.projectedBudgetOverrun ?? 0, undefined, { sign: true }) })}</div>
+              {f.budgetProjectionStatus === 'minimum' && <div className="mt-1 text-warning">{t('fc.minimumNote')}</div>}
             </div>
           )}
         </Card>

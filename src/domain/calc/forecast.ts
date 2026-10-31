@@ -11,8 +11,13 @@
  *  1. « history » : moyenne quotidienne observée des dépenses variables (hors charges
  *     fixes et hors transactions issues d'un paiement récurrent) sur les 90 derniers
  *     jours, × jours restants. Requiert ≥ 30 jours d'historique et ≥ 10 dépenses.
- *  2. « budget » : reste des budgets des catégories variables (max(0, budget − dépensé)).
- *  3. « insufficient » : données insuffisantes, aucune projection variable.
+ *  2. « month » : historique insuffisant — rythme observé ce mois-ci (dépenses variables
+ *     du mois ÷ jours écoulés × jours restants), dès MIN_PACE_DAYS jours écoulés et
+ *     MIN_MONTH_TRANSACTIONS dépenses variables.
+ *  3. « insufficient » : aucune dépense variable projetée. La projection n'est alors qu'un
+ *     MINIMUM (réalisé + échéances connues) : `projectionStatus = 'minimum'`. Le reste des
+ *     budgets n'est jamais projeté comme une dépense certaine.
+ * Le dernier jour du mois, il ne reste rien à projeter : la projection est complète.
  *
  * Les échéances déjà payées sont des transactions réelles : elles sont dans le solde
  * actuel et ne sont pas recomptées (voir recurring.listOccurrences / matching).
@@ -26,10 +31,10 @@ import { accountsInScope, summarizePeriod, topCategoryId, totalBalance } from '.
 import type { OccurrenceView } from './recurring';
 import { listOccurrences, pendingOccurrences } from './recurring';
 import type { BudgetScope } from './budgets';
-import { budgetScope, monthBudgetOverview } from './budgets';
+import { budgetScope, MIN_PACE_DAYS, monthBudgetOverview, monthTiming } from './budgets';
 import { t } from '@/i18n/core';
 
-export type VariableMethod = 'history' | 'budget' | 'insufficient';
+export type VariableMethod = 'history' | 'month' | 'insufficient';
 
 export interface MonthForecast {
   month: MonthKey;
@@ -45,6 +50,11 @@ export interface MonthForecast {
   variableDailyAverage: number | null;
   variableHistoryDays: number;
   variableProjected: number;
+  /** Méthode « month » : jours écoulés et dépenses variables observés ce mois-ci. */
+  variableMonthDays: number;
+  variableMonthCount: number;
+  /** 'minimum' : dépenses variables non projetées faute de données (réalisé + échéances connues). */
+  projectionStatus: 'complete' | 'minimum';
   projectedIncome: number;
   projectedExpenses: number;
   projectedSavings: number;
@@ -61,6 +71,10 @@ export interface MonthForecast {
   /** Périmètre budgétaire du mois (même règle que Budgets), pour le simulateur. */
   budgetScope: BudgetScope | null;
   projectedBudgetOverrun: number | null;
+  /** Statut de `budgetProjectedSpent` (même base que le budget). */
+  budgetProjectionStatus: 'complete' | 'minimum' | null;
+  /** Dépenses hors budget enregistrées ce mois-ci (exclues de la base « catégories »). */
+  unbudgetedRecorded: number;
   /** Dépenses récurrentes attendues par catégorie de 1er niveau. */
   committedByCategory: Map<ID | null, number>;
   assumptions: string[];
@@ -70,6 +84,7 @@ export interface MonthForecast {
 export const HISTORY_WINDOW_DAYS = 90;
 export const MIN_HISTORY_DAYS = 30;
 export const MIN_HISTORY_TRANSACTIONS = 10;
+export const MIN_MONTH_TRANSACTIONS = 3;
 
 export interface VariableAverage {
   dailyAverage: number | null;
@@ -77,15 +92,40 @@ export interface VariableAverage {
   count: number;
 }
 
-/** Moyenne quotidienne des dépenses variables observées avant `today` (exclu). */
-export function variableDailyAverage(ctx: LedgerContext, data: Pick<DataSnapshot, 'transactions'>, today: ISODate): VariableAverage {
-  const windowEnd = addDays(today, -1);
-  const variable = data.transactions.filter((t) => {
+/** Dépenses variables : hors charges fixes et hors paiements de récurrences (déjà prévus). */
+function variableTransactions(ctx: LedgerContext, transactions: DataSnapshot['transactions']) {
+  return transactions.filter((t) => {
     if (t.type !== 'expense' && t.type !== 'refund') return false;
     if (t.recurringRuleId) return false;
     const top = topCategoryId(ctx, t.categoryId);
     return !(top && ctx.categories.get(top)?.nature === 'fixed');
   });
+}
+
+/**
+ * Rythme du mois en cours : dépenses variables nettes du 1er au jour inclus ÷ jours écoulés.
+ * Non exploitable (null) avant MIN_PACE_DAYS jours écoulés ou MIN_MONTH_TRANSACTIONS dépenses.
+ */
+export function monthVariablePace(ctx: LedgerContext, data: Pick<DataSnapshot, 'transactions'>, today: ISODate): VariableAverage {
+  const month = monthKey(today);
+  const days = monthTiming(month, today).elapsed;
+  let total = 0;
+  let count = 0;
+  for (const t of variableTransactions(ctx, data.transactions)) {
+    if (monthKey(t.date) !== month || t.date > today) continue;
+    const v = ctx.convert(t.amount, t.currency, t.date);
+    if (v == null) continue;
+    total += t.type === 'expense' ? v : -v;
+    if (t.type === 'expense') count += 1;
+  }
+  if (days < MIN_PACE_DAYS || count < MIN_MONTH_TRANSACTIONS) return { dailyAverage: null, days, count };
+  return { dailyAverage: Math.max(0, total / days), days, count };
+}
+
+/** Moyenne quotidienne des dépenses variables observées avant `today` (exclu). */
+export function variableDailyAverage(ctx: LedgerContext, data: Pick<DataSnapshot, 'transactions'>, today: ISODate): VariableAverage {
+  const windowEnd = addDays(today, -1);
+  const variable = variableTransactions(ctx, data.transactions);
   const firstDate = variable.reduce<ISODate | null>((min, t) => (min == null || t.date < min ? t.date : min), null);
   if (!firstDate || firstDate > windowEnd) return { dailyAverage: null, days: 0, count: 0 };
   const windowStart = maxDate(addDays(today, -HISTORY_WINDOW_DAYS), firstDate);
@@ -139,6 +179,7 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   const avg = variableDailyAverage(ctx, data, today);
   let variableMethod: VariableMethod = 'insufficient';
   let variableProjected = 0;
+  let monthPace: VariableAverage = { dailyAverage: null, days: 0, count: 0 };
   if (avg.dailyAverage != null) {
     variableMethod = 'history';
     variableProjected = roundHalfAwayFromZero(avg.dailyAverage * remainingDays);
@@ -146,18 +187,13 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
       t('forecast.assume.history', { days: avg.days, count: avg.count, remaining: remainingDays }),
     );
   } else {
-    const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today);
-    const variableLines = overview.lines.filter((l) => l.category && !l.category.parentId && l.category.nature !== 'fixed');
-    if (variableLines.length) {
-      variableMethod = 'budget';
-      variableProjected = variableLines.reduce((acc, l) => acc + Math.max(0, l.remaining), 0);
-      assumptions.push(
-        t('forecast.assume.budget', { days: avg.days, count: avg.count }),
-      );
+    monthPace = monthVariablePace(ctx, data, today);
+    if (monthPace.dailyAverage != null) {
+      variableMethod = 'month';
+      variableProjected = roundHalfAwayFromZero(monthPace.dailyAverage * remainingDays);
+      assumptions.push(t('forecast.assume.month', { days: avg.days, count: avg.count, elapsed: monthPace.days, monthCount: monthPace.count, remaining: remainingDays }));
     } else {
-      assumptions.push(
-        t('forecast.assume.insufficient', { minDays: MIN_HISTORY_DAYS, minCount: MIN_HISTORY_TRANSACTIONS }),
-      );
+      assumptions.push(t('forecast.assume.insufficient', { minDays: MIN_HISTORY_DAYS, minCount: MIN_HISTORY_TRANSACTIONS, minMonthDays: MIN_PACE_DAYS }));
     }
   }
   if (pending.length) {
@@ -180,6 +216,9 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   const budgetBasis = overview.referenceSource === 'none' ? null : overview.referenceSource;
   const budgetReference = budgetBasis ? overview.reference : null;
   const budgetProjectedSpent = budgetBasis === 'global' ? projectedExpenses : budgetBasis === 'categories' ? overview.categories!.projected : null;
+  // Rien à projeter le dernier jour ; sinon, sans méthode exploitable, la projection est un minimum.
+  const projectionStatus: MonthForecast['projectionStatus'] = remainingDays === 0 || variableMethod !== 'insufficient' ? 'complete' : 'minimum';
+  const budgetProjectionStatus = budgetBasis === 'global' ? projectionStatus : budgetBasis === 'categories' ? (overview.categories!.projectionComplete ? 'complete' : 'minimum') : null;
 
   return {
     month,
@@ -195,6 +234,9 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
     variableDailyAverage: avg.dailyAverage,
     variableHistoryDays: avg.days,
     variableProjected,
+    variableMonthDays: monthPace.days,
+    variableMonthCount: monthPace.count,
+    projectionStatus,
     projectedIncome,
     projectedExpenses,
     projectedSavings: projectedIncome - projectedExpenses,
@@ -204,6 +246,8 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
     budgetProjectedSpent,
     budgetScope: budgetScope(data.budgets, month, ctx.categories),
     projectedBudgetOverrun: budgetReference == null || budgetProjectedSpent == null ? null : budgetProjectedSpent - budgetReference,
+    budgetProjectionStatus,
+    unbudgetedRecorded: overview.unbudgetedSpent,
     committedByCategory,
     assumptions,
     summary,

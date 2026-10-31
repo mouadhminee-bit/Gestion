@@ -285,7 +285,7 @@ export function answerIntent(intent: Intent, params: IntentParams, ctx: LedgerCo
       const parts = [t(avg != null ? 'assist.savings.projectedAvg' : 'assist.savings.projected', { amount: fmt.money(f.projectedSavings), avg: avg != null ? fmt.money(avg) : '' })];
       parts.push(f.projectedSavings > 0 ? t('assist.savings.target', { amount: fmt.money(Math.max(0, Math.round(Math.min(f.projectedSavings, avg ?? f.projectedSavings) * 0.8))) }) : t('assist.savings.none'));
       if (committed) parts.push(t('assist.savings.goals', { amount: fmt.money(committed) }));
-      const method = t(f.variableMethod === 'history' ? 'assist.method.history' : f.variableMethod === 'budget' ? 'assist.method.budget' : 'assist.method.insufficient');
+      const method = t(f.variableMethod === 'history' ? 'assist.method.history' : f.variableMethod === 'month' ? 'assist.method.month' : 'assist.method.insufficient');
       return {
         intent,
         text: parts.join(' '),

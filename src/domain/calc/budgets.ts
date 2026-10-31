@@ -70,15 +70,25 @@ export function monthTiming(month: MonthKey, today: ISODate): MonthTiming {
   return { elapsed: diffDays(today, start) + 1, total, isCurrent: true, isPast: false, isFuture: false };
 }
 
+/** Jours écoulés minimum avant d'extrapoler le rythme du mois (sinon : minimum connu). */
+export const MIN_PACE_DAYS = 10;
+
+/** Le rythme du mois est-il exploitable pour projeter une dépense variable ? */
+export function paceReliable(timing: MonthTiming): boolean {
+  return !timing.isCurrent || timing.elapsed >= MIN_PACE_DAYS;
+}
+
 /**
- * Projection linéaire de fin de mois pour une dépense variable :
- * dépensé ÷ jours écoulés × jours du mois. Pour un mois passé : le réalisé.
- * `committed` ajoute des montants connus à venir (échéances récurrentes non payées).
+ * Projection de fin de mois d'une ligne de budget. Mois passé : le réalisé ; mois futur :
+ * null. Mois en cours : charge fixe = réalisé + échéances connues (`committed`) ; dépense
+ * variable = rythme du mois (dépensé ÷ jours écoulés × jours du mois) dès MIN_PACE_DAYS
+ * jours écoulés, sinon seulement le minimum connu (réalisé + échéances), jamais le reste
+ * du budget supposé dépensé.
  */
 export function projectMonthEnd(spent: number, timing: MonthTiming, nature: 'fixed' | 'variable' | undefined, committed = 0): number | null {
   if (timing.isFuture) return null;
   if (timing.isPast) return spent;
-  if (nature === 'fixed') return spent + committed;
+  if (nature === 'fixed' || !paceReliable(timing)) return spent + committed;
   const pace = timing.elapsed > 0 ? roundHalfAwayFromZero((spent / timing.elapsed) * timing.total) : spent;
   return Math.max(pace, spent + committed);
 }
@@ -181,6 +191,11 @@ export interface BudgetedCategoriesTotal {
   consumption: number | null;
   /** Σ projections de fin de mois des lignes (null pour un mois futur). */
   projected: number | null;
+  /**
+   * false : moins de MIN_PACE_DAYS jours écoulés avec des catégories variables — `projected`
+   * n'est alors qu'un minimum (réalisé + échéances connues), pas une estimation complète.
+   */
+  projectionComplete: boolean;
 }
 
 export interface MonthBudgetOverview {
@@ -234,6 +249,7 @@ export function monthBudgetOverview(
           remaining: planned - spent,
           consumption: safeRatio(spent, planned),
           projected: timing.isFuture ? null : counted.reduce((a, l) => a + (l.projected ?? l.spent), 0),
+          projectionComplete: paceReliable(timing) || counted.every((l) => l.category?.nature === 'fixed'),
         };
       })()
     : null;

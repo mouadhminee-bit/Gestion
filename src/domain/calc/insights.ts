@@ -122,17 +122,20 @@ export function generateInsights(
   if (forecast && forecast.budgetReference != null && forecast.projectedBudgetOverrun != null) {
     // Le texte nomme la base : dépenses totales vs budget global, ou dépenses budgétées seules.
     const cats = forecast.budgetBasis === 'categories';
-    if (forecast.projectedBudgetOverrun > 0 && forecast.variableMethod !== 'insufficient') {
+    // Un minimum (réalisé + échéances connues) qui dépasse déjà le budget est un signal fiable ;
+    // en revanche, « sous contrôle » n'est affirmé que sur une projection complète.
+    const minimum = forecast.budgetProjectionStatus === 'minimum';
+    if (forecast.projectedBudgetOverrun > 0) {
       out.push({
         id: `pace:${month}`,
         kind: 'pace',
         severity: 'warning',
         title: t('ins.pace.title'),
         message: t(cats ? 'ins.pace.messageCategories' : 'ins.pace.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
-        source: t(cats ? 'ins.pace.sourceCategories' : 'ins.pace.source'),
+        source: t(minimum ? 'ins.pace.sourceMinimum' : cats ? 'ins.pace.sourceCategories' : 'ins.pace.source'),
         href: '/forecast',
       });
-    } else if (forecast.projectedBudgetOverrun <= 0 && forecast.variableMethod === 'history') {
+    } else if (!minimum && (cats || forecast.variableMethod !== 'insufficient')) {
       out.push({
         id: `pace-ok:${month}`,
         kind: 'pace',

@@ -97,8 +97,8 @@ export default function Budgets() {
   // le budget global (enveloppe de toutes les dépenses) est suivi dans son propre encadré.
   const cats = overview.categories;
   const card = cats
-    ? { available: cats.remaining, reference: cats.planned, source: t('budget.sumCategories'), projected: timing.isCurrent ? cats.projected : null, over: cats.projected != null ? cats.projected - cats.planned : 0 }
-    : { available: overview.available ?? 0, reference: overview.reference, source: t('budget.global'), projected: fc?.budgetBasis === 'global' ? fc.budgetProjectedSpent : null, over: fc?.projectedBudgetOverrun ?? 0 };
+    ? { available: cats.remaining, reference: cats.planned, source: t('budget.sumCategories'), projected: timing.isCurrent ? cats.projected : null, over: cats.projected != null ? cats.projected - cats.planned : 0, complete: cats.projectionComplete }
+    : { available: overview.available ?? 0, reference: overview.reference, source: t('budget.global'), projected: fc?.budgetBasis === 'global' ? fc.budgetProjectedSpent : null, over: fc?.projectedBudgetOverrun ?? 0, complete: fc?.budgetProjectionStatus !== 'minimum' };
 
   return (
     <div>
@@ -167,7 +167,13 @@ export default function Budgets() {
                 </Button>
                 {global && <Button size="sm" variant="ghost" aria-label={t('budget.deleteGlobal')} onClick={() => remove(global.budget)}><Trash2 className="h-3.5 w-3.5" /></Button>}
               </div>
-              {card.projected != null && (
+              {card.projected != null && !card.complete && (
+                <p className="mt-3 text-start text-xs text-muted">
+                  {t('budget.projectionMinimum', { amount: fmt.money(card.projected) })}{' '}
+                  {card.over > 0 && <span className="text-negative">{t('budget.overrunEstimated', { amount: fmt.money(card.over) })}</span>}
+                </p>
+              )}
+              {card.projected != null && card.complete && (
                 <p className="mt-3 text-start text-xs text-muted">
                   {t(cats ? 'budget.projectionCategories' : 'budget.projection')} <b className="num text-fg">{fmt.money(card.projected)}</b>{' '}
                   {card.over > 0 ? <span className="text-negative">{t('budget.overrunEstimated', { amount: fmt.money(card.over) })}</span> : <span className="text-positive">{t('budget.withinBudget')}</span>} {t(cats ? 'budget.projectionCategoriesNote' : 'budget.estimateNote')}
