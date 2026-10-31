@@ -136,8 +136,9 @@ n’est jamais stocké comme transaction.
 | Consommation des budgets | dépenses des catégories budgétées ÷ Σ de leurs budgets (jauge, disponible, référence et projection de la carte Budgets) |
 | Hors budget | dépenses totales − dépenses des catégories budgétées (catégories sans budget, opérations sans catégorie) ; affiché à part |
 | Budget global (saisi) | enveloppe de **toutes** les dépenses : dépenses totales ÷ budget global ; suivi dans son propre encadré |
-| Budget disponible (tableau de bord, rapport) | budget global − dépenses totales s’il existe ; sinon Σ budgets des catégories − dépenses de ces catégories |
-| Projection budgétaire | base globale : dépenses totales projetées (Prévisions) vs budget global ; base catégories : Σ projections des lignes budgétées (rythme du mois + échéances récurrentes connues) vs Σ budgets |
+| Disponible sur budget (tableau de bord, rapport) | budget global − dépenses totales s’il existe ; sinon Σ budgets des catégories − dépenses de ces catégories. Enveloppe de dépenses, **à ne pas confondre** avec le « Solde total » des comptes (trésorerie réelle), ni avec les « Dépenses hors budget » |
+| Disponible sur budget (simulateur) | même périmètre (`budgetScope`, `budgets.ts`) : budget global − dépenses totales mensuelles moyennes simulées ; sinon Σ budgets des catégories − dépenses moyennes simulées de ces seules catégories (nettes des remboursements ; sous-catégorie seule réduite comme sa parente ; nouvelle charge sans catégorie et autres dépenses hors budget exclues) |
+| Projection budgétaire (Budgets, Prévisions, insights — la base est nommée dans chaque texte) | base globale : dépenses totales projetées (Prévisions) vs budget global ; base catégories : Σ projections des lignes budgétées (rythme du mois + échéances récurrentes connues) vs Σ budgets |
 | Restant (budget) | budget − dépenses éligibles ; consommation = dépenses ÷ budget (non affichée si budget nul) ; écart = dépenses − budget |
 | Progression objectif | constitué ÷ cible (affichage plafonné à 100 %) ; contribution nécessaire = restant ÷ mois restants |
 | Patrimoine net | actifs (comptes une fois, valorisations, créances) − passifs (dettes) |

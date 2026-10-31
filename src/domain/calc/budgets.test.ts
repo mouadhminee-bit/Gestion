@@ -5,6 +5,9 @@ import type { Budget, Transaction } from '../types';
 import { summarizePeriod } from './ledger';
 import { monthBudgetOverview } from './budgets';
 import { forecastMonth } from './forecast';
+import type { ScenarioInput } from './scenario';
+import { computeBaseline, EMPTY_SCENARIO, simulateScenario } from './scenario';
+import { generateInsights } from './insights';
 
 const now = '2026-01-01T00:00:00.000Z';
 const base = emptySnapshot();
@@ -122,5 +125,88 @@ describe('Budgets — projection de fin de mois sur la même base', () => {
     expect(f.budgetBasis).toBe('global');
     expect(f.budgetProjectedSpent).toBe(f.projectedExpenses);
     expect(f.projectedBudgetOverrun).toBe(f.projectedExpenses - 180000);
+  });
+});
+
+describe('Simulateur — disponible sur budget, même règle que Budgets', () => {
+  const today = '2026-10-15'; // base : juillet → septembre (mois complets)
+  const months = ['2026-07', '2026-08', '2026-09'];
+  const monthly = (key: string | null, amount: number, p: Partial<Transaction> = {}) => months.map((m) => spend(key, amount, { date: `${m}-10`, ...p }));
+  const history = [
+    ...monthly('food', 100000),
+    ...monthly('rent', 300000),
+    ...monthly('leisure', 50000),
+    ...monthly(null, 20000), // sans catégorie : hors budget
+    ...monthly('food', 30000, { subcategoryId: cat('groceries').id }),
+    ...months.map((m) => tx({ accountId: 'acc', type: 'refund', amount: 10000, date: `${m}-20`, categoryId: cat('food').id })),
+  ];
+  const run = (budgets: Budget[], input: Partial<ScenarioInput> = {}) => {
+    const s = emptySnapshot({ categories: base.categories, accounts: [account({ id: 'acc' })], transactions: history, budgets: budgets.map((b) => ({ ...b, month: '2026-10' })) });
+    const ctx = ctxOf(s);
+    const f = forecastMonth(ctx, s, today);
+    return simulateScenario({ baseline: computeBaseline(ctx, s, today), input: { ...EMPTY_SCENARIO, ...input }, budget: f.budgetScope, projectedEndBalance: 0, remainingDays: 16, daysInMonth: 31, goals: [], goalSaved: () => 0, today, rentCategoryId: cat('rent').id });
+  };
+
+  it('budget global : enveloppe comparée aux dépenses totales simulées', () => {
+    const r = run([budget(null, 600000)], { newRecurringExpense: 15000 });
+    expect(r.budgetBasis).toBe('global');
+    // Moyenne mensuelle totale : 100 000 + 30 000 − 10 000 + 300 000 + 50 000 + 20 000 = 490 000
+    expect(r.budgetRemainingBaseline).toBe(600000 - 490000);
+    expect(r.budgetRemainingScenario).toBe(600000 - 505000); // la nouvelle charge compte
+  });
+
+  it('catégories : seules les dépenses budgétées, nettes des remboursements ; hors budget exclu', () => {
+    const r = run([budget(cat('food').id, 150000), budget(cat('rent').id, 300000)], { newRecurringExpense: 15000 });
+    expect(r.budgetBasis).toBe('categories');
+    // Alimentation nette 120 000 + Loyer 300 000 ; ni Loisirs (50 000), ni sans catégorie, ni la nouvelle charge.
+    expect(r.budgetRemainingBaseline).toBe(450000 - 420000);
+    expect(r.budgetRemainingScenario).toBe(450000 - 420000);
+  });
+
+  it('réductions et hausse de loyer : seules celles des catégories budgétées comptent', () => {
+    const r = run([budget(cat('food').id, 150000), budget(cat('rent').id, 300000)], { categoryReductions: [{ categoryId: cat('food').id, pct: 10 }, { categoryId: cat('leisure').id, pct: 50 }], rentIncrease: 20000 });
+    expect(r.budgetRemainingScenario).toBe(450000 - (120000 - 12000 + 300000 + 20000));
+    expect(r.scenario.expenses).toBe(490000 - 12000 - 25000 + 20000); // le total, lui, voit tout
+  });
+
+  it('sous-catégorie budgétée seule : sa dépense, réduite comme sa catégorie parente', () => {
+    const r = run([budget(cat('groceries').id, 40000)], { categoryReductions: [{ categoryId: cat('food').id, pct: 50 }] });
+    expect(r.budgetRemainingBaseline).toBe(40000 - 30000);
+    expect(r.budgetRemainingScenario).toBe(40000 - 15000);
+  });
+
+  it('sous-catégorie et parent budgétés : le parent seul compte (pas de double comptage)', () => {
+    const r = run([budget(cat('food').id, 150000), budget(cat('groceries').id, 40000)]);
+    expect(r.budgetRemainingBaseline).toBe(150000 - 120000);
+  });
+
+  it('sans budget : pas de disponible sur budget', () => {
+    const r = run([]);
+    expect(r).toMatchObject({ budgetBasis: null, budgetRemainingBaseline: null, budgetRemainingScenario: null });
+  });
+});
+
+describe('Insights — la base de la projection est nommée', () => {
+  const at = '2026-10-10';
+  const insightsFor = (budgets: Budget[], transactions: Transaction[]) => {
+    const s = emptySnapshot({ categories: base.categories, accounts: [account({ id: 'acc' })], transactions, budgets });
+    const ctx = ctxOf(s);
+    const opts = { fmt: (m: number) => String(m / 100), locale: 'fr-MA', monthName: (m: string) => m, thresholds: [50, 75, 90, 100], billReminderDays: 7, dateFormat: 'DD/MM/YYYY' as const };
+    return generateInsights(ctx, s, at, forecastMonth(ctx, s, at), opts).filter((i) => i.kind === 'pace');
+  };
+
+  it('base catégories : « catégories budgétées », hors budget non inclus', () => {
+    const [i] = insightsFor([budget(cat('food').id, 10000)], [spend('food', 9000, { date: '2026-10-05' }), spend('rent', 500000, { date: '2026-10-02' })]);
+    expect(i.message).toMatch(/catégories budgétées/);
+    expect(i.message).toMatch(/hors budget ne sont pas incluses/);
+    expect(i.source).toMatch(/seules catégories budgétées/);
+  });
+
+  it('base globale : « dépenses totales » et « budget global »', () => {
+    // Historique suffisant (≥ 30 jours, ≥ 10 dépenses) pour projeter les dépenses totales.
+    const past = Array.from({ length: 12 }, (_, k) => spend('food', 5000, { date: `2026-0${8 + (k % 2)}-${String(3 + k).padStart(2, '0')}` }));
+    const [i] = insightsFor([budget(null, 10000)], [...past, spend('food', 9000, { date: '2026-10-05' })]);
+    expect(i.message).toMatch(/dépenses totales/);
+    expect(i.message).toMatch(/budget global/);
   });
 });

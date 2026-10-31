@@ -134,6 +134,44 @@ export function spentForBudget(summary: PeriodSummary, budget: Budget, categorie
   return summary.expensesByCategory.get(budget.categoryId)?.amount ?? 0;
 }
 
+/**
+ * Règle unique des catégories budgétées : budget de 1er niveau, ou budget de sous-catégorie
+ * dont la catégorie parente n'a pas de budget ce mois-ci.
+ */
+export function isCountedCategoryBudget(b: Budget, budgetedIds: Set<ID | null>, categories: Map<ID, Category>): boolean {
+  if (b.categoryId == null) return false;
+  const parentId = categories.get(b.categoryId)?.parentId;
+  return !parentId || !budgetedIds.has(parentId);
+}
+
+/** Périmètre budgétaire d'un mois, partagé par Budgets, Prévisions et le simulateur. */
+export interface BudgetScope {
+  /** 'global' : budget global saisi (toutes les dépenses) ; 'categories' : catégories budgétées. */
+  basis: 'global' | 'categories';
+  reference: number;
+  /** Catégories de 1er niveau budgétées. */
+  topIds: ID[];
+  /** Sous-catégories budgétées sans budget parent, avec leur parent. */
+  subs: { id: ID; parentId: ID }[];
+}
+
+export function budgetScope(budgets: Budget[], month: MonthKey, categories: Map<ID, Category>): BudgetScope | null {
+  const monthBudgets = budgets.filter((b) => b.month === month);
+  const ids = new Set(monthBudgets.map((b) => b.categoryId));
+  const counted = monthBudgets.filter((b) => isCountedCategoryBudget(b, ids, categories));
+  const global = monthBudgets.find((b) => b.categoryId == null);
+  const topIds: ID[] = [];
+  const subs: BudgetScope['subs'] = [];
+  for (const b of counted) {
+    const parentId = categories.get(b.categoryId!)?.parentId;
+    if (parentId) subs.push({ id: b.categoryId!, parentId });
+    else topIds.push(b.categoryId!);
+  }
+  if (global) return { basis: 'global', reference: global.amount, topIds, subs };
+  if (!counted.length) return null;
+  return { basis: 'categories', reference: counted.reduce((a, b) => a + b.amount, 0), topIds, subs };
+}
+
 /** Agrégat des catégories budgétées (sans double comptage parent / sous-catégorie). */
 export interface BudgetedCategoriesTotal {
   planned: number;
@@ -184,9 +222,8 @@ export function monthBudgetOverview(
     if (b.categoryId == null) global = line;
     else lines.push(line);
   }
-  // Lignes comptées dans l'agrégat : 1er niveau, et sous-catégories sans budget parent.
   const budgetedIds = new Set(lines.map((l) => l.budget.categoryId));
-  const counted = lines.filter((l) => !l.category?.parentId || !budgetedIds.has(l.category.parentId));
+  const counted = lines.filter((l) => isCountedCategoryBudget(l.budget, budgetedIds, categories));
   const categoriesTotal: BudgetedCategoriesTotal | null = counted.length
     ? (() => {
         const planned = counted.reduce((a, l) => a + l.planned, 0);

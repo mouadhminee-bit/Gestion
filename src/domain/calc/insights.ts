@@ -120,14 +120,16 @@ export function generateInsights(
 
   // 3. Rythme de dépenses vs budget mensuel.
   if (forecast && forecast.budgetReference != null && forecast.projectedBudgetOverrun != null) {
+    // Le texte nomme la base : dépenses totales vs budget global, ou dépenses budgétées seules.
+    const cats = forecast.budgetBasis === 'categories';
     if (forecast.projectedBudgetOverrun > 0 && forecast.variableMethod !== 'insufficient') {
       out.push({
         id: `pace:${month}`,
         kind: 'pace',
         severity: 'warning',
         title: t('ins.pace.title'),
-        message: t('ins.pace.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
-        source: t('ins.pace.source'),
+        message: t(cats ? 'ins.pace.messageCategories' : 'ins.pace.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
+        source: t(cats ? 'ins.pace.sourceCategories' : 'ins.pace.source'),
         href: '/forecast',
       });
     } else if (forecast.projectedBudgetOverrun <= 0 && forecast.variableMethod === 'history') {
@@ -136,8 +138,8 @@ export function generateInsights(
         kind: 'pace',
         severity: 'success',
         title: t('ins.paceOk.title'),
-        message: t('ins.paceOk.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), budget: opt.fmt(forecast.budgetReference), margin: opt.fmt(-forecast.projectedBudgetOverrun) }),
-        source: t('ins.paceOk.source'),
+        message: t(cats ? 'ins.paceOk.messageCategories' : 'ins.paceOk.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), budget: opt.fmt(forecast.budgetReference), margin: opt.fmt(-forecast.projectedBudgetOverrun) }),
+        source: t(cats ? 'ins.pace.sourceCategories' : 'ins.paceOk.source'),
         href: '/forecast',
       });
     }

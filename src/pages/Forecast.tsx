@@ -32,7 +32,7 @@ export default function Forecast() {
       simulateScenario({
         baseline,
         input,
-        budgetReference: f.budgetReference,
+        budget: f.budgetScope,
         projectedEndBalance: f.projectedEndBalance,
         remainingDays: f.remainingDays,
         daysInMonth: daysInMonth(y, m),
@@ -119,7 +119,7 @@ export default function Forecast() {
           {f.budgetReference != null && (
             <div className={cn('mt-4 rounded-xl border p-3 text-xs', (f.projectedBudgetOverrun ?? 0) > 0 ? 'border-warning/30 bg-warning/10' : 'border-positive/25 bg-positive/10')}>
               <div className="flex items-center gap-1.5 font-semibold">{(f.projectedBudgetOverrun ?? 0) > 0 ? <><TriangleAlert className="h-3.5 w-3.5 text-warning" /> {t('fc.overrunRisk')}</> : t('fc.budgetOk')}</div>
-              <div className="mt-1 text-muted">{t('fc.budgetDetail', { reference: fmt.money(f.budgetReference), gap: fmt.money(f.projectedBudgetOverrun ?? 0, undefined, { sign: true }) })}</div>
+              <div className="mt-1 text-muted">{t(f.budgetBasis === 'categories' ? 'fc.budgetDetailCategories' : 'fc.budgetDetail', { reference: fmt.money(f.budgetReference), gap: fmt.money(f.projectedBudgetOverrun ?? 0, undefined, { sign: true }) })}</div>
             </div>
           )}
         </Card>
@@ -190,7 +190,7 @@ export default function Forecast() {
                     );
                   })}
                   <tr><td className="py-2">{t('an.savingsRate')}</td><td className="text-end num">{fmt.percent(result.baseline.savingsRate)}</td><td className="text-end num font-semibold">{fmt.percent(result.scenario.savingsRate)}</td><td /></tr>
-                  {result.budgetRemainingBaseline != null && <tr><td className="py-2 flex items-center gap-1">{t('fc.budgetRemaining')} <InfoTip>{t('fc.budgetRemaining.info')}</InfoTip></td><td className="text-end num">{fmt.money(result.budgetRemainingBaseline)}</td><td className="text-end num font-semibold">{fmt.money(result.budgetRemainingScenario!)}</td><td /></tr>}
+                  {result.budgetRemainingBaseline != null && <tr><td className="py-2 flex items-center gap-1">{t(result.budgetBasis === 'global' ? 'fc.budgetRemainingGlobal' : 'fc.budgetRemainingCategories')} <InfoTip>{t('fc.budgetRemaining.info')}</InfoTip></td><td className="text-end num">{fmt.money(result.budgetRemainingBaseline)}</td><td className="text-end num font-semibold">{fmt.money(result.budgetRemainingScenario!)}</td><td /></tr>}
                   <tr><td className="py-2 flex items-center gap-1">{t('fc.endOfMonth')} <InfoTip>{t('fc.endOfMonth.info')}</InfoTip></td><td className="text-end num">{fmt.money(result.endOfMonthBaseline)}</td><td className={cn('text-end num font-semibold', result.endOfMonthScenario < 0 && 'text-negative')}>{fmt.money(result.endOfMonthScenario)}</td><td /></tr>
                 </tbody>
               </table>

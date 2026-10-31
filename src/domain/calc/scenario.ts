@@ -5,7 +5,10 @@
  * sur les N derniers mois COMPLETS (3 par défaut). Le scénario applique ensuite
  * des variations explicites et compare :
  *   - revenus / dépenses / épargne mensuels et taux d'épargne,
- *   - budget mensuel restant (budget de référence − dépenses du scénario),
+ *   - disponible sur budget, même règle que le module Budgets : budget global saisi
+ *     − dépenses totales ; sinon Σ budgets des catégories budgétées − dépenses de ces
+ *     seules catégories (les dépenses hors budget, dont une nouvelle charge sans
+ *     catégorie, n'y entrent pas),
  *   - solde estimé de fin de mois (prévision actuelle + effet du scénario sur
  *     les jours restants + achat ponctuel),
  *   - délai d'atteinte de chaque objectif actif.
@@ -14,6 +17,7 @@ import type { ISODate, MonthKey } from '../dates';
 import { addMonthsToKey, monthKey, monthPeriod } from '../dates';
 import { percentOf, roundHalfAwayFromZero } from '../money';
 import type { DataSnapshot, ID, SavingsGoal } from '../types';
+import type { BudgetScope } from './budgets';
 import type { LedgerContext } from './ledger';
 import { summarizePeriod } from './ledger';
 import { computeGoalProgress } from './goals';
@@ -43,6 +47,8 @@ export interface Baseline {
   income: number;
   expenses: number;
   byCategory: Map<ID | null, number>;
+  /** Moyenne mensuelle par sous-catégorie (budgets de sous-catégorie). */
+  bySubcategory: Map<ID, number>;
   /** Nombre de mois réellement disposant de données. */
   monthsWithData: number;
 }
@@ -55,6 +61,7 @@ export function computeBaseline(ctx: LedgerContext, data: Pick<DataSnapshot, 'tr
   let expenses = 0;
   let monthsWithData = 0;
   const byCategory = new Map<ID | null, number>();
+  const bySubcategory = new Map<ID, number>();
   for (const m of months) {
     const s = summarizePeriod(ctx, data.transactions, monthPeriod(m));
     if (s.income === 0 && s.expenses === 0) continue;
@@ -62,14 +69,17 @@ export function computeBaseline(ctx: LedgerContext, data: Pick<DataSnapshot, 'tr
     income += s.income;
     expenses += s.expenses;
     for (const [k, v] of s.expensesByCategory) byCategory.set(k, (byCategory.get(k) ?? 0) + v.amount);
+    for (const [k, v] of s.expensesBySubcategory) bySubcategory.set(k, (bySubcategory.get(k) ?? 0) + v.amount);
   }
   const div = Math.max(1, monthsWithData);
   for (const [k, v] of byCategory) byCategory.set(k, roundHalfAwayFromZero(v / div));
+  for (const [k, v] of bySubcategory) bySubcategory.set(k, roundHalfAwayFromZero(v / div));
   return {
     months,
     income: roundHalfAwayFromZero(income / div),
     expenses: roundHalfAwayFromZero(expenses / div),
     byCategory,
+    bySubcategory,
     monthsWithData,
   };
 }
@@ -86,6 +96,8 @@ export interface ScenarioResult {
   scenario: { income: number; expenses: number; savings: number; savingsRate: number | null };
   deltaSavings: number;
   categoryDeltas: { categoryId: ID; baseline: number; scenario: number }[];
+  /** Base du disponible sur budget (null sans budget ce mois-ci). */
+  budgetBasis: BudgetScope['basis'] | null;
   budgetRemainingBaseline: number | null;
   budgetRemainingScenario: number | null;
   endOfMonthBaseline: number;
@@ -103,7 +115,7 @@ function monthsToReach(remaining: number, monthly: number): number | null {
 export function simulateScenario(params: {
   baseline: Baseline;
   input: ScenarioInput;
-  budgetReference: number | null;
+  budget: BudgetScope | null;
   projectedEndBalance: number;
   remainingDays: number;
   daysInMonth: number;
@@ -127,6 +139,25 @@ export function simulateScenario(params: {
     categoryDeltas.push({ categoryId: params.rentCategoryId, baseline: base, scenario: base + input.rentIncrease });
   }
   const expenses = baseline.expenses - reduction + input.rentIncrease + input.newRecurringExpense;
+
+  // Dépenses imputées aux budgets : totales (budget global) ou des seules catégories budgétées.
+  const scope = params.budget;
+  const pctOf = (categoryId: ID) => input.categoryReductions.filter((r) => r.categoryId === categoryId).reduce((a, r) => a + r.pct, 0);
+  const budgetedSpend = (scenario: boolean): number => {
+    if (!scope) return 0;
+    if (scope.basis === 'global') return scenario ? expenses : baseline.expenses;
+    let total = 0;
+    for (const id of scope.topIds) {
+      const base = baseline.byCategory.get(id) ?? 0;
+      total += scenario ? base - input.categoryReductions.filter((r) => r.categoryId === id).reduce((a, r) => a + percentOf(base, r.pct), 0) + (id === params.rentCategoryId ? input.rentIncrease : 0) : base;
+    }
+    // Sous-catégorie budgétée seule : elle suit la réduction appliquée à sa catégorie parente.
+    for (const sub of scope.subs) {
+      const base = baseline.bySubcategory.get(sub.id) ?? 0;
+      total += scenario ? base - percentOf(base, Math.min(100, pctOf(sub.parentId))) : base;
+    }
+    return total;
+  };
   const baseSavings = baseline.income - baseline.expenses;
   const scenSavings = income - expenses;
   const deltaSavings = scenSavings - baseSavings;
@@ -163,8 +194,9 @@ export function simulateScenario(params: {
     scenario: { income, expenses, savings: scenSavings, savingsRate: income > 0 ? scenSavings / income : null },
     deltaSavings,
     categoryDeltas,
-    budgetRemainingBaseline: params.budgetReference == null ? null : params.budgetReference - baseline.expenses,
-    budgetRemainingScenario: params.budgetReference == null ? null : params.budgetReference - expenses,
+    budgetBasis: scope?.basis ?? null,
+    budgetRemainingBaseline: scope ? scope.reference - budgetedSpend(false) : null,
+    budgetRemainingScenario: scope ? scope.reference - budgetedSpend(true) : null,
     endOfMonthBaseline: params.projectedEndBalance,
     endOfMonthScenario,
     goals,

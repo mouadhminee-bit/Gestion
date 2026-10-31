@@ -343,7 +343,7 @@ describe('Prévisions et scénarios', () => {
     const res = simulateScenario({
       baseline,
       input: { ...EMPTY_SCENARIO, incomeChangePct: 10, categoryReductions: [{ categoryId: food.id, pct: 50 }], oneOffPurchase: 50000 },
-      budgetReference: null,
+      budget: null,
       projectedEndBalance: 1000000,
       remainingDays: 20,
       daysInMonth: 30,

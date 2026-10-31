@@ -25,7 +25,8 @@ import type { LedgerContext, PeriodSummary } from './ledger';
 import { accountsInScope, summarizePeriod, topCategoryId, totalBalance } from './ledger';
 import type { OccurrenceView } from './recurring';
 import { listOccurrences, pendingOccurrences } from './recurring';
-import { monthBudgetOverview } from './budgets';
+import type { BudgetScope } from './budgets';
+import { budgetScope, monthBudgetOverview } from './budgets';
 import { t } from '@/i18n/core';
 
 export type VariableMethod = 'history' | 'budget' | 'insufficient';
@@ -57,6 +58,8 @@ export interface MonthForecast {
   budgetBasis: 'global' | 'categories' | null;
   /** Dépenses projetées sur cette base. */
   budgetProjectedSpent: number | null;
+  /** Périmètre budgétaire du mois (même règle que Budgets), pour le simulateur. */
+  budgetScope: BudgetScope | null;
   projectedBudgetOverrun: number | null;
   /** Dépenses récurrentes attendues par catégorie de 1er niveau. */
   committedByCategory: Map<ID | null, number>;
@@ -199,6 +202,7 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
     budgetReference,
     budgetBasis,
     budgetProjectedSpent,
+    budgetScope: budgetScope(data.budgets, month, ctx.categories),
     projectedBudgetOverrun: budgetReference == null || budgetProjectedSpent == null ? null : budgetProjectedSpent - budgetReference,
     committedByCategory,
     assumptions,
