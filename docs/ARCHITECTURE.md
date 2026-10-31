@@ -209,6 +209,16 @@ quotidienne observée sur 90 jours (≥ 30 jours et ≥ 10 dépenses) × jours r
 écoulés et 3 dépenses) ; (3) sinon **aucune** dépense variable projetée : la projection est
 un **minimum** (réalisé + échéances connues), signalé comme tel. Le reste d’un budget n’est
 jamais projeté comme une dépense certaine ; le dernier jour, il n’y a rien à projeter.
+Charges récurrentes identifiées (paiements associés **ou détectés** par le rapprochement) :
+hors rythme variable. **Dépense atypique** : montant > 3 × la médiane des autres dépenses
+variables observées (au moins 2 points de comparaison) **et** opération isolée — aucune
+dépense de la même catégorie de 1er niveau d’au moins 50 % de son montant dans la fenêtre
+observée ni dans les 180 jours qui la précèdent. Elle est comptée dans le réalisé, jamais
+extrapolée (moyenne 90 jours, rythme du mois et lignes de budget), et signalée dans les
+hypothèses ; les seuils de durée et de nombre s’appliquent aux seules dépenses habituelles.
+Projection incomplète : Prévisions titre « Budget pas encore évaluable complètement » (ou
+« Dépassement déjà engagé »), les insights parlent de « dépenses déjà engagées », et le
+tableau de bord affiche un bandeau compact du minimum engagé avec un lien vers Prévisions.
 Lignes de budget : même seuil de 10 jours avant d’extrapoler le rythme d’une catégorie
 variable (sinon minimum) ; charge fixe = réalisé + échéances ; mois passé = réalisé ; mois
 futur = pas de projection. Les insights n’affirment « sous contrôle » que sur une projection

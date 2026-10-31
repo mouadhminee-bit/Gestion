@@ -167,6 +167,9 @@ export default function Budgets() {
                 </Button>
                 {global && <Button size="sm" variant="ghost" aria-label={t('budget.deleteGlobal')} onClick={() => remove(global.budget)}><Trash2 className="h-3.5 w-3.5" /></Button>}
               </div>
+              {timing.isCurrent && fc && fc.monthAtypical.length > 0 && (
+                <p className="mt-2 text-start text-[11px] text-muted">{t('budget.atypicalNote', { count: fc.monthAtypical.length, amount: fmt.money(fc.monthAtypical.reduce((a, x) => a + x.amount, 0)) })}</p>
+              )}
               {card.projected != null && !card.complete && (
                 <p className="mt-3 text-start text-xs text-muted">
                   {t('budget.projectionMinimum', { amount: fmt.money(card.projected) })}{' '}

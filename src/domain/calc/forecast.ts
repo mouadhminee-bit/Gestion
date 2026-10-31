@@ -24,14 +24,14 @@
  */
 import type { ISODate, MonthKey } from '../dates';
 import { addDays, diffDays, monthEnd, monthKey, monthPeriod, maxDate } from '../dates';
-import { roundHalfAwayFromZero } from '../money';
+import { formatMoney, roundHalfAwayFromZero } from '../money';
 import type { DataSnapshot, ID } from '../types';
 import type { LedgerContext, PeriodSummary } from './ledger';
 import { accountsInScope, summarizePeriod, topCategoryId, totalBalance } from './ledger';
 import type { OccurrenceView } from './recurring';
 import { listOccurrences, pendingOccurrences } from './recurring';
 import type { BudgetScope } from './budgets';
-import { budgetScope, MIN_PACE_DAYS, monthBudgetOverview, monthTiming } from './budgets';
+import { budgetScope, MIN_PACE_DAYS, monthBudgetOverview } from './budgets';
 import { t } from '@/i18n/core';
 
 export type VariableMethod = 'history' | 'month' | 'insufficient';
@@ -53,6 +53,12 @@ export interface MonthForecast {
   /** Méthode « month » : jours écoulés et dépenses variables observés ce mois-ci. */
   variableMonthDays: number;
   variableMonthCount: number;
+  /** Dépenses atypiques exclues du rythme retenu (comptées dans le réalisé, non extrapolées). */
+  atypical: AtypicalExpense[];
+  /** Dépenses atypiques du mois en cours (non extrapolées dans les lignes de budget). */
+  monthAtypical: AtypicalExpense[];
+  /** Montant atypique du mois par catégorie (1er niveau et sous-catégorie), pour les lignes de budget. */
+  atypicalByCategory: Map<ID | null, number>;
   /** 'minimum' : dépenses variables non projetées faute de données (réalisé + échéances connues). */
   projectionStatus: 'complete' | 'minimum';
   projectedIncome: number;
@@ -86,61 +92,107 @@ export const MIN_HISTORY_DAYS = 30;
 export const MIN_HISTORY_TRANSACTIONS = 10;
 export const MIN_MONTH_TRANSACTIONS = 3;
 
+/** Facteur au-delà duquel une dépense est hors norme par rapport à la médiane observée. */
+export const ATYPICAL_FACTOR = 3;
+/** Recherche d'une dépense comparable (même catégorie) avant la fenêtre observée. */
+export const COMPARABLE_LOOKBACK_DAYS = 180;
+/** Part du montant à partir de laquelle une dépense passée est jugée comparable. */
+export const COMPARABLE_SHARE = 0.5;
+
+export interface AtypicalExpense {
+  id: ID;
+  /** Devise de base. */
+  amount: number;
+  categoryId: ID | null;
+  subcategoryId: ID | null;
+}
+
 export interface VariableAverage {
   dailyAverage: number | null;
   days: number;
+  /** Dépenses habituelles prises en compte (hors atypiques). */
   count: number;
+  /** Dépenses atypiques exclues du rythme : comptées dans le réalisé, jamais extrapolées. */
+  atypical: AtypicalExpense[];
 }
 
-/** Dépenses variables : hors charges fixes et hors paiements de récurrences (déjà prévus). */
-function variableTransactions(ctx: LedgerContext, transactions: DataSnapshot['transactions']) {
+/**
+ * Dépenses variables : hors charges fixes et hors charges récurrentes identifiées (paiements
+ * associés à une échéance, ou détectés par le rapprochement : `recurringIds`).
+ */
+function variableTransactions(ctx: LedgerContext, transactions: DataSnapshot['transactions'], recurringIds: Set<ID>) {
   return transactions.filter((t) => {
     if (t.type !== 'expense' && t.type !== 'refund') return false;
-    if (t.recurringRuleId) return false;
+    if (t.recurringRuleId || recurringIds.has(t.id)) return false;
     const top = topCategoryId(ctx, t.categoryId);
     return !(top && ctx.categories.get(top)?.nature === 'fixed');
   });
 }
 
+const median = (xs: number[]) => {
+  const v = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(v.length / 2);
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+};
+
 /**
- * Rythme du mois en cours : dépenses variables nettes du 1er au jour inclus ÷ jours écoulés.
- * Non exploitable (null) avant MIN_PACE_DAYS jours écoulés ou MIN_MONTH_TRANSACTIONS dépenses.
+ * Rythme des dépenses variables sur [from, to], dépenses atypiques exclues.
+ * Atypique = montant > ATYPICAL_FACTOR × médiane des AUTRES dépenses variables de la fenêtre
+ * (au moins 2 points de comparaison) ET opération isolée : aucune dépense comparable (même
+ * catégorie de 1er niveau, ≥ COMPARABLE_SHARE du montant) dans la fenêtre ni dans les
+ * COMPARABLE_LOOKBACK_DAYS jours qui la précèdent. Une dépense habituelle n'est jamais atypique.
+ * Le rythme n'est exploitable qu'avec `minDays` jours et `minCount` dépenses habituelles.
  */
-export function monthVariablePace(ctx: LedgerContext, data: Pick<DataSnapshot, 'transactions'>, today: ISODate): VariableAverage {
-  const month = monthKey(today);
-  const days = monthTiming(month, today).elapsed;
+function variablePace(ctx: LedgerContext, transactions: DataSnapshot['transactions'], recurringIds: Set<ID>, from: ISODate, to: ISODate, minDays: number, minCount: number): VariableAverage {
+  const variable = variableTransactions(ctx, transactions, recurringIds);
+  const lookback = addDays(from, -COMPARABLE_LOOKBACK_DAYS);
+  const days = to < from ? 0 : diffDays(to, from) + 1;
+  const inWindow = variable
+    .filter((t) => t.date >= from && t.date <= to)
+    .map((t) => ({ t, v: ctx.convert(t.amount, t.currency, t.date) }))
+    .filter((x): x is { t: (typeof variable)[number]; v: number } => x.v != null);
+  const expenses = inWindow.filter((x) => x.t.type === 'expense');
+  const atypical: AtypicalExpense[] = [];
+  for (const e of expenses) {
+    const others = expenses.filter((o) => o !== e).map((o) => o.v);
+    if (others.length < 2 || e.v <= ATYPICAL_FACTOR * median(others)) continue;
+    const top = topCategoryId(ctx, e.t.categoryId);
+    const comparable = variable.some((o) => {
+      if (o.id === e.t.id || o.type !== 'expense' || o.date < lookback || o.date > to) return false;
+      if (topCategoryId(ctx, o.categoryId) !== top) return false;
+      const ov = ctx.convert(o.amount, o.currency, o.date);
+      return ov != null && ov >= COMPARABLE_SHARE * e.v;
+    });
+    if (!comparable) atypical.push({ id: e.t.id, amount: e.v, categoryId: e.t.categoryId, subcategoryId: e.t.subcategoryId });
+  }
+  const excluded = new Set(atypical.map((x) => x.id));
   let total = 0;
   let count = 0;
-  for (const t of variableTransactions(ctx, data.transactions)) {
-    if (monthKey(t.date) !== month || t.date > today) continue;
-    const v = ctx.convert(t.amount, t.currency, t.date);
-    if (v == null) continue;
+  for (const { t, v } of inWindow) {
+    if (excluded.has(t.id)) continue;
     total += t.type === 'expense' ? v : -v;
     if (t.type === 'expense') count += 1;
   }
-  if (days < MIN_PACE_DAYS || count < MIN_MONTH_TRANSACTIONS) return { dailyAverage: null, days, count };
-  return { dailyAverage: Math.max(0, total / days), days, count };
+  if (days < minDays || count < minCount) return { dailyAverage: null, days, count, atypical };
+  return { dailyAverage: Math.max(0, total / days), days, count, atypical };
 }
 
-/** Moyenne quotidienne des dépenses variables observées avant `today` (exclu). */
-export function variableDailyAverage(ctx: LedgerContext, data: Pick<DataSnapshot, 'transactions'>, today: ISODate): VariableAverage {
+/**
+ * Rythme du mois en cours : dépenses variables habituelles du 1er au jour inclus ÷ jours écoulés.
+ * Non exploitable (null) avant MIN_PACE_DAYS jours écoulés ou MIN_MONTH_TRANSACTIONS dépenses.
+ */
+export function monthVariablePace(ctx: LedgerContext, data: Pick<DataSnapshot, 'transactions'>, today: ISODate, recurringIds: Set<ID> = new Set()): VariableAverage {
+  const month = monthKey(today);
+  return variablePace(ctx, data.transactions, recurringIds, monthPeriod(month).start, today, MIN_PACE_DAYS, MIN_MONTH_TRANSACTIONS);
+}
+
+/** Moyenne quotidienne des dépenses variables habituelles observées avant `today` (exclu). */
+export function variableDailyAverage(ctx: LedgerContext, data: Pick<DataSnapshot, 'transactions'>, today: ISODate, recurringIds: Set<ID> = new Set()): VariableAverage {
   const windowEnd = addDays(today, -1);
-  const variable = variableTransactions(ctx, data.transactions);
-  const firstDate = variable.reduce<ISODate | null>((min, t) => (min == null || t.date < min ? t.date : min), null);
-  if (!firstDate || firstDate > windowEnd) return { dailyAverage: null, days: 0, count: 0 };
+  const firstDate = variableTransactions(ctx, data.transactions, recurringIds).reduce<ISODate | null>((min, t) => (min == null || t.date < min ? t.date : min), null);
+  if (!firstDate || firstDate > windowEnd) return { dailyAverage: null, days: 0, count: 0, atypical: [] };
   const windowStart = maxDate(addDays(today, -HISTORY_WINDOW_DAYS), firstDate);
-  const days = diffDays(windowEnd, windowStart) + 1;
-  let total = 0;
-  let count = 0;
-  for (const t of variable) {
-    if (t.date < windowStart || t.date > windowEnd) continue;
-    const v = ctx.convert(t.amount, t.currency, t.date);
-    if (v == null) continue;
-    total += t.type === 'expense' ? v : -v;
-    if (t.type === 'expense') count += 1;
-  }
-  if (days < MIN_HISTORY_DAYS || count < MIN_HISTORY_TRANSACTIONS) return { dailyAverage: null, days, count };
-  return { dailyAverage: Math.max(0, total / days), days, count };
+  return variablePace(ctx, data.transactions, recurringIds, windowStart, windowEnd, MIN_HISTORY_DAYS, MIN_HISTORY_TRANSACTIONS);
 }
 
 export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISODate): MonthForecast {
@@ -176,10 +228,16 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   }
 
   const assumptions: string[] = [];
-  const avg = variableDailyAverage(ctx, data, today);
+  // Charges récurrentes identifiées par le rapprochement (fenêtre historique incluse) : hors rythme variable.
+  const recurringIds = new Set(
+    listOccurrences(data.recurringRules, data.occurrences, data.transactions, { start: addDays(today, -HISTORY_WINDOW_DAYS - 5), end }, today, { convert: ctx.convert })
+      .flatMap((o) => (o.status === 'matched' && o.transactionId ? [o.transactionId] : [])),
+  );
+  const avg = variableDailyAverage(ctx, data, today, recurringIds);
+  // Rythme du mois : toujours évalué, ses dépenses atypiques servent aussi aux lignes de budget.
+  const monthPace = monthVariablePace(ctx, data, today, recurringIds);
   let variableMethod: VariableMethod = 'insufficient';
   let variableProjected = 0;
-  let monthPace: VariableAverage = { dailyAverage: null, days: 0, count: 0 };
   if (avg.dailyAverage != null) {
     variableMethod = 'history';
     variableProjected = roundHalfAwayFromZero(avg.dailyAverage * remainingDays);
@@ -187,7 +245,6 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
       t('forecast.assume.history', { days: avg.days, count: avg.count, remaining: remainingDays }),
     );
   } else {
-    monthPace = monthVariablePace(ctx, data, today);
     if (monthPace.dailyAverage != null) {
       variableMethod = 'month';
       variableProjected = roundHalfAwayFromZero(monthPace.dailyAverage * remainingDays);
@@ -195,6 +252,16 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
     } else {
       assumptions.push(t('forecast.assume.insufficient', { minDays: MIN_HISTORY_DAYS, minCount: MIN_HISTORY_TRANSACTIONS, minMonthDays: MIN_PACE_DAYS }));
     }
+  }
+  const atypical = variableMethod === 'history' ? avg.atypical : monthPace.atypical;
+  if (atypical.length) {
+    assumptions.push(t('forecast.assume.atypical', { count: atypical.length, amount: formatMoney(atypical.reduce((a, x) => a + x.amount, 0), data.settings.baseCurrency, { locale: data.settings.locale }) }));
+  }
+  const atypicalByCategory = new Map<ID | null, number>();
+  for (const x of monthPace.atypical) {
+    const top = topCategoryId(ctx, x.categoryId);
+    atypicalByCategory.set(top, (atypicalByCategory.get(top) ?? 0) + x.amount);
+    if (x.subcategoryId) atypicalByCategory.set(x.subcategoryId, (atypicalByCategory.get(x.subcategoryId) ?? 0) + x.amount);
   }
   if (pending.length) {
     assumptions.push(
@@ -212,7 +279,7 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   const projectedEndBalance =
     current.total + (expectedIncome - expectedIncomeOutOfScope) - (expectedExpenses - expectedExpensesOutOfScope) - variableProjected;
 
-  const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today, undefined, committedByCategory);
+  const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today, undefined, committedByCategory, atypicalByCategory);
   const budgetBasis = overview.referenceSource === 'none' ? null : overview.referenceSource;
   const budgetReference = budgetBasis ? overview.reference : null;
   const budgetProjectedSpent = budgetBasis === 'global' ? projectedExpenses : budgetBasis === 'categories' ? overview.categories!.projected : null;
@@ -235,6 +302,9 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
     variableHistoryDays: avg.days,
     variableProjected,
     variableMonthDays: monthPace.days,
+    atypical,
+    monthAtypical: monthPace.atypical,
+    atypicalByCategory,
     variableMonthCount: monthPace.count,
     projectionStatus,
     projectedIncome,

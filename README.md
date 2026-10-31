@@ -82,13 +82,14 @@ Les données sont générées de façon déterministe à partir de la date du jo
 
 ## Résultats des tests (exécutés)
 
-`npm test` — **265 tests, 11 fichiers, tous au vert** :
+`npm test` — **277 tests, 12 fichiers, tous au vert** :
 
 | Fichier | Tests | Couverture |
 |---|---|---|
 | `domain/money.test.ts` | 26 | parsing exact, séparateurs, devises à 0/3 décimales, 0,1 + 0,2, formats, arrondis, montants nuls/négatifs |
 | `domain/dates.test.ts` | 7 | bissextiles, dates limites, fins de mois, formats, périodes, fuseau Casablanca |
 | `domain/calc/ledger.test.ts` | 18 | revenus, dépenses, épargne, taux (non calculable), sous-catégories, fixes/variables, filtrage par période, transferts sans double comptage, remboursements, ajustements, intérêts seuls, soldes et ancrage, série quotidienne, multidevise avec/sans taux |
+| `domain/calc/atypical.test.ts` | 12 | dépenses atypiques : exceptionnelle isolée, exceptionnelle avec dépenses habituelles, importante mais récurrente (détectée), importante avec historique comparable, même montant dans une autre catégorie, dépenses habituelles multiples, mois avec très peu de transactions, moyenne 90 jours non alourdie, ligne de budget (comptée une fois), libellés « minimum » des insights |
 | `domain/calc/projection.test.ts` | 15 | projection de fin de mois : début / milieu / fin de mois, historique absent ou insuffisant (minimum, jamais le reste du budget), rythme du mois, historique prioritaire, échéances à venir, budget global, budgets par catégorie, hors budget, mois passé / futur, charge fixe, insights selon le statut |
 | `domain/calc/budgets.test.ts` | 18 | consommation des catégories budgétées (cas signalé 1 800 DH / 99 DH), plusieurs catégories, budget sans dépense, opérations sans catégorie, catégories sans budget, sous-catégories sans double comptage, budget global saisi, transferts / revenus / remboursements, identité total = budgété + hors budget avec filtre de compte, mois passé / futur, projection sur la même base (catégories ou global), simulateur sur le même périmètre (budget global, plusieurs catégories, sous-catégories, remboursements, nouvelle charge récurrente, hausse de loyer), insights nommant leur base |
 | `domain/calc/modules.test.ts` | 32 | budgets (restant, écarts, dépassement, budget nul, projection, disponible), objectifs (atteint, dépassé, en retard, compte suivi), échéances (fins de mois, bissextiles, fréquences, rapprochement), dettes, patrimoine (double comptage, historique), prévisions, simulateur, mois suivis (sans opération, période future, plusieurs comptes et filtre de compte, revenus irréguliers) |

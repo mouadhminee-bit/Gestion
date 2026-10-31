@@ -99,7 +99,7 @@ export function generateInsights(
 
   // 2. Budgets : seuils atteints (mois en cours).
   const monthSummary = summarizePeriod(ctx, data.transactions, monthPeriod(month));
-  const overview = monthBudgetOverview(data.budgets, month, monthSummary, ctx.categories, today, opt.thresholds, forecast?.committedByCategory);
+  const overview = monthBudgetOverview(data.budgets, month, monthSummary, ctx.categories, today, opt.thresholds, forecast?.committedByCategory, forecast?.atypicalByCategory);
   for (const line of overview.lines) {
     if (line.consumption == null || line.thresholdReached == null || line.thresholdReached < 75) continue;
     // Une charge fixe payée exactement à son montant prévu n'est pas une alerte.
@@ -130,8 +130,9 @@ export function generateInsights(
         id: `pace:${month}`,
         kind: 'pace',
         severity: 'warning',
-        title: t('ins.pace.title'),
-        message: t(cats ? 'ins.pace.messageCategories' : 'ins.pace.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
+        // Minimum : le dépassement est déjà engagé, sans présenter le minimum comme une prévision.
+        title: t(minimum ? 'ins.paceMin.title' : 'ins.pace.title'),
+        message: t(minimum ? (cats ? 'ins.paceMin.messageCategories' : 'ins.paceMin.message') : cats ? 'ins.pace.messageCategories' : 'ins.pace.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
         source: t(minimum ? 'ins.pace.sourceMinimum' : cats ? 'ins.pace.sourceCategories' : 'ins.pace.source'),
         href: '/forecast',
       });

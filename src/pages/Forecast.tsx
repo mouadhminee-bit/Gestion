@@ -118,8 +118,8 @@ export default function Forecast() {
           </dl>
           {f.variableDailyAverage != null && <p className="mt-3 text-xs text-muted">{t('fc.dailyAverage', { amount: fmt.money(Math.round(f.variableDailyAverage)), days: f.variableHistoryDays, max: HISTORY_WINDOW_DAYS })}</p>}
           {f.budgetReference != null && (
-            <div className={cn('mt-4 rounded-xl border p-3 text-xs', (f.projectedBudgetOverrun ?? 0) > 0 ? 'border-warning/30 bg-warning/10' : 'border-positive/25 bg-positive/10')}>
-              <div className="flex items-center gap-1.5 font-semibold">{(f.projectedBudgetOverrun ?? 0) > 0 ? <><TriangleAlert className="h-3.5 w-3.5 text-warning" /> {t('fc.overrunRisk')}</> : t('fc.budgetOk')}</div>
+            <div className={cn('mt-4 rounded-xl border p-3 text-xs', (f.projectedBudgetOverrun ?? 0) > 0 ? 'border-warning/30 bg-warning/10' : f.budgetProjectionStatus === 'minimum' ? 'border-line/20 bg-surface-2/60' : 'border-positive/25 bg-positive/10')}>
+              <div className="flex items-center gap-1.5 font-semibold">{(f.projectedBudgetOverrun ?? 0) > 0 ? <><TriangleAlert className="h-3.5 w-3.5 text-warning" /> {t(f.budgetProjectionStatus === 'minimum' ? 'fc.overrunMinimum' : 'fc.overrunRisk')}</> : t(f.budgetProjectionStatus === 'minimum' ? 'fc.budgetNotAssessable' : 'fc.budgetOk')}</div>
               <div className="mt-1 text-muted">{t(f.budgetBasis === 'categories' ? 'fc.budgetDetailCategories' : 'fc.budgetDetail', { reference: fmt.money(f.budgetReference), gap: fmt.money(f.projectedBudgetOverrun ?? 0, undefined, { sign: true }) })}</div>
               {f.budgetProjectionStatus === 'minimum' && <div className="mt-1 text-warning">{t('fc.minimumNote')}</div>}
             </div>

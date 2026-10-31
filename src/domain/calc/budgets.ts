@@ -83,13 +83,16 @@ export function paceReliable(timing: MonthTiming): boolean {
  * null. Mois en cours : charge fixe = réalisé + échéances connues (`committed`) ; dépense
  * variable = rythme du mois (dépensé ÷ jours écoulés × jours du mois) dès MIN_PACE_DAYS
  * jours écoulés, sinon seulement le minimum connu (réalisé + échéances), jamais le reste
- * du budget supposé dépensé.
+ * du budget supposé dépensé. `atypical` : part de `spent` jugée atypique (voir forecast),
+ * ajoutée telle quelle sans extrapolation.
  */
-export function projectMonthEnd(spent: number, timing: MonthTiming, nature: 'fixed' | 'variable' | undefined, committed = 0): number | null {
+export function projectMonthEnd(spent: number, timing: MonthTiming, nature: 'fixed' | 'variable' | undefined, committed = 0, atypical = 0): number | null {
   if (timing.isFuture) return null;
   if (timing.isPast) return spent;
   if (nature === 'fixed' || !paceReliable(timing)) return spent + committed;
-  const pace = timing.elapsed > 0 ? roundHalfAwayFromZero((spent / timing.elapsed) * timing.total) : spent;
+  // Les dépenses atypiques (isolées, sans équivalent dans l'historique) sont comptées une fois, jamais extrapolées.
+  const habitual = Math.max(0, spent - atypical);
+  const pace = timing.elapsed > 0 ? roundHalfAwayFromZero((habitual / timing.elapsed) * timing.total) + (spent - habitual) : spent;
   return Math.max(pace, spent + committed);
 }
 
@@ -116,6 +119,7 @@ export function computeBudgetLine(
   timing: MonthTiming,
   thresholds: number[],
   committed = 0,
+  atypical = 0,
 ): BudgetLine {
   const planned = budget.amount;
   const consumption = safeRatio(spent, planned);
@@ -130,7 +134,7 @@ export function computeBudgetLine(
     consumption,
     variance,
     variancePct: safeRatio(variance, planned),
-    projected: projectMonthEnd(spent, timing, category?.nature, committed),
+    projected: projectMonthEnd(spent, timing, category?.nature, committed, atypical),
     thresholdReached: threshold,
     status: statusFor(spent, planned, threshold),
   };
@@ -224,6 +228,7 @@ export function monthBudgetOverview(
   today: ISODate,
   thresholds: number[] = DEFAULT_THRESHOLDS,
   committedByCategory: Map<ID | null, number> = new Map(),
+  atypicalByCategory: Map<ID | null, number> = new Map(),
 ): MonthBudgetOverview {
   const timing = monthTiming(month, today);
   const monthBudgets = budgets.filter((b) => b.month === month);
@@ -233,7 +238,8 @@ export function monthBudgetOverview(
     const cat = b.categoryId ? categories.get(b.categoryId) ?? null : null;
     const spent = spentForBudget(summary, b, categories);
     const committed = b.categoryId ? committedByCategory.get(b.categoryId) ?? 0 : sumMap(committedByCategory);
-    const line = computeBudgetLine(b, cat, spent, timing, thresholds, committed);
+    const atypical = b.categoryId ? atypicalByCategory.get(b.categoryId) ?? 0 : 0;
+    const line = computeBudgetLine(b, cat, spent, timing, thresholds, committed, atypical);
     if (b.categoryId == null) global = line;
     else lines.push(line);
   }
