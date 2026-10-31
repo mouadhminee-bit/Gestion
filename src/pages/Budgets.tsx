@@ -41,7 +41,7 @@ export default function Budgets() {
   const md = useMonthData(month);
   const [edit, setEdit] = useState<EditState | null>(null);
   const timing = monthTiming(month, today);
-  const { overview, summary } = md;
+  const { overview } = md;
 
   const budgetedIds = new Set(data.budgets.filter((b) => b.month === month).map((b) => b.categoryId));
   const candidates = data.categories.filter((c) => c.kind === 'expense' && !c.archived && !budgetedIds.has(c.id));
@@ -89,7 +89,16 @@ export default function Budgets() {
 
   const openEdit = (categoryId: ID | null, existing?: Budget) => setEdit({ categoryId, amount: existing?.amount ?? null, follow: 0, thresholds: (existing?.alertThresholds ?? []).join(', '), existing });
   const global = overview.global;
-  const consumption = overview.reference > 0 ? summary.expenses / overview.reference : null;
+  // Jauge : consommation des catégories budgétées (hors budget exclu) ; à défaut, budget global seul.
+  const ring = overview.categories ? { value: overview.categories.consumption, label: t('budget.ringCategories') } : { value: global?.consumption ?? null, label: t('budget.ringGlobal') };
+  const consumption = ring.value;
+  const fc = md.forecast;
+  // Disponible, référence et projection de la carte suivent la même base que la jauge ;
+  // le budget global (enveloppe de toutes les dépenses) est suivi dans son propre encadré.
+  const cats = overview.categories;
+  const card = cats
+    ? { available: cats.remaining, reference: cats.planned, source: t('budget.sumCategories'), projected: timing.isCurrent ? cats.projected : null, over: cats.projected != null ? cats.projected - cats.planned : 0 }
+    : { available: overview.available ?? 0, reference: overview.reference, source: t('budget.global'), projected: fc?.budgetBasis === 'global' ? fc.budgetProjectedSpent : null, over: fc?.projectedBudgetOverrun ?? 0 };
 
   return (
     <div>
@@ -116,37 +125,52 @@ export default function Budgets() {
                 <div>
                   <div className="display text-2xl font-semibold num">{fmt.percent(consumption, 0)}</div>
                   <div className="text-[11px] text-muted">{t('budget.consumed')}</div>
+                  <div className="mx-auto max-w-[6.5rem] text-[10px] leading-tight text-muted">{ring.label}</div>
                 </div>
               </ProgressRing>
               <div className="mt-4 grid w-full grid-cols-2 gap-3 text-start">
                 <div className="rounded-xl bg-surface-2/60 p-3">
                   <div className="label">{t('budget.available')}</div>
-                  <div className={cn('num mt-1 font-semibold', (overview.available ?? 0) < 0 && 'text-negative')}>{fmt.money(overview.available ?? 0)}</div>
+                  <div className={cn('num mt-1 font-semibold', card.available < 0 && 'text-negative')}>{fmt.money(card.available)}</div>
                 </div>
                 <div className="rounded-xl bg-surface-2/60 p-3">
                   <div className="label">{t('budget.reference')}</div>
-                  <div className="num mt-1 font-semibold">{fmt.money(overview.reference)}</div>
-                  <div className="text-[10px] text-muted">{overview.referenceSource === 'global' ? t('budget.global') : t('budget.sumCategories')}</div>
+                  <div className="num mt-1 font-semibold">{fmt.money(card.reference)}</div>
+                  <div className="text-[10px] text-muted">{card.source}</div>
                 </div>
                 <div className="rounded-xl bg-surface-2/60 p-3">
-                  <div className="label">{t('budget.spent')}</div>
-                  <div className="num mt-1 font-semibold">{fmt.money(summary.expenses)}</div>
+                  <div className="label">{t('budget.budgetedSpent')}</div>
+                  <div className="num mt-1 font-semibold">{fmt.money(overview.categories?.spent ?? 0)}</div>
                 </div>
                 <div className="rounded-xl bg-surface-2/60 p-3">
                   <div className="label flex items-center gap-1">{t('budget.unbudgeted')} <InfoTip>{t('budget.unbudgetedInfo')}</InfoTip></div>
                   <div className="num mt-1 font-semibold">{fmt.money(overview.unbudgetedSpent)}</div>
                 </div>
+                <div className="col-span-2 flex items-center justify-between rounded-xl bg-surface-2/60 p-3">
+                  <div className="label">{t('budget.totalSpent')}</div>
+                  <div className="num font-semibold">{fmt.money(overview.totalSpent)}</div>
+                </div>
               </div>
+              {global && overview.categories && (
+                <div className="mt-3 w-full rounded-xl border border-line/10 p-3 text-start text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-fg">{t('budget.globalLine')}</span>
+                    <span className="num"><b className="text-fg"><bdi>{fmt.money(global.spent)}</bdi></b> / <bdi>{fmt.money(global.planned)}</bdi> · <bdi>{fmt.percent(global.consumption, 0)}</bdi></span>
+                  </div>
+                  <ProgressBar value={global.consumption ?? 0} tone="auto" className="mt-2" label={t('budget.globalLine')} />
+                  <div className={cn('mt-1 num', global.remaining < 0 ? 'text-negative' : 'text-muted')}>{t('budget.globalAvailable', { amount: fmt.money(global.remaining) })}</div>
+                </div>
+              )}
               <div className="mt-3 flex w-full gap-2">
                 <Button size="sm" variant="outline" className="flex-1" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => openEdit(null, global?.budget)}>
                   {global ? t('budget.editGlobal') : t('budget.defineGlobal')}
                 </Button>
                 {global && <Button size="sm" variant="ghost" aria-label={t('budget.deleteGlobal')} onClick={() => remove(global.budget)}><Trash2 className="h-3.5 w-3.5" /></Button>}
               </div>
-              {md.forecast && md.forecast.budgetReference != null && (
+              {card.projected != null && (
                 <p className="mt-3 text-start text-xs text-muted">
-                  {t('budget.projection')} <b className="num text-fg">{fmt.money(md.forecast.projectedExpenses)}</b>{' '}
-                  {md.forecast.projectedBudgetOverrun! > 0 ? <span className="text-negative">{t('budget.overrunEstimated', { amount: fmt.money(md.forecast.projectedBudgetOverrun!) })}</span> : <span className="text-positive">{t('budget.withinBudget')}</span>} {t('budget.estimateNote')}
+                  {t(cats ? 'budget.projectionCategories' : 'budget.projection')} <b className="num text-fg">{fmt.money(card.projected)}</b>{' '}
+                  {card.over > 0 ? <span className="text-negative">{t('budget.overrunEstimated', { amount: fmt.money(card.over) })}</span> : <span className="text-positive">{t('budget.withinBudget')}</span>} {t(cats ? 'budget.projectionCategoriesNote' : 'budget.estimateNote')}
                 </p>
               )}
             </div>

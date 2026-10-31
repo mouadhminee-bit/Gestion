@@ -126,7 +126,7 @@ export default function Report() {
               <thead><tr className="text-start text-xs text-muted"><th className="py-1">{t('rep.col.month')}</th><th className="text-end">{t('rep.col.budget')}</th><th className="text-end">{t('rep.col.spent')}</th><th className="text-end">{t('rep.col.gap')}</th><th className="text-end">{t('rep.col.over')}</th></tr></thead>
               <tbody className="divide-y divide-line/10">
                 {budgetRows.map(({ m, ov }) => {
-                  const spent = ov.reference - (ov.available ?? 0);
+                  const spent = ov.referenceSpent;
                   return (
                     <tr key={m}>
                       <td className="py-1.5">{fmt.month(m)}</td>

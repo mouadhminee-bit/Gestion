@@ -132,7 +132,12 @@ n’est jamais stocké comme transaction.
 | Taux d’épargne | Épargne nette ÷ Revenus ; « Non calculable » si revenus ≤ 0 |
 | Solde d’un compte | solde initial + mouvements datés à partir de la date du solde initial |
 | Solde total | somme des comptes actifs `includeInTotal`, convertis au dernier taux connu |
-| Budget disponible | budget global (sinon somme des budgets de catégories) − dépenses du mois |
+| Catégories budgétées | budgets de 1er niveau + budgets de sous-catégorie sans budget parent (jamais de double comptage) |
+| Consommation des budgets | dépenses des catégories budgétées ÷ Σ de leurs budgets (jauge, disponible, référence et projection de la carte Budgets) |
+| Hors budget | dépenses totales − dépenses des catégories budgétées (catégories sans budget, opérations sans catégorie) ; affiché à part |
+| Budget global (saisi) | enveloppe de **toutes** les dépenses : dépenses totales ÷ budget global ; suivi dans son propre encadré |
+| Budget disponible (tableau de bord, rapport) | budget global − dépenses totales s’il existe ; sinon Σ budgets des catégories − dépenses de ces catégories |
+| Projection budgétaire | base globale : dépenses totales projetées (Prévisions) vs budget global ; base catégories : Σ projections des lignes budgétées (rythme du mois + échéances récurrentes connues) vs Σ budgets |
 | Restant (budget) | budget − dépenses éligibles ; consommation = dépenses ÷ budget (non affichée si budget nul) ; écart = dépenses − budget |
 | Progression objectif | constitué ÷ cible (affichage plafonné à 100 %) ; contribution nécessaire = restant ÷ mois restants |
 | Patrimoine net | actifs (comptes une fois, valorisations, créances) − passifs (dettes) |

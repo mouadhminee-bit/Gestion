@@ -126,7 +126,7 @@ export function generateInsights(
         kind: 'pace',
         severity: 'warning',
         title: t('ins.pace.title'),
-        message: t('ins.pace.message', { projected: opt.fmt(forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
+        message: t('ins.pace.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), over: opt.fmt(forecast.projectedBudgetOverrun), budget: opt.fmt(forecast.budgetReference) }),
         source: t('ins.pace.source'),
         href: '/forecast',
       });
@@ -136,7 +136,7 @@ export function generateInsights(
         kind: 'pace',
         severity: 'success',
         title: t('ins.paceOk.title'),
-        message: t('ins.paceOk.message', { projected: opt.fmt(forecast.projectedExpenses), budget: opt.fmt(forecast.budgetReference), margin: opt.fmt(-forecast.projectedBudgetOverrun) }),
+        message: t('ins.paceOk.message', { projected: opt.fmt(forecast.budgetProjectedSpent ?? forecast.projectedExpenses), budget: opt.fmt(forecast.budgetReference), margin: opt.fmt(-forecast.projectedBudgetOverrun) }),
         source: t('ins.paceOk.source'),
         href: '/forecast',
       });

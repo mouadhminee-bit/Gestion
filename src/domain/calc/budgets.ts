@@ -9,9 +9,19 @@
  * Dépenses éligibles = dépenses de consommation nettes des remboursements reçus
  * de la catégorie (sous-catégories incluses), voir ledger.ts.
  *
- * Budget disponible (dashboard) = Budget global du mois − Dépenses de consommation
- * du mois (toutes catégories). Sans budget global, le budget de référence est la
- * somme des budgets des catégories de premier niveau.
+ * Catégories budgétées = budgets de 1er niveau + budgets de sous-catégorie dont la
+ * catégorie parente n'a pas de budget (une dépense n'est jamais comptée deux fois).
+ *
+ *  Consommation des budgets = Dépenses des catégories budgétées ÷ Σ budgets de ces catégories
+ *  Hors budget              = Dépenses totales − Dépenses des catégories budgétées
+ *                             (catégories sans budget, opérations sans catégorie)
+ *  Dépenses totales         = indicateur distinct (summarizePeriod), inchangé
+ *
+ * Budget global (saisi manuellement) = enveloppe couvrant TOUTES les dépenses du mois :
+ * sa consommation est Dépenses totales ÷ Budget global.
+ *
+ * Budget disponible (dashboard) = Budget global − Dépenses totales s'il existe ;
+ * sinon Σ budgets des catégories − Dépenses des catégories budgétées.
  * Ce n'est PAS un solde bancaire : c'est l'enveloppe de dépenses restante.
  */
 import type { ISODate, MonthKey } from '../dates';
@@ -124,15 +134,32 @@ export function spentForBudget(summary: PeriodSummary, budget: Budget, categorie
   return summary.expensesByCategory.get(budget.categoryId)?.amount ?? 0;
 }
 
+/** Agrégat des catégories budgétées (sans double comptage parent / sous-catégorie). */
+export interface BudgetedCategoriesTotal {
+  planned: number;
+  spent: number;
+  remaining: number;
+  /** spent ÷ planned ; null si aucun budget de catégorie (ou somme nulle). */
+  consumption: number | null;
+  /** Σ projections de fin de mois des lignes (null pour un mois futur). */
+  projected: number | null;
+}
+
 export interface MonthBudgetOverview {
   lines: BudgetLine[];
   global: BudgetLine | null;
-  /** Budget de référence (global, sinon somme des catégories de 1er niveau). */
+  /** Catégories budgétées ; null s'il n'y a aucun budget de catégorie. */
+  categories: BudgetedCategoriesTotal | null;
+  /** Budget de référence (global, sinon somme des catégories budgétées). */
   reference: number;
   referenceSource: 'global' | 'categories' | 'none';
-  /** Budget disponible = référence − dépenses du mois. null si aucun budget. */
+  /** Dépenses comparées à la référence : totales (global) ou des catégories budgétées. */
+  referenceSpent: number;
+  /** Budget disponible = référence − referenceSpent. null si aucun budget. */
   available: number | null;
-  /** Dépenses dans des catégories sans budget. */
+  /** Dépenses totales du mois (toutes catégories). */
+  totalSpent: number;
+  /** Dépenses hors budget = totales − catégories budgétées. */
   unbudgetedSpent: number;
 }
 
@@ -157,28 +184,46 @@ export function monthBudgetOverview(
     if (b.categoryId == null) global = line;
     else lines.push(line);
   }
-  const topLines = lines.filter((l) => !l.category?.parentId);
-  const categoriesTotal = topLines.reduce((acc, l) => acc + l.planned, 0);
-  const budgetedTop = new Set(topLines.map((l) => l.budget.categoryId));
-  let unbudgetedSpent = 0;
-  for (const [catId, v] of summary.expensesByCategory) if (!budgetedTop.has(catId)) unbudgetedSpent += v.amount;
+  // Lignes comptées dans l'agrégat : 1er niveau, et sous-catégories sans budget parent.
+  const budgetedIds = new Set(lines.map((l) => l.budget.categoryId));
+  const counted = lines.filter((l) => !l.category?.parentId || !budgetedIds.has(l.category.parentId));
+  const categoriesTotal: BudgetedCategoriesTotal | null = counted.length
+    ? (() => {
+        const planned = counted.reduce((a, l) => a + l.planned, 0);
+        const spent = counted.reduce((a, l) => a + l.spent, 0);
+        return {
+          planned,
+          spent,
+          remaining: planned - spent,
+          consumption: safeRatio(spent, planned),
+          projected: timing.isFuture ? null : counted.reduce((a, l) => a + (l.projected ?? l.spent), 0),
+        };
+      })()
+    : null;
+  const totalSpent = summary.expenses;
 
   let reference = 0;
+  let referenceSpent = 0;
   let referenceSource: MonthBudgetOverview['referenceSource'] = 'none';
   if (global) {
     reference = global.planned;
+    referenceSpent = totalSpent;
     referenceSource = 'global';
-  } else if (topLines.length) {
-    reference = categoriesTotal;
+  } else if (categoriesTotal) {
+    reference = categoriesTotal.planned;
+    referenceSpent = categoriesTotal.spent;
     referenceSource = 'categories';
   }
   return {
     lines: lines.sort((a, b) => (b.consumption ?? 0) - (a.consumption ?? 0)),
     global,
+    categories: categoriesTotal,
     reference,
     referenceSource,
-    available: referenceSource === 'none' ? null : reference - summary.expenses,
-    unbudgetedSpent,
+    referenceSpent,
+    available: referenceSource === 'none' ? null : reference - referenceSpent,
+    totalSpent,
+    unbudgetedSpent: totalSpent - (categoriesTotal?.spent ?? 0),
   };
 }
 

@@ -50,6 +50,13 @@ export interface MonthForecast {
   projectedEndBalance: number;
   /** Budget de référence et dépassement projeté (null si aucun budget). */
   budgetReference: number | null;
+  /**
+   * Base de comparaison au budget : 'global' = dépenses totales projetées vs budget global ;
+   * 'categories' = Σ projections des catégories budgétées vs Σ de leurs budgets (hors budget exclu).
+   */
+  budgetBasis: 'global' | 'categories' | null;
+  /** Dépenses projetées sur cette base. */
+  budgetProjectedSpent: number | null;
   projectedBudgetOverrun: number | null;
   /** Dépenses récurrentes attendues par catégorie de 1er niveau. */
   committedByCategory: Map<ID | null, number>;
@@ -166,8 +173,10 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   const projectedEndBalance =
     current.total + (expectedIncome - expectedIncomeOutOfScope) - (expectedExpenses - expectedExpensesOutOfScope) - variableProjected;
 
-  const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today);
-  const budgetReference = overview.referenceSource === 'none' ? null : overview.reference;
+  const overview = monthBudgetOverview(data.budgets, month, summary, ctx.categories, today, undefined, committedByCategory);
+  const budgetBasis = overview.referenceSource === 'none' ? null : overview.referenceSource;
+  const budgetReference = budgetBasis ? overview.reference : null;
+  const budgetProjectedSpent = budgetBasis === 'global' ? projectedExpenses : budgetBasis === 'categories' ? overview.categories!.projected : null;
 
   return {
     month,
@@ -188,7 +197,9 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
     projectedSavings: projectedIncome - projectedExpenses,
     projectedEndBalance,
     budgetReference,
-    projectedBudgetOverrun: budgetReference == null ? null : projectedExpenses - budgetReference,
+    budgetBasis,
+    budgetProjectedSpent,
+    projectedBudgetOverrun: budgetReference == null || budgetProjectedSpent == null ? null : budgetProjectedSpent - budgetReference,
     committedByCategory,
     assumptions,
     summary,
