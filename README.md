@@ -44,6 +44,12 @@ n’est nécessaire en mode local ; le fichier ne contient aucun secret.
 `dist/` est un site statique (routage par hash) déployable sur n’importe quel
 hébergement statique.
 
+**GitHub Codespaces (sans Netlify)** : le dépôt contient `.devcontainer/devcontainer.json`
+(Node 22, `npm ci` automatique, ports 5173 et 4173 redirigés). Dans le Codespace :
+`npm run dev:host` → lien `https://<codespace>-5173.app.github.dev/#/` ; `npm run check`
+(typecheck + tests + build) ; `npm run build && npm run preview:host` (port 4173). Guide
+complet : [`docs/CODESPACES.md`](docs/CODESPACES.md).
+
 ## Données de démonstration
 
 Au premier lancement, choisissez **« Explorer avec des données de démonstration »**

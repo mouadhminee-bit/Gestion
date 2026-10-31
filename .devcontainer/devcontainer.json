@@ -1,0 +1,15 @@
+{
+  "name": "NEXORA — développement (sans Netlify)",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "hostRequirements": { "cpus": 2, "memory": "4gb" },
+  "postCreateCommand": "npm ci",
+  "forwardPorts": [5173, 4173],
+  "portsAttributes": {
+    "5173": { "label": "NEXORA — serveur de développement (Vite)", "onAutoForward": "openBrowser" },
+    "4173": { "label": "NEXORA — build de production (vite preview)", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "codespaces": { "openFiles": ["docs/CODESPACES.md"] },
+    "vscode": { "extensions": ["bradlc.vscode-tailwindcss"] }
+  }
+}
