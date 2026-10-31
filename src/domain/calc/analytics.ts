@@ -3,11 +3,12 @@
  * S'appuie exclusivement sur ledger.summarizePeriod / flowOf pour rester cohérent.
  */
 import type { ISODate, MonthKey, Period } from '../dates';
-import { inPeriod, monthKey, monthPeriod, monthRange, periodDays } from '../dates';
-import type { ID, RecurringRule, Transaction } from '../types';
+import { addDays, inPeriod, monthKey, monthPeriod, monthRange, periodDays } from '../dates';
+import type { DataSnapshot, ID, RecurringRule, Transaction } from '../types';
 import type { LedgerContext, PeriodSummary, TransactionFilter } from './ledger';
 import { matchesFilter, summarizePeriod, topCategoryId } from './ledger';
-import { monthlyEquivalent } from './recurring';
+import type { OccurrenceView } from './recurring';
+import { listOccurrences, monthlyEquivalent } from './recurring';
 
 export interface MonthlyPoint {
   month: MonthKey;
@@ -152,22 +153,109 @@ export function trackedMonths(transactions: Transaction[], period: Period, today
   return to < from ? 1 : monthRange(monthKey(from), monthKey(to)).length;
 }
 
-export interface RecurringExpenseShare {
+/**
+ * Charges récurrentes : trois lectures qui ne se mélangent jamais.
+ *  - Composition : équivalent mensuel ÷ total des charges récurrentes (engagements).
+ *  - Dépenses réelles : décaissements CONFIRMÉS (opérations associées à une échéance), datés
+ *    dans la période, ÷ dépenses enregistrées de la période. Chaque opération est déjà dans
+ *    ces dépenses : rien n'est compté deux fois. Les détections non confirmées et les
+ *    échéances prévues sont présentées à part.
+ *  - Revenus : équivalent mensuel ÷ revenus réellement perçus par mois suivi.
+ * Un décaissement est rattaché au mois de sa date réelle, pas à celui de l'échéance qu'il solde.
+ */
+export interface RecurringChargeRow {
   rule: RecurringRule;
-  /** Équivalent mensuel en devise de base (unités minimales). */
+  /** Équivalent mensuel, devise de base. */
   monthly: number;
-  /** Part dans les dépenses mensuelles moyennes des mois suivis de la période (ratio, 0,637 = 63,7 %). */
-  share: number | null;
+  composition: number | null;
+  incomeShare: number | null;
+  /** Échéances tombant dans la période. */
+  occurrences: OccurrenceView[];
+  /** Montant prévu des échéances de la période (hors ignorées). */
+  committed: number;
+  /** Décaissements confirmés datés dans la période. */
+  paid: number;
+  /** Opérations détectées, non confirmées, datées dans la période. */
+  detected: number;
+  /** Reste à payer sur les échéances de la période (à venir, en retard, reliquats). */
+  remaining: number;
+  /** paid ÷ dépenses enregistrées. */
+  paidShare: number | null;
 }
 
-/** Récurrences de dépense actives, de la plus lourde à la plus légère, avec leur part dans les dépenses. */
-export function recurringExpenseShares(ctx: LedgerContext, rules: RecurringRule[], transactions: Transaction[], periodExpenses: number, period: Period, today: ISODate): RecurringExpenseShare[] {
-  const monthlyExpenses = periodExpenses > 0 ? periodExpenses / trackedMonths(transactions, period, today) : 0;
-  return rules
-    .filter((r) => r.active && r.kind === 'expense')
-    .map((rule) => {
-      const monthly = ctx.convert(monthlyEquivalent(rule), rule.currency, today) ?? 0;
-      return { rule, monthly, share: monthlyExpenses > 0 ? monthly / monthlyExpenses : null };
+export interface RecurringChargesReport {
+  rows: RecurringChargeRow[];
+  monthlyTotal: number;
+  /** Dépenses enregistrées de la période (filtres de la page appliqués). */
+  expenses: number;
+  /** Revenus perçus par mois suivi ; null sans revenu enregistré. */
+  monthlyIncome: number | null;
+  committed: number;
+  paid: number;
+  detected: number;
+  remaining: number;
+  paidShare: number | null;
+  detectedShare: number | null;
+  /** Échéances de la période ÷ dépenses enregistrées (peut dépasser 100 %). */
+  coverage: number | null;
+  incomeShare: number | null;
+}
+
+const ratio = (a: number, b: number | null): number | null => (b && b > 0 ? a / b : null);
+
+export function recurringChargesReport(
+  ctx: LedgerContext,
+  data: Pick<DataSnapshot, 'recurringRules' | 'occurrences' | 'transactions'>,
+  period: Period,
+  today: ISODate,
+  filter?: TransactionFilter,
+): RecurringChargesReport {
+  // Une règle suit les filtres compte / catégorie de la page (elle n'a ni type ni étiquette).
+  const ruleFilter = filter && { accountIds: filter.accountIds, categoryIds: filter.categoryIds };
+  const rules = data.recurringRules.filter(
+    (r) => r.active && r.kind === 'expense' && matchesFilter(ctx, { type: 'expense', accountId: r.accountId, categoryId: r.categoryId, subcategoryId: r.subcategoryId ?? null, tags: [] } as unknown as Transaction, ruleFilter),
+  );
+  const toBase = (amount: number, currency: string, date: ISODate) => ctx.convert(amount, currency, date) ?? 0;
+  const expenses = summarizePeriod(ctx, data.transactions, period, filter).expenses;
+  const income = summarizePeriod(ctx, data.transactions, period).income;
+  const monthlyIncome = income > 0 ? income / trackedMonths(data.transactions, period, today) : null;
+  const opts = { convert: ctx.convert };
+  const occ = listOccurrences(rules, data.occurrences, data.transactions, period, today, opts);
+  // Détections : fenêtre élargie de la tolérance de rapprochement (±5 jours), opérations datées dans la période.
+  const wide = listOccurrences(rules, data.occurrences, data.transactions, { start: addDays(period.start, -5), end: addDays(period.end, 5) }, today, opts);
+  const txById = new Map(data.transactions.map((t) => [t.id, t]));
+  const counts = (t: Transaction | undefined): t is Transaction => !!t && t.type === 'expense' && inPeriod(t.date, period) && matchesFilter(ctx, t, filter);
+
+  const monthlyOf = new Map(rules.map((r) => [r.id, toBase(monthlyEquivalent(r), r.currency, today)]));
+  const monthlyTotal = [...monthlyOf.values()].reduce((a, v) => a + v, 0);
+  const rows = rules
+    .map((rule): RecurringChargeRow => {
+      const monthly = monthlyOf.get(rule.id)!;
+      const occurrences = occ.filter((o) => o.rule.id === rule.id);
+      const committed = occurrences.reduce((a, o) => a + (o.status === 'skipped' ? 0 : toBase(o.expected, rule.currency, o.dueDate)), 0);
+      const remaining = occurrences.reduce((a, o) => a + toBase(o.remaining, rule.currency, o.dueDate), 0);
+      const paid = data.transactions.filter((t) => t.recurringRuleId === rule.id && counts(t)).reduce((a, t) => a + toBase(t.amount, t.currency, t.date), 0);
+      const detected = [...new Set(wide.filter((o) => o.rule.id === rule.id && o.status === 'matched').map((o) => o.transactionId!))]
+        .map((id) => txById.get(id))
+        .filter(counts)
+        .reduce((a, t) => a + toBase(t.amount, t.currency, t.date), 0);
+      return { rule, monthly, composition: ratio(monthly, monthlyTotal), incomeShare: ratio(monthly, monthlyIncome), occurrences, committed, paid, detected, remaining, paidShare: ratio(paid, expenses) };
     })
     .sort((a, b) => b.monthly - a.monthly);
+  const sum = (k: 'committed' | 'paid' | 'detected' | 'remaining') => rows.reduce((a, r) => a + r[k], 0);
+  const [committed, paid, detected, remaining] = [sum('committed'), sum('paid'), sum('detected'), sum('remaining')];
+  return {
+    rows,
+    monthlyTotal,
+    expenses,
+    monthlyIncome,
+    committed,
+    paid,
+    detected,
+    remaining,
+    paidShare: ratio(paid, expenses),
+    detectedShare: ratio(detected, expenses),
+    coverage: ratio(committed, expenses),
+    incomeShare: ratio(monthlyTotal, monthlyIncome),
+  };
 }

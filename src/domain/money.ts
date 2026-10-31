@@ -209,9 +209,9 @@ export function formatNumber(value: number, locale = 'fr-MA', maxFractionDigits 
   return nf(locale, { maximumFractionDigits: maxFractionDigits }).format(value);
 }
 
-export function formatPercent(ratio: number | null, locale = 'fr-MA', digits = 1): string {
+export function formatPercent(ratio: number | null, locale = 'fr-MA', digits = 1, minDigits = 0): string {
   if (ratio == null || !Number.isFinite(ratio)) return t('common.notComputable');
-  return nf(locale, { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: digits }).format(ratio);
+  return nf(locale, { style: 'percent', minimumFractionDigits: minDigits, maximumFractionDigits: digits }).format(ratio);
 }
 
 /** Pourcentage d'un montant (ex: 15 % de 1000,00) arrondi à l'unité minimale. */

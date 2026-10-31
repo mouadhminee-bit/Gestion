@@ -22,7 +22,8 @@ import { getLang } from '@/i18n/core';
 
 export interface Formatters {
   money: (minor: number, currency?: CurrencyCode, opts?: { sign?: boolean; compact?: boolean; force?: boolean }) => string;
-  percent: (ratio: number | null, digits?: number) => string;
+  /** fixed : nombre de décimales constant (ex. 75,9 % / 100,0 %). */
+  percent: (ratio: number | null, digits?: number, fixed?: boolean) => string;
   date: (d: ISODate | undefined | null) => string;
   month: (m: MonthKey) => string;
   /** Masque un montant quand le mode confidentialité est actif. */
@@ -65,7 +66,7 @@ export function makeFormatters(settings: UserSettings): Formatters {
         compact: opts.compact,
       });
     },
-    percent: (ratio, digits = 1) => formatPercent(ratio, settings.locale, digits),
+    percent: (ratio, digits = 1, fixed = false) => formatPercent(ratio, settings.locale, digits, fixed ? digits : 0),
     date: (d) => formatDate(d, settings.dateFormat),
     month: (m) => formatMonth(m, uiLocaleFor(settings)),
   };

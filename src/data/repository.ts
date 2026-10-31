@@ -414,7 +414,7 @@ export class LocalRepository {
         }
         for (const id of toDelete) {
           const t = (await this.db.transactions.get(id))!;
-          if (t.recurringRuleId && t.recurringDueDate) await this.db.occurrences.delete(occurrenceId(t.recurringRuleId, t.recurringDueDate));
+          if (t.recurringRuleId && t.recurringDueDate) await this.dropPaidStateIfOrphan(t.recurringRuleId, t.recurringDueDate, toDelete);
           if (t.debtPaymentId) await this.db.debtPayments.delete(t.debtPaymentId);
           if (t.debtId && !t.debtPaymentId) {
             const debt = await this.db.debts.get(t.debtId);
@@ -609,6 +609,15 @@ export class LocalRepository {
    * Marque une échéance comme payée : crée explicitement la transaction réelle
    * (montant / date / compte confirmés par l'utilisateur) et la lie à l'échéance.
    */
+  /** Opérations déjà associées à une échéance (lien porté par la transaction). */
+  private async linkedTransactions(ruleId: ID, dueDate: string): Promise<Transaction[]> {
+    return this.db.transactions.where('userId').equals(this.userId).filter((t) => t.recurringRuleId === ruleId && t.recurringDueDate === dueDate).toArray();
+  }
+
+  /**
+   * Crée l'opération d'une échéance (ou de son reliquat). Refusé si l'échéance est déjà
+   * réglée : on n'enregistre jamais deux fois le même paiement.
+   */
   async markOccurrencePaid(ruleId: ID, dueDate: string, confirm: { date: string; amount: number; accountId: ID; label?: string }): Promise<Transaction> {
     const rule = await this.own<RecurringRule>('recurringRules', ruleId);
     const draft: TransactionDraft = {
@@ -631,21 +640,67 @@ export class LocalRepository {
     await this.db.transaction('rw', this.db.transactions, this.db.occurrences, async () => {
       const id = occurrenceId(ruleId, dueDate);
       const st = await this.db.occurrences.get(id);
-      if (st?.status === 'paid') throw new ValidationError(tr('err.occurrenceAlreadyPaid'));
+      const linked = await this.linkedTransactions(ruleId, dueDate);
+      const paid = linked.filter((t) => t.currency === rule.currency).reduce((a, t) => a + t.amount, 0);
+      if (st?.status === 'paid' || paid >= rule.amount) throw new ValidationError(tr('err.occurrenceAlreadyPaid'));
       await this.db.transactions.add(tx);
-      await this.db.occurrences.put({ id, userId: this.userId, ruleId, dueDate, status: 'paid', transactionId: tx.id, updatedAt: nowISO() });
+      // Paiement complet : l'échéance est marquée réglée et garde la trace de l'opération créée.
+      // Paiement partiel : seul le lien est posé, le reliquat reste attendu.
+      if (paid + (tx.currency === rule.currency ? tx.amount : rule.amount) >= rule.amount) {
+        await this.db.occurrences.put({ id, userId: this.userId, ruleId, dueDate, status: 'paid', transactionId: tx.id, updatedAt: nowISO() });
+      } else if (st) await this.db.occurrences.delete(id);
     });
     return tx;
   }
 
-  /** Associe une transaction existante (détectée) à une échéance, sans créer de doublon. */
-  async linkOccurrence(ruleId: ID, dueDate: string, transactionId: ID): Promise<void> {
-    await this.own<RecurringRule>('recurringRules', ruleId);
-    const t = await this.own<Transaction>('transactions', transactionId);
+  /**
+   * Associe une ou plusieurs opérations existantes à une échéance, sans créer de transaction.
+   * Une opération ne règle qu'une échéance : celles déjà associées ailleurs sont refusées.
+   */
+  async linkOccurrence(ruleId: ID, dueDate: string, transactionIds: ID | ID[]): Promise<void> {
+    const rule = await this.own<RecurringRule>('recurringRules', ruleId);
+    const ids = [...new Set(Array.isArray(transactionIds) ? transactionIds : [transactionIds])];
+    const txs = await Promise.all(ids.map((id) => this.own<Transaction>('transactions', id)));
+    for (const t of txs) {
+      if (t.type !== rule.kind) throw new ValidationError(tr('err.linkWrongType'));
+      if (t.recurringRuleId && (t.recurringRuleId !== ruleId || t.recurringDueDate !== dueDate)) throw new ValidationError(tr('err.linkAlreadyLinked'));
+    }
     await this.db.transaction('rw', this.db.transactions, this.db.occurrences, async () => {
-      await this.db.transactions.put({ ...t, recurringRuleId: ruleId, recurringDueDate: dueDate, updatedAt: nowISO() });
-      await this.db.occurrences.put({ id: occurrenceId(ruleId, dueDate), userId: this.userId, ruleId, dueDate, status: 'paid', transactionId, updatedAt: nowISO() });
+      for (const t of txs) await this.db.transactions.put({ ...t, recurringRuleId: ruleId, recurringDueDate: dueDate, updatedAt: nowISO() });
+      const id = occurrenceId(ruleId, dueDate);
+      // Associer un paiement annule une éventuelle mise à l'écart de l'échéance.
+      if ((await this.db.occurrences.get(id))?.status === 'skipped') await this.db.occurrences.delete(id);
     });
+  }
+
+  /** Retire le lien entre une opération et son échéance (l'opération est conservée). */
+  async unlinkTransaction(transactionId: ID): Promise<void> {
+    const t = await this.own<Transaction>('transactions', transactionId);
+    if (!t.recurringRuleId || !t.recurringDueDate) return;
+    const { recurringRuleId: ruleId, recurringDueDate: dueDate } = t;
+    await this.db.transaction('rw', this.db.transactions, this.db.occurrences, async () => {
+      await this.db.transactions.put({ ...t, recurringRuleId: undefined, recurringDueDate: undefined, updatedAt: nowISO() });
+      await this.dropPaidStateIfOrphan(ruleId, dueDate, new Set([t.id]));
+    });
+  }
+
+  /**
+   * Après retrait d'opérations : l'état « réglée » est supprimé s'il désignait l'une d'elles
+   * ou s'il ne reste aucun paiement associé ; le statut redevient alors calculé.
+   */
+  private async dropPaidStateIfOrphan(ruleId: ID, dueDate: string, removed: Set<ID>): Promise<void> {
+    const id = occurrenceId(ruleId, dueDate);
+    const st = await this.db.occurrences.get(id);
+    if (!st || st.status !== 'paid') return;
+    const remaining = (await this.linkedTransactions(ruleId, dueDate)).filter((x) => !removed.has(x.id));
+    if ((st.transactionId && removed.has(st.transactionId)) || remaining.length === 0) await this.db.occurrences.delete(id);
+  }
+
+  /** Solde une échéance partiellement payée : le reliquat n'est plus attendu. */
+  async settleOccurrence(ruleId: ID, dueDate: string): Promise<void> {
+    await this.own<RecurringRule>('recurringRules', ruleId);
+    if (!(await this.linkedTransactions(ruleId, dueDate)).length) throw new ValidationError(tr('err.settleNoPayment'));
+    await this.db.occurrences.put({ id: occurrenceId(ruleId, dueDate), userId: this.userId, ruleId, dueDate, status: 'paid', updatedAt: nowISO() });
   }
 
   async skipOccurrence(ruleId: ID, dueDate: string): Promise<void> {
@@ -653,19 +708,19 @@ export class LocalRepository {
     await this.db.occurrences.put({ id: occurrenceId(ruleId, dueDate), userId: this.userId, ruleId, dueDate, status: 'skipped', updatedAt: nowISO() });
   }
 
-  /** Annule le statut d'une échéance (et supprime la transaction créée si demandé). */
+  /**
+   * Annule le statut d'une échéance : les opérations associées sont dissociées (conservées),
+   * sauf celle créée par « Marquer payée », supprimée si demandé.
+   */
   async resetOccurrence(ruleId: ID, dueDate: string, deleteTransaction: boolean): Promise<void> {
     const id = occurrenceId(ruleId, dueDate);
     const st = await this.db.occurrences.get(id);
-    if (!st || st.userId !== this.userId) return;
-    if (st.transactionId) {
-      if (deleteTransaction) await this.deleteTransactions([st.transactionId]);
-      else {
-        const t = await this.db.transactions.get(st.transactionId);
-        if (t) await this.db.transactions.put({ ...t, recurringRuleId: undefined, recurringDueDate: undefined, updatedAt: nowISO() });
-      }
-    }
-    await this.db.occurrences.delete(id);
+    if (st && st.userId !== this.userId) return;
+    if (st?.transactionId && deleteTransaction) await this.deleteTransactions([st.transactionId]);
+    await this.db.transaction('rw', this.db.transactions, this.db.occurrences, async () => {
+      for (const t of await this.linkedTransactions(ruleId, dueDate)) await this.db.transactions.put({ ...t, recurringRuleId: undefined, recurringDueDate: undefined, updatedAt: nowISO() });
+      await this.db.occurrences.delete(id);
+    });
   }
 
   // -------------------------------------------------------------------------

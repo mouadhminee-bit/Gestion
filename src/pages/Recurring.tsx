@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarClock, Check, CircleSlash, Link2, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { CalendarClock, Check, CircleCheckBig, CircleSlash, Link2, ListPlus, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useApp } from '@/app/AppContext';
 import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,17 +15,11 @@ import type { OccurrenceView } from '@/domain/calc/recurring';
 import { listOccurrences, monthlyEquivalent, nextOccurrence } from '@/domain/calc/recurring';
 import { addDays, formatLongDate } from '@/domain/dates';
 import { cn } from '@/lib/cn';
+import { LinkOccurrenceDialog } from '@/features/recurring/LinkOccurrenceDialog';
+import { occurrenceBadge } from '@/features/recurring/status';
 import { t, td } from '@/i18n/core';
 
 type Form = Omit<RecurringRule, 'id' | 'userId' | 'createdAt' | 'updatedAt'> & { id?: string };
-
-const STATUS: Record<OccurrenceView['status'], { label: string; tone: 'positive' | 'warning' | 'neutral' | 'cyan' | 'negative' }> = {
-  paid: { get label() { return t('rec.status.paid'); }, tone: 'positive' },
-  matched: { get label() { return t('rec.status.matched'); }, tone: 'cyan' },
-  skipped: { get label() { return t('rec.status.skipped'); }, tone: 'neutral' },
-  upcoming: { get label() { return t('rec.status.upcoming'); }, tone: 'neutral' },
-  overdue: { get label() { return t('rec.status.overdue'); }, tone: 'negative' },
-};
 
 export default function Recurring() {
   const { data, ctx, fmt, today, repo, settings, uiLocale } = useApp();
@@ -35,12 +29,13 @@ export default function Recurring() {
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [pay, setPay] = useState<{ o: OccurrenceView; date: string; amount: number | null; accountId: string } | null>(null);
   const [view, setView] = useState<'upcoming' | 'past'>('upcoming');
+  const [linking, setLinking] = useState<OccurrenceView | null>(null);
 
   const window = view === 'upcoming' ? { start: addDays(today, -30), end: addDays(today, 60) } : { start: addDays(today, -180), end: today };
   const occ = useMemo(() => {
-    const list = listOccurrences(data.recurringRules, data.occurrences, data.transactions, window, today);
-    return view === 'upcoming' ? list.filter((o) => o.dueDate >= today || o.status === 'overdue') : list.reverse();
-  }, [data, today, view]);
+    const list = listOccurrences(data.recurringRules, data.occurrences, data.transactions, window, today, { convert: ctx.convert });
+    return view === 'upcoming' ? list.filter((o) => o.dueDate >= today || o.status === 'overdue' || o.status === 'partial') : list.reverse();
+  }, [data, ctx, today, view]);
 
   const monthlyOut = data.recurringRules.filter((r) => r.active && r.kind === 'expense').reduce((a, r) => a + (ctx.convert(monthlyEquivalent(r), r.currency, today) ?? 0), 0);
   const monthlyIn = data.recurringRules.filter((r) => r.active && r.kind === 'income').reduce((a, r) => a + (ctx.convert(monthlyEquivalent(r), r.currency, today) ?? 0), 0);
@@ -114,29 +109,39 @@ export default function Recurring() {
             <ul className="divide-y divide-line/5">
               {occ.map((o) => {
                 const cat = o.rule.categoryId ? ctx.categories.get(o.rule.categoryId) : undefined;
-                const st = STATUS[o.status];
+                const st = occurrenceBadge(o);
+                const early = o.paidDate && o.paidDate < o.dueDate && (o.status === 'paid' || o.status === 'partial');
                 return (
                   <li key={o.id} className="flex flex-wrap items-center gap-3 py-2.5">
                     <CategoryIcon icon={cat?.icon ?? 'Repeat'} color={cat?.color} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{o.rule.label}</div>
                       <div className="text-xs text-muted">{formatLongDate(o.dueDate, uiLocale)} · {ctx.accounts.get(o.rule.accountId)?.name}</div>
+                      {o.status === 'partial' && <div className="num text-xs text-warning">{t('rec.partialInfo', { paid: fmt.money(o.paid, o.rule.currency), expected: fmt.money(o.expected, o.rule.currency), remaining: fmt.money(o.remaining, o.rule.currency) })}</div>}
+                      {o.settled && <div className="num text-xs text-muted">{t('rec.settledInfo', { amount: fmt.money(o.expected - o.paid, o.rule.currency) })}</div>}
+                      {early && <div className="text-xs text-muted">{t('rec.paidEarly', { date: fmt.date(o.paidDate!) })}</div>}
                     </div>
                     <div className="text-end">
                       <div className={cn('num text-sm font-semibold', o.rule.kind === 'income' && 'text-positive')}>{fmt.money(o.rule.kind === 'income' ? o.rule.amount : -o.rule.amount, o.rule.currency, { sign: true })}</div>
                       <Badge tone={st.tone}>{st.label}</Badge>
                     </div>
-                    <div className="flex w-full justify-end gap-1 sm:w-auto">
-                      {(o.status === 'upcoming' || o.status === 'overdue') && (
-                        <>
-                          <Button size="sm" variant="outline" icon={<Check className="h-3.5 w-3.5" />} onClick={() => setPay({ o, date: o.dueDate <= today ? today : o.dueDate, amount: o.rule.amount, accountId: o.rule.accountId })}>{t('rec.markPaid')}</Button>
-                          <Button size="sm" variant="ghost" icon={<CircleSlash className="h-3.5 w-3.5" />} onClick={() => repo.skipOccurrence(o.rule.id, o.dueDate).then(() => toast.info(t('rec.skipped')))}>{t('rec.skip')}</Button>
-                        </>
+                    <div className="flex w-full flex-wrap justify-end gap-1 sm:w-auto">
+                      {(o.status === 'upcoming' || o.status === 'overdue' || o.status === 'partial') && (
+                        <Button size="sm" variant="outline" icon={<Check className="h-3.5 w-3.5" />} onClick={() => setPay({ o, date: o.dueDate <= today ? today : o.dueDate, amount: o.remaining, accountId: o.rule.accountId })}>{t('rec.markPaid')}</Button>
                       )}
                       {o.status === 'matched' && o.transactionId && (
-                        <Button size="sm" variant="outline" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => repo.linkOccurrence(o.rule.id, o.dueDate, o.transactionId!).then(() => toast.success(t('rec.linked')))}>{t('rec.link')}</Button>
+                        <Button size="sm" variant="outline" icon={<Link2 className="h-3.5 w-3.5" />} onClick={() => repo.linkOccurrence(o.rule.id, o.dueDate, o.transactionId!).then(() => toast.success(t('rec.linked')), (e) => toast.error(errorMessage(e)))}>{t('rec.link')}</Button>
                       )}
-                      {(o.status === 'paid' || o.status === 'skipped') && (
+                      {o.status !== 'skipped' && (
+                        <Button size="sm" variant="ghost" icon={<ListPlus className="h-3.5 w-3.5" />} onClick={() => setLinking(o)}>{t('rec.linkExisting')}</Button>
+                      )}
+                      {o.status === 'partial' && (
+                        <Button size="sm" variant="ghost" icon={<CircleCheckBig className="h-3.5 w-3.5" />} onClick={() => repo.settleOccurrence(o.rule.id, o.dueDate).then(() => toast.info(t('rec.settledDone')), (e) => toast.error(errorMessage(e)))}>{t('rec.settle')}</Button>
+                      )}
+                      {(o.status === 'upcoming' || o.status === 'overdue') && (
+                        <Button size="sm" variant="ghost" icon={<CircleSlash className="h-3.5 w-3.5" />} onClick={() => repo.skipOccurrence(o.rule.id, o.dueDate).then(() => toast.info(t('rec.skipped')))}>{t('rec.skip')}</Button>
+                      )}
+                      {(o.status === 'paid' || o.status === 'partial' || o.status === 'skipped') && (
                         <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => reset(o)}>{t('common.cancel')}</Button>
                       )}
                     </div>
@@ -173,6 +178,8 @@ export default function Recurring() {
           )}
         </Card>
       </div>
+
+      <LinkOccurrenceDialog occurrence={linking} onClose={() => setLinking(null)} />
 
       <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.id ? t('rec.edit') : t('rec.new')} size="lg"
         footer={<>

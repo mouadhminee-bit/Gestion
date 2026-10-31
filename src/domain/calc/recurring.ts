@@ -3,7 +3,13 @@
  *
  * Une règle récurrente NE crée PAS de transaction : elle décrit des échéances.
  * Une échéance devient une transaction réelle uniquement quand l'utilisateur la
- * marque comme payée (transaction créée et liée via recurringRuleId + recurringDueDate).
+ * marque comme payée (transaction créée et liée via recurringRuleId + recurringDueDate)
+ * ou y associe des opérations existantes.
+ *
+ * Échéance et décaissement restent distincts : `recurringDueDate` désigne l'échéance
+ * soldée, `date` le jour réel de l'opération (un paiement anticipé reste daté du jour
+ * où il a eu lieu). Le lien est porté par la transaction : une échéance peut être
+ * réglée en plusieurs opérations, une opération ne règle qu'une seule échéance.
  *
  * Les échéances sont calculées depuis la date de départ (sans dérive) :
  * départ le 31/01 mensuel → 28/02 (29/02 bissextile), 31/03, 30/04...
@@ -13,6 +19,7 @@ import type { ISODate, Period } from '../dates';
 import { addDays, addMonths, diffDays, inPeriod, parseISO } from '../dates';
 import { roundHalfAwayFromZero } from '../money';
 import type { ID, RecurringOccurrence, RecurringRule, Transaction } from '../types';
+import type { Converter } from './fx';
 
 interface Step {
   unit: 'day' | 'month';
@@ -91,10 +98,37 @@ export type OccurrenceView = {
   id: string;
   rule: RecurringRule;
   dueDate: ISODate;
-  /** paid / skipped : traité par l'utilisateur ; matched : transaction correspondante détectée. */
-  status: 'paid' | 'skipped' | 'matched' | 'upcoming' | 'overdue';
+  /**
+   * paid : réglée (opérations associées ≥ montant prévu, ou soldée par l'utilisateur) ;
+   * partial : opérations associées < montant prévu ; skipped : ignorée ;
+   * matched : opération correspondante détectée automatiquement, NON confirmée ;
+   * upcoming / overdue : aucun paiement associé.
+   */
+  status: 'paid' | 'partial' | 'skipped' | 'matched' | 'upcoming' | 'overdue';
+  /** Opération principale : créée par « Marquer payée », première associée, ou détectée. */
   transactionId?: ID;
+  /** Opérations confirmées (associées à l'échéance). */
+  transactionIds: ID[];
+  /** Montant prévu, devise de la règle. */
+  expected: number;
+  /** Total des opérations confirmées, devise de la règle (0 pour une détection non confirmée). */
+  paid: number;
+  /** Reste attendu (0 si réglée, soldée ou ignorée). */
+  remaining: number;
+  /** Soldée par l'utilisateur alors que le payé est inférieur au prévu (reliquat abandonné). */
+  settled: boolean;
+  /** Date de la dernière opération confirmée. */
+  paidDate?: ISODate;
 };
+
+/** Montant d'une opération exprimé dans la devise de la règle. */
+function amountInRuleCurrency(t: Transaction, rule: RecurringRule, convert?: Converter): number {
+  if (t.currency === rule.currency) return t.amount;
+  const tx = convert?.(t.amount, t.currency, t.date);
+  const unit = convert?.(rule.amount, rule.currency, t.date);
+  // Sans taux de change, l'opération est réputée couvrir l'échéance (jamais de reste fictif).
+  return tx != null && unit ? roundHalfAwayFromZero((tx * rule.amount) / unit) : rule.amount;
+}
 
 /**
  * Recherche une transaction réelle correspondant à une échéance non marquée :
@@ -126,11 +160,15 @@ export function listOccurrences(
   transactions: Transaction[],
   period: Period,
   today: ISODate,
-  options: { includeInactive?: boolean } = {},
+  options: { includeInactive?: boolean; convert?: Converter } = {},
 ): OccurrenceView[] {
   const stateById = new Map(states.map((s) => [s.id, s]));
-  const linked = new Map<string, Transaction>();
-  for (const t of transactions) if (t.recurringRuleId && t.recurringDueDate) linked.set(occurrenceId(t.recurringRuleId, t.recurringDueDate), t);
+  const linked = new Map<string, Transaction[]>();
+  for (const t of transactions) {
+    if (!t.recurringRuleId || !t.recurringDueDate) continue;
+    const id = occurrenceId(t.recurringRuleId, t.recurringDueDate);
+    linked.set(id, [...(linked.get(id) ?? []), t]);
+  }
   const out: OccurrenceView[] = [];
   const used = new Set<ID>();
   for (const rule of rules) {
@@ -138,22 +176,51 @@ export function listOccurrences(
     for (const due of occurrenceDates(rule, period.start, period.end)) {
       const id = occurrenceId(rule.id, due);
       const st = stateById.get(id);
-      if (st) {
-        out.push({ id, rule, dueDate: due, status: st.status, transactionId: st.transactionId });
+      const base = { id, rule, dueDate: due, expected: rule.amount, transactionIds: [] as ID[], paid: 0, remaining: rule.amount, settled: false };
+      if (st?.status === 'skipped') {
+        out.push({ ...base, status: 'skipped', remaining: 0 });
         continue;
       }
-      const tx = linked.get(id) ?? findMatchingTransaction(rule, due, transactions, used);
-      if (tx) used.add(tx.id);
-      if (tx) out.push({ id, rule, dueDate: due, status: tx.recurringRuleId === rule.id ? 'paid' : 'matched', transactionId: tx.id });
-      else out.push({ id, rule, dueDate: due, status: due < today ? 'overdue' : 'upcoming' });
+      const links = (linked.get(id) ?? []).filter((t) => t.type === rule.kind);
+      if (links.length || st?.status === 'paid') {
+        const paid = links.reduce((a, t) => a + amountInRuleCurrency(t, rule, options.convert), 0);
+        const done = st?.status === 'paid' || paid >= rule.amount;
+        const main = st?.transactionId ?? links[0]?.id;
+        const paidDate = links.reduce<ISODate | undefined>((d, t) => (!d || t.date > d ? t.date : d), undefined);
+        out.push({ ...base, status: done ? 'paid' : 'partial', transactionId: main, transactionIds: links.map((t) => t.id), paid, remaining: done ? 0 : rule.amount - paid, settled: done && paid < rule.amount && links.length > 0, paidDate });
+        continue;
+      }
+      const tx = findMatchingTransaction(rule, due, transactions, used);
+      if (tx) {
+        used.add(tx.id);
+        out.push({ ...base, status: 'matched', transactionId: tx.id, remaining: 0 });
+      } else out.push({ ...base, status: due < today ? 'overdue' : 'upcoming' });
     }
   }
   return out.sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0));
 }
 
-/** Échéances restant à payer (à venir ou en retard) dans une période. */
+/** Échéances restant à payer (à venir, en retard ou partiellement réglées) dans une période. */
 export function pendingOccurrences(occ: OccurrenceView[]): OccurrenceView[] {
-  return occ.filter((o) => o.status === 'upcoming' || o.status === 'overdue');
+  return occ.filter((o) => o.status === 'upcoming' || o.status === 'overdue' || o.status === 'partial');
+}
+
+/**
+ * Opérations existantes pouvant être associées à une échéance : même type que la règle,
+ * même devise, non associées à une autre échéance, datées à ±62 jours. Les plus proches
+ * (compte, libellé ou catégorie identiques, puis écart de date) d'abord.
+ */
+export function linkCandidates(rule: RecurringRule, dueDate: ISODate, transactions: Transaction[]): Transaction[] {
+  const own = occurrenceId(rule.id, dueDate);
+  const score = (t: Transaction) =>
+    Math.abs(diffDays(t.date, dueDate)) -
+    (t.accountId === rule.accountId ? 30 : 0) -
+    (rule.categoryId != null && t.categoryId === rule.categoryId ? 30 : 0) -
+    (t.label.trim().toLowerCase() === rule.label.trim().toLowerCase() ? 60 : 0);
+  return transactions
+    .filter((t) => t.type === rule.kind && t.currency === rule.currency && Math.abs(diffDays(t.date, dueDate)) <= 62)
+    .filter((t) => !t.recurringRuleId || occurrenceId(t.recurringRuleId, t.recurringDueDate ?? '') === own)
+    .sort((a, b) => score(a) - score(b) || (a.date < b.date ? 1 : -1));
 }
 
 /** Nombre d'occurrences par an (pour l'équivalent mensuel). */

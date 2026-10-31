@@ -186,7 +186,7 @@ export function generateInsights(
 
   // 5. Échéances récurrentes à venir.
   const window = { start: today, end: addDays(today, opt.billReminderDays) };
-  const upcoming = pendingOccurrences(listOccurrences(data.recurringRules, data.occurrences, data.transactions, window, today)).filter(
+  const upcoming = pendingOccurrences(listOccurrences(data.recurringRules, data.occurrences, data.transactions, window, today, { convert: ctx.convert })).filter(
     (o) => o.rule.kind === 'expense',
   );
   for (const o of upcoming.slice(0, 3)) {
@@ -195,7 +195,7 @@ export function generateInsights(
       kind: 'bill',
       severity: 'info',
       title: t('ins.bill.title', { label: o.rule.label }),
-      message: t('ins.bill.message', { amount: opt.fmt(o.rule.amount), date: formatDate(o.dueDate, opt.dateFormat) }),
+      message: t('ins.bill.message', { amount: opt.fmt(o.remaining), date: formatDate(o.dueDate, opt.dateFormat) }),
       source: t('ins.bill.source', { label: o.rule.label }),
       href: '/recurring',
     });

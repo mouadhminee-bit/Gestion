@@ -136,6 +136,8 @@ describe('Noms de catégories', () => {
   });
 });
 
+const toLatin = (s: string) => s.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0));
+
 describe('Part des dépenses récurrentes', () => {
   // Le ratio 0,637 doit s'afficher « 64 % » (et non « 637 % ») dans chaque langue et chaque locale.
   for (const l of LANGUAGES) {
@@ -143,9 +145,13 @@ describe('Part des dépenses récurrentes', () => {
       activateMessages(l.code, locales.get(l.code)!);
       for (const locale of [l.locale, 'fr-MA']) {
         const text = t('an.perMonthShare', { pct: formatPercent(0.637, locale, 0) });
-        const digits = text.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0)).replace(/[^\d]/g, '');
+        const digits = toLatin(text).replace(/[^\d]/g, '');
         expect(digits, `${l.code} ${locale} « ${text} »`).toBe('64');
         expect(text, `${l.code} ${locale}`).toMatch(/[%٪]/);
+        // Charges récurrentes : une décimale fixe (75,9 % ; 100,0 %).
+        const fixed = (r: number) => toLatin(formatPercent(r, locale, 1, 1)).replace(/[^\d]/g, '');
+        expect(fixed(0.75885), `${l.code} ${locale}`).toBe('759');
+        expect(fixed(1), `${l.code} ${locale}`).toBe('1000');
       }
     });
   }

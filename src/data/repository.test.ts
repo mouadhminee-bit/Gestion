@@ -216,6 +216,79 @@ describe('Budgets, objectifs, récurrences, dettes', () => {
     expect(listOccurrences(s2.recurringRules, s2.occurrences, s2.transactions, monthPeriod('2026-03'), '2026-03-20')[0].status).toBe('overdue');
   });
 
+  describe('rapprochement manuel des échéances', () => {
+    const loyer = () => repo.saveRecurringRule({ kind: 'expense', label: 'Loyer', amount: 280000, currency: 'MAD', accountId: bank.id, categoryId: cat('rent').id, frequency: 'monthly', startDate: '2026-03-03', active: true });
+    const occ = async () => {
+      const s = (await repo.snapshot())!;
+      return listOccurrences(s.recurringRules, s.occurrences, s.transactions, monthPeriod('2026-03'), '2026-03-20')[0];
+    };
+
+    it('associe plusieurs opérations existantes sans en créer (paiement fractionné)', async () => {
+      const r = await loyer();
+      const a = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 150000, label: 'Virement 1', date: '2026-03-01' }));
+      const b = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 130000, label: 'Virement 2', date: '2026-03-05' }));
+      await repo.linkOccurrence(r.id, '2026-03-03', [a[0].id]);
+      expect(await occ()).toMatchObject({ status: 'partial', paid: 150000, remaining: 130000 });
+      await repo.linkOccurrence(r.id, '2026-03-03', [b[0].id]);
+      expect(await occ()).toMatchObject({ status: 'paid', paid: 280000, remaining: 0 });
+      const s = (await repo.snapshot())!;
+      expect(s.transactions).toHaveLength(2);
+      // Dates réelles conservées : le paiement anticipé du 01/03 reste daté du 01/03.
+      expect(s.transactions.map((t) => t.date).sort()).toEqual(['2026-03-01', '2026-03-05']);
+      expect(summarizePeriod(buildContext(s), s.transactions, monthPeriod('2026-03')).expenses).toBe(280000);
+    });
+
+    it('refuse une opération déjà associée à une autre échéance ou d’un autre type', async () => {
+      const r = await loyer();
+      const t = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 280000 }));
+      await repo.linkOccurrence(r.id, '2026-03-03', t[0].id);
+      await expect(repo.linkOccurrence(r.id, '2026-04-03', t[0].id)).rejects.toThrow(ValidationError);
+      const inc = await repo.createTransaction(draft({ type: 'income', categoryId: cats.find((c) => c.kind === 'income')!.id, amount: 280000 }));
+      await expect(repo.linkOccurrence(r.id, '2026-03-03', inc[0].id)).rejects.toThrow(ValidationError);
+    });
+
+    it('« Marquer payée » ne règle que le reliquat et refuse un second paiement complet', async () => {
+      const r = await loyer();
+      const t = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 100000 }));
+      await repo.linkOccurrence(r.id, '2026-03-03', t[0].id);
+      await repo.markOccurrencePaid(r.id, '2026-03-03', { date: '2026-03-10', amount: 180000, accountId: bank.id });
+      expect(await occ()).toMatchObject({ status: 'paid', paid: 280000 });
+      await expect(repo.markOccurrencePaid(r.id, '2026-03-03', { date: '2026-03-11', amount: 280000, accountId: bank.id })).rejects.toThrow(ValidationError);
+      expect((await repo.snapshot())!.transactions).toHaveLength(2);
+    });
+
+    it('un paiement partiel via « Marquer payée » laisse le reliquat attendu', async () => {
+      const r = await loyer();
+      await repo.markOccurrencePaid(r.id, '2026-03-03', { date: '2026-03-04', amount: 200000, accountId: bank.id });
+      expect(await occ()).toMatchObject({ status: 'partial', remaining: 80000 });
+    });
+
+    it('solder, dissocier, annuler : les opérations sont toujours conservées', async () => {
+      const r = await loyer();
+      await expect(repo.settleOccurrence(r.id, '2026-03-03')).rejects.toThrow(ValidationError);
+      const t = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 200000 }));
+      await repo.linkOccurrence(r.id, '2026-03-03', t[0].id);
+      await repo.settleOccurrence(r.id, '2026-03-03');
+      expect(await occ()).toMatchObject({ status: 'paid', settled: true, remaining: 0 });
+      await repo.unlinkTransaction(t[0].id);
+      expect(await occ()).toMatchObject({ status: 'overdue', paid: 0 });
+      await repo.linkOccurrence(r.id, '2026-03-03', t[0].id);
+      await repo.resetOccurrence(r.id, '2026-03-03', true);
+      const s = (await repo.snapshot())!;
+      expect(s.transactions).toHaveLength(1); // opération saisie à la main : dissociée, jamais supprimée
+      expect(s.transactions[0].recurringRuleId).toBeUndefined();
+    });
+
+    it('supprimer une des opérations d’un paiement fractionné garde le lien des autres', async () => {
+      const r = await loyer();
+      const a = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 150000 }));
+      const b = await repo.createTransaction(draft({ categoryId: cat('rent').id, amount: 130000 }));
+      await repo.linkOccurrence(r.id, '2026-03-03', [a[0].id, b[0].id]);
+      await repo.deleteTransactions([a[0].id]);
+      expect(await occ()).toMatchObject({ status: 'partial', paid: 130000, remaining: 150000 });
+    });
+  });
+
   it('remboursement de dette : solde restant, compte débité, intérêts seuls en dépense', async () => {
     const d = await repo.createDebt({ label: 'Crédit', type: 'loan', direction: 'payable', principal: 1000000, currency: 'MAD', startDate: '2026-03-01', status: 'active' }, { accountId: bank.id, date: '2026-03-01' });
     expect(await balanceOf(bank)).toBe(1500000);

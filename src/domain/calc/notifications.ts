@@ -52,11 +52,12 @@ export function computeNotifications(ctx: LedgerContext, data: DataSnapshot, tod
 
   if (s.notifyBills) {
     const window = { start: addDays(today, -30), end: addDays(today, s.billReminderDays) };
-    for (const o of listOccurrences(data.recurringRules, data.occurrences, data.transactions, window, today)) {
-      if (o.status === 'overdue') {
-        out.push({ id: `bill-overdue:${o.id}`, severity: 'warning', title: t('notif.billOverdue.title', { label: o.rule.label }), message: t('notif.billOverdue.message', { date: formatDate(o.dueDate, dateFormat), amount: fmt(o.rule.amount) }), href: '/recurring', date: o.dueDate });
-      } else if (o.status === 'upcoming') {
-        out.push({ id: `bill:${o.id}`, severity: 'info', title: t(o.rule.kind === 'income' ? 'notif.incomeExpected' : 'notif.billUpcoming', { label: o.rule.label }), message: t('notif.bill.message', { amount: fmt(o.rule.amount), date: formatDate(o.dueDate, dateFormat) }), href: '/recurring', date: o.dueDate });
+    for (const o of listOccurrences(data.recurringRules, data.occurrences, data.transactions, window, today, { convert: ctx.convert })) {
+      const late = o.status === 'overdue' || (o.status === 'partial' && o.dueDate < today);
+      if (late) {
+        out.push({ id: `bill-overdue:${o.id}`, severity: 'warning', title: t('notif.billOverdue.title', { label: o.rule.label }), message: t('notif.billOverdue.message', { date: formatDate(o.dueDate, dateFormat), amount: fmt(o.remaining) }), href: '/recurring', date: o.dueDate });
+      } else if (o.status === 'upcoming' || o.status === 'partial') {
+        out.push({ id: `bill:${o.id}`, severity: 'info', title: t(o.rule.kind === 'income' ? 'notif.incomeExpected' : 'notif.billUpcoming', { label: o.rule.label }), message: t('notif.bill.message', { amount: fmt(o.remaining), date: formatDate(o.dueDate, dateFormat) }), href: '/recurring', date: o.dueDate });
       }
     }
   }

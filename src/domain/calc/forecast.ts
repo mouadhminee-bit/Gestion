@@ -103,7 +103,7 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   const summary = summarizePeriod(ctx, data.transactions, period);
   const scopeIds = new Set(scope.map((a) => a.id));
 
-  const occ = listOccurrences(data.recurringRules, data.occurrences, data.transactions, period, today);
+  const occ = listOccurrences(data.recurringRules, data.occurrences, data.transactions, period, today, { convert: ctx.convert });
   const pending = pendingOccurrences(occ);
   let expectedIncome = 0;
   let expectedExpenses = 0;
@@ -111,7 +111,8 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   let expectedExpensesOutOfScope = 0;
   const committedByCategory = new Map<ID | null, number>();
   for (const o of pending) {
-    const v = ctx.convert(o.rule.amount, o.rule.currency, o.dueDate) ?? 0;
+    // Paiement partiel : seul le reliquat reste attendu (la partie payée est déjà dans le réel).
+    const v = ctx.convert(o.remaining, o.rule.currency, o.dueDate) ?? 0;
     const inScope = scopeIds.has(o.rule.accountId);
     if (o.rule.kind === 'income') {
       expectedIncome += v;
