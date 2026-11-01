@@ -647,6 +647,207 @@ describe('contrat : atomicité des opérations composées', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 6 bis. Réserve R2 (Lot 4) : saveAsset + valorisation initiale, resetToEmpty
+// ---------------------------------------------------------------------------
+
+describe('contrat : atomicité R2 (saveAsset, resetToEmpty)', () => {
+  const both = [
+    ['LocalRepository (transaction Dexie)', (u: string) => ({ ...local(u), transport: null as MemoryTransport | null })],
+    ['CloudRepository (surcouche + lot)', (u: string) => {
+      const c = cloud(u);
+      return { repo: c.repo, db: c.cache, transport: c.transport as MemoryTransport | null };
+    }],
+  ] as const;
+
+  /** Fait échouer le `nth` appel (1 = premier) de `method` sur `table`. */
+  function failOnCall(repo: NexoraRepository, table: TableName, method: 'put' | 'add' | 'bulkPut' | 'delete', nth = 1) {
+    const port = store(repo).tables[table] as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>;
+    const original = port[method].bind(port);
+    let calls = 0;
+    return vi.spyOn(port, method).mockImplementation((...args: unknown[]) => (++calls === nth ? Promise.reject(new Error('panne simulée')) : original(...args)));
+  }
+
+  const asset = (p: Record<string, unknown> = {}) => ({ name: 'Portefeuille', type: 'investment' as const, currency: 'MAD', archived: false, ...p });
+
+  for (const [name, make] of both) {
+    describe(name, () => {
+      /** Contenu de la base / du cache et, en cloud, du serveur simulé. */
+      async function state(env: ReturnType<typeof make>, userId: string) {
+        return {
+          db: await dump(env.db),
+          server: env.transport ? Object.fromEntries(ALL_TABLES.map((t) => [t, env.transport!.rows(userId, t)])) : null,
+        };
+      }
+
+      it('valorisation initiale invalide (date, valeur) → ValidationError, aucun actif créé', async () => {
+        const u = uid();
+        const env = make(u);
+        await seeded(env.repo);
+        const before = await state(env, u);
+        const commits = env.transport?.commits.length;
+        for (const bad of [
+          { date: '2026-02-30', value: 1000 },
+          { date: 'pas une date', value: 1000 },
+          { date: '2026-03-01', value: -1 },
+          { date: '2026-03-01', value: 1.5 },
+          { date: '2026-03-01', value: Number.NaN },
+        ]) {
+          await expect(env.repo.saveAsset(asset(), bad)).rejects.toBeInstanceOf(ValidationError);
+        }
+        expect(await state(env, u)).toEqual(before);
+        expect((await env.repo.snapshot())!.assets).toEqual([]);
+        if (env.transport) expect(env.transport.commits.length).toBe(commits); // aucun lot envoyé
+      });
+
+      it('mêmes messages qu’avant : date invalide puis valeur invalide', async () => {
+        const env = make(uid());
+        await seeded(env.repo);
+        await expect(env.repo.saveAsset(asset(), { date: 'x', value: -1 })).rejects.toMatchObject({ fields: { date: expect.any(String) } });
+        await expect(env.repo.saveAsset(asset(), { date: '2026-03-01', value: -1 })).rejects.toMatchObject({ fields: { value: expect.any(String) } });
+      });
+
+      it('panne à l’écriture de la valorisation → aucun actif orphelin', async () => {
+        const u = uid();
+        const env = make(u);
+        const { savings } = await seeded(env.repo);
+        const before = await state(env, u);
+        const spy = failOnCall(env.repo, 'valuations', 'add');
+        await expect(env.repo.saveAsset(asset({ linkedAccountId: savings.id }), { date: '2026-03-01', value: 70000 })).rejects.toThrow('panne simulée');
+        spy.mockRestore();
+        expect(await state(env, u)).toEqual(before);
+        // L'actif n'existe pas : une nouvelle tentative n'est pas bloquée par « compte déjà valorisé ».
+        const created = await env.repo.saveAsset(asset({ linkedAccountId: savings.id }), { date: '2026-03-01', value: 70000 });
+        const s = (await env.repo.snapshot())!;
+        expect(s.assets.map((a) => a.id)).toEqual([created.id]);
+        expect(s.valuations.map((v) => [v.assetId, v.value])).toEqual([[created.id, 70000]]);
+      });
+
+      it('panne à l’écriture de l’actif → ni actif ni valorisation', async () => {
+        const u = uid();
+        const env = make(u);
+        await seeded(env.repo);
+        const before = await state(env, u);
+        const spy = failOnCall(env.repo, 'assets', 'add');
+        await expect(env.repo.saveAsset(asset(), { date: '2026-03-01', value: 70000 })).rejects.toThrow('panne simulée');
+        spy.mockRestore();
+        expect(await state(env, u)).toEqual(before);
+      });
+
+      it('succès : création avec valorisation (un seul lot en cloud), puis modification', async () => {
+        const u = uid();
+        const env = make(u);
+        await seeded(env.repo);
+        const commits = env.transport?.commits.length ?? 0;
+        const created = await env.repo.saveAsset(asset(), { date: '2026-03-01', value: 70000 });
+        if (env.transport) {
+          expect(env.transport.commits.length).toBe(commits + 1);
+          expect(env.transport.commits.at(-1)!.ops.map((o) => o.table).sort()).toEqual(['assets', 'valuations']);
+        }
+        let s = (await env.repo.snapshot())!;
+        expect(s.assets).toEqual([created]);
+        expect(s.valuations).toMatchObject([{ assetId: created.id, date: '2026-03-01', value: 70000, source: 'manual', userId: u }]);
+
+        const updated = await env.repo.saveAsset({ ...created, name: 'PEA', notes: 'modifié' });
+        s = (await env.repo.snapshot())!;
+        expect(updated).toMatchObject({ id: created.id, name: 'PEA', notes: 'modifié', createdAt: created.createdAt });
+        expect(s.assets).toEqual([updated]);
+        expect(s.valuations).toHaveLength(1);
+
+        // Modification avec une valorisation : actif mis à jour et valorisation ajoutée ensemble.
+        await env.repo.saveAsset({ ...updated, name: 'PEA 2' }, { date: '2026-04-01', value: 80000 });
+        s = (await env.repo.snapshot())!;
+        expect(s.assets[0].name).toBe('PEA 2');
+        expect(s.valuations.map((v) => v.value).sort()).toEqual([70000, 80000]);
+      });
+
+      it('les erreurs existantes restent sans écriture (nom vide, compte déjà valorisé, actif inconnu)', async () => {
+        const u = uid();
+        const env = make(u);
+        const { savings } = await seeded(env.repo);
+        await env.repo.saveAsset(asset({ linkedAccountId: savings.id }));
+        const before = await state(env, u);
+        await expect(env.repo.saveAsset(asset({ name: '  ' }), { date: '2026-03-01', value: 1 })).rejects.toBeInstanceOf(ValidationError);
+        await expect(env.repo.saveAsset(asset({ name: 'Doublon', linkedAccountId: savings.id }), { date: '2026-03-01', value: 1 })).rejects.toBeInstanceOf(ValidationError);
+        await expect(env.repo.saveAsset(asset({ id: '00000000-0000-4000-8000-999999999999' }), { date: '2026-03-01', value: 1 })).rejects.toThrow();
+        expect(await state(env, u)).toEqual(before);
+      });
+
+      const resetFailures: [string, TableName, 'put' | 'bulkPut' | 'delete', number][] = [
+        ['effacement (suppressions)', 'transactions', 'delete', 1],
+        ['recréation du profil (ensureUser)', 'users', 'put', 1],
+        ['catégories initiales (ensureUser)', 'categories', 'bulkPut', 1],
+        ['paramètres conservés (updateSettings, 2e écriture de settings)', 'settings', 'put', 2],
+      ];
+      for (const [step, table, method, nth] of resetFailures) {
+        it(`resetToEmpty : panne à l’étape « ${step} » → aucune réinitialisation partielle`, async () => {
+          const u = uid();
+          const env = make(u);
+          const { bank, cat } = await seeded(env.repo);
+          await env.repo.updateSettings({ theme: 'dark', demoMode: true });
+          await env.repo.createTransaction(draft(bank.id, { categoryId: cat('food').id }));
+          await env.repo.saveAsset(asset(), { date: '2026-03-01', value: 1000 });
+          const before = await state(env, u);
+          // `delete` : Dexie passe par Collection.delete() ; on simule la panne au niveau de la collection.
+          const spy =
+            method === 'delete'
+              ? vi.spyOn(store(env.repo).tables[table], 'where').mockImplementationOnce(() => ({
+                  equals: () => ({ delete: () => Promise.reject(new Error('panne simulée')) }),
+                }) as never)
+              : failOnCall(env.repo, table, method, nth);
+          await expect(env.repo.resetToEmpty({ theme: 'dark', displayName: 'Test' })).rejects.toThrow('panne simulée');
+          spy.mockRestore();
+          expect(await state(env, u)).toEqual(before);
+        });
+      }
+
+      it('resetToEmpty : succès → espace vierge, préférences conservées, un seul lot en cloud', async () => {
+        const u = uid();
+        const env = make(u);
+        const { bank, cat } = await seeded(env.repo);
+        await env.repo.updateSettings({ demoMode: true });
+        await env.repo.createTransaction(draft(bank.id, { categoryId: cat('food').id }));
+        await env.repo.saveAsset(asset(), { date: '2026-03-01', value: 1000 });
+        const commits = env.transport?.commits.length ?? 0;
+        await env.repo.resetToEmpty({ theme: 'dark', displayName: 'Nouveau', onboarded: true });
+        if (env.transport) expect(env.transport.commits.length).toBe(commits + 1);
+        const s = (await env.repo.snapshot())!;
+        expect(s.settings).toMatchObject({ theme: 'dark', displayName: 'Nouveau', onboarded: true, demoMode: false });
+        expect(s.accounts).toEqual([]);
+        expect(s.transactions).toEqual([]);
+        expect(s.assets).toEqual([]);
+        expect(s.valuations).toEqual([]);
+        expect(s.categories.length).toBeGreaterThan(0);
+        expect(s.categories.every((c) => c.key)).toBe(true);
+      });
+    });
+  }
+
+  it('équivalence : saveAsset et resetToEmpty produisent les mêmes données en local et en cloud', async () => {
+    const run = async (repo: NexoraRepository) => {
+      resetIds();
+      const { savings } = await seeded(repo);
+      const out: unknown[] = [];
+      const a = await repo.saveAsset(asset({ linkedAccountId: savings.id }), { date: '2026-03-01', value: 70000 });
+      out.push(a);
+      out.push(await repo.saveAsset(asset(), { date: 'x', value: 1 }).catch((e: Error) => [e.name, e.message]));
+      out.push(await repo.saveAsset({ ...a, name: 'Modifié' }, { date: '2026-04-01', value: 75000 }));
+      out.push(await repo.snapshot());
+      await repo.resetToEmpty({ theme: 'dark', displayName: 'X' });
+      out.push(await repo.snapshot());
+      return out;
+    };
+    const u = uid();
+    // Horloge figée (`defaultSettings` lit `new Date()`), comme pour le scénario complet.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-31T12:00:00Z') });
+    const l = await run(local(u).repo);
+    vi.setSystemTime(new Date('2026-10-31T12:00:00Z'));
+    const c = await run(cloud(u).repo);
+    vi.useRealTimers();
+    expect(c).toEqual(l);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 7. Correction d'atomicité : lecture et écriture dans la même transaction
 // ---------------------------------------------------------------------------
 

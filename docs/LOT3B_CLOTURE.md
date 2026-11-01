@@ -1,7 +1,10 @@
 # NEXORA — Conclusion formelle de l'étape 3b (qualification sur la pile Supabase locale)
 
 *Version consolidée du 01/11/2026 sur `claude/stoic-edison-8s0vhq`. Remplace la version du
-commit `0d9efbc`. Aucune étape du Lot 4 n'est engagée.*
+commit `0d9efbc`. Aucune étape du Lot 4 n'était engagée à cette date.*
+
+> **Mise à jour (Lot 4, étape 4.0)** : les trois rapports Codespaces sont versionnés depuis le
+> commit `8cdd310` (§ 3, § 7.6, § 8 corrigés). Lancement du Lot 4 : `docs/LOT4_PLAN.md`.
 
 ## 1. Décision
 
@@ -37,12 +40,11 @@ différées renvoyées par PostgREST).
 | `docs/qualification/3b-pg17-local.json` / `.md` (PG 17 local, analyses dblink, flottants, chaîne numérique) | **versionnées** |
 | `supabase/db-tests/baseline/pg16.json` (référence PG 16, 1 106 assertions) | versionnée |
 | Suites et outillage (`supabase/db-tests/`, `scripts/db-test.sh`, `scripts/qualify-supabase.sh`) permettant de rejouer la qualification | versionnés |
-| `docs/qualification/3b-local-report.md`, `3b-local-sql.json`, `3b-local-http.json` (exécution Codespaces finale) | **non versionnées à ce jour** : présentes uniquement dans le Codespace. À contrôler par `node scripts/check-qualification-evidence.mjs` (secrets, données personnelles, URL non locales, cohérence), puis à ajouter — procédure : `docs/LOT3B_QUALIFICATION.md` § 5 |
+| `docs/qualification/3b-local-report.md`, `3b-local-sql.json`, `3b-local-http.json` (exécution Codespaces finale) | **versionnées** (commit `8cdd310`). Contrôle `node scripts/check-qualification-evidence.mjs` : « fichiers propres et cohérents » (SQL 1 152, HTTP 143, précision 8/8, PG 16/17 1 106 identiques, 7 migrations) |
 
-Tant que ces trois fichiers ne sont pas versionnés, les résultats Codespaces finaux (SQL
-1 152/1 152, HTTP 143/143, précision 8/8, PG 16/17 1 106 identiques, 7 migrations, nettoyage
-complet) reposent sur le compte rendu du responsable de la qualification ; les preuves
-locales reproductibles ci-dessus les corroborent.
+Les résultats Codespaces finaux (SQL 1 152/1 152, HTTP 143/143, précision 8/8, PG 16/17
+1 106 identiques, 7 migrations) sont donc archivés dans le dépôt ; le nettoyage complet
+(0 conteneur, 0 volume) repose sur le compte rendu du responsable de la qualification.
 
 ## 4. Points P9, P10, P11
 
@@ -86,7 +88,7 @@ modification de `src/`, des données IndexedDB, de la production ou de `nexora-d
    (P3).
 5. **Écritures** : requêtes PostgREST unitaires ; aucune écriture multi-tables atomique
    côté serveur (Lot 4).
-6. **Traçabilité** : rapports Codespaces finaux non versionnés (§ 3) ; aucune CI.
+6. **Traçabilité** : rapports Codespaces finaux versionnés depuis `8cdd310` (§ 3) ; aucune CI.
 7. **PostgreSQL 17 local** : binaires d'un paquet npm (empaquetage bêta) ; la référence de
    version reste l'image Supabase.
 
@@ -94,7 +96,7 @@ modification de `src/`, des données IndexedDB, de la production ou de `nexora-d
 
 | Avant | Condition |
 |---|---|
-| **Lot 4** (`apply_changeset`, contrôle optimiste) | Décision explicite de lancement ; archivage des trois rapports Codespaces (§ 3) recommandé ; correspondance TypeScript ↔ SQL de `users` / `meta` à définir (P2) ; tests de conflit à deux clients prévus pour R3 ; le schéma des 7 migrations sert de base (toute modification d'une migration validée exige une anomalie démontrée et une approbation) |
+| **Lot 4** (`apply_changeset`, contrôle optimiste) | Décision explicite de lancement (**donnée**, voir `docs/LOT4_PLAN.md`) ; archivage des trois rapports Codespaces (§ 3) (**fait**, `8cdd310`) ; correspondance TypeScript ↔ SQL de `users` / `meta` à définir (P2) ; tests de conflit à deux clients prévus pour R3 ; le schéma des 7 migrations sert de base (toute modification d'une migration validée exige une anomalie démontrée et une approbation) |
 | **Lot 5** (synchronisation) | Lot 4 validé ; P1 et P8 traités dans la conception |
 | **Lot 6** (authentification dans l'application) | P9 et P10 vérifiés sur un projet hébergé de **développement** (3b-4) |
 | **Mise en production du cloud** | R1, R2, R3 levées ; P9, P10 clos sur l'hébergé ; P3 traité avant toute migration des données Edge ; projet de production distinct du développement |

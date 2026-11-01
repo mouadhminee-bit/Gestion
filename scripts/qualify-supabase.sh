@@ -6,7 +6,7 @@
 #
 #  1. vérifie l'environnement et REFUSE toute cible autre que la pile locale « nexora » ;
 #  2. démarre la pile Supabase locale (PostgreSQL, GoTrue/Auth, PostgREST, Kong, …) :
-#     les 6 migrations sont appliquées par le CLI Supabase ;
+#     toutes les migrations de supabase/migrations/ sont appliquées par le CLI Supabase ;
 #  3. exécute les suites SQL (01…08 + contrôles plateforme) sur la base Supabase ;
 #  4. exécute la suite HTTP : deux utilisateurs réellement authentifiés via GoTrue ;
 #  5. compare avec la référence PostgreSQL 16 et écrit le rapport dans docs/qualification/ ;

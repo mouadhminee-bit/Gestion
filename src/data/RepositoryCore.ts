@@ -47,6 +47,15 @@ import { addMonthsToKey, isValidISODate } from '@/domain/dates';
 import { t as tr } from '@/i18n/core';
 import { ValidationError } from '@/domain/errors';
 
+/**
+ * Règles de validité d'une valorisation (mêmes messages, même ordre : date puis valeur).
+ * Fonction de module et non méthode : la surface de l'API reste de 54 méthodes.
+ */
+function checkValuation(date: string, value: number): void {
+  if (!isValidISODate(date)) throw new ValidationError(tr('err.invalidDate'), { date: tr('err.invalidDate') });
+  if (!Number.isSafeInteger(value) || value < 0) throw new ValidationError(tr('err.invalidValue'), { value: tr('err.invalidValue') });
+}
+
 export abstract class RepositoryCore implements NexoraRepository {
   constructor(
     protected readonly store: StoragePort,
@@ -846,23 +855,32 @@ export abstract class RepositoryCore implements NexoraRepository {
   // Patrimoine & taux de change
   // -------------------------------------------------------------------------
 
+  /**
+   * Crée ou modifie un actif et, le cas échéant, sa valorisation initiale, en UNE seule
+   * transaction (Lot 4, réserve R2) : toutes les validations ont lieu avant la première
+   * écriture, et un échec d'écriture annule l'ensemble (aucun actif sans valorisation).
+   */
   async saveAsset(input: NewEntity<Asset> & { id?: ID }, initialValuation?: { date: string; value: number }): Promise<Asset> {
     if (!input.name.trim()) throw new ValidationError(tr('err.nameRequired'), { name: tr('err.nameRequired') });
-    if (input.linkedAccountId) {
-      const others = await this.t.assets.where('userId').equals(this.userId).filter((a) => a.linkedAccountId === input.linkedAccountId && a.id !== input.id && !a.archived).count();
-      if (others) throw new ValidationError(tr('err.accountAlreadyValued'));
-    }
-    let asset: Asset;
-    if (input.id) {
-      const cur = await this.own<Asset>('assets', input.id);
-      asset = { ...cur, ...input, id: cur.id, userId: this.userId, updatedAt: nowISO() } as Asset;
-      await this.t.assets.put(asset);
-    } else {
-      asset = this.stamp(input) as Asset;
-      await this.t.assets.add(asset);
-    }
-    if (initialValuation) await this.addValuation(asset.id, initialValuation.date, initialValuation.value);
-    return asset;
+    return this.store.transaction(['assets', 'valuations'], async () => {
+      if (input.linkedAccountId) {
+        const others = await this.t.assets.where('userId').equals(this.userId).filter((a) => a.linkedAccountId === input.linkedAccountId && a.id !== input.id && !a.archived).count();
+        if (others) throw new ValidationError(tr('err.accountAlreadyValued'));
+      }
+      const cur = input.id ? await this.own<Asset>('assets', input.id) : undefined;
+      if (initialValuation) checkValuation(initialValuation.date, initialValuation.value);
+      let asset: Asset;
+      if (cur) {
+        asset = { ...cur, ...input, id: cur.id, userId: this.userId, updatedAt: nowISO() } as Asset;
+        await this.t.assets.put(asset);
+      } else {
+        asset = this.stamp(input) as Asset;
+        await this.t.assets.add(asset);
+      }
+      // Appel imbriqué : rejoint la transaction englobante (Dexie et CloudStorage).
+      if (initialValuation) await this.addValuation(asset.id, initialValuation.date, initialValuation.value);
+      return asset;
+    });
   }
 
   async deleteAsset(id: ID): Promise<void> {
@@ -875,8 +893,7 @@ export abstract class RepositoryCore implements NexoraRepository {
 
   async addValuation(assetId: ID, date: string, value: number, note?: string): Promise<void> {
     await this.own<Asset>('assets', assetId);
-    if (!isValidISODate(date)) throw new ValidationError(tr('err.invalidDate'), { date: tr('err.invalidDate') });
-    if (!Number.isSafeInteger(value) || value < 0) throw new ValidationError(tr('err.invalidValue'), { value: tr('err.invalidValue') });
+    checkValuation(date, value);
     await this.t.valuations.add({ id: newId(), userId: this.userId, assetId, date, value, source: 'manual', note, createdAt: nowISO() });
   }
 
@@ -971,9 +988,14 @@ export abstract class RepositoryCore implements NexoraRepository {
 
   /** Efface tout puis recrée un espace vierge (catégories initiales) en conservant les préférences d'affichage. */
   async resetToEmpty(keep: Partial<UserSettings> = {}): Promise<void> {
-    await this.clearUserData();
-    await this.ensureUser(keep.displayName ?? '');
-    await this.updateSettings({ ...keep, demoMode: false });
+    // Une seule transaction (Lot 4) : effacement, recréation de l'espace et paramètres
+    // réussissent ensemble ou pas du tout. Les appels imbriqués la rejoignent ; sa portée
+    // couvre toutes leurs tables (`users` et `meta` pour `ensureUser`).
+    await this.store.transaction([...USER_TABLES, 'attachments', 'users', 'meta'], async () => {
+      await this.clearUserData();
+      await this.ensureUser(keep.displayName ?? '');
+      await this.updateSettings({ ...keep, demoMode: false });
+    });
   }
 
   async clearUserData(): Promise<void> {
