@@ -1,0 +1,863 @@
+{
+  "server_version": "Supabase API (PostgREST/GoTrue)",
+  "results": [
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "deux utilisateurs distincts inscrits via GoTrue",
+      "ok": true,
+      "detail": "af4e601e-60ae-4f3e-af02-f28863e28335 / f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "jeton JWT réel émis par GoTrue (rôle authenticated)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "profil de A créé à l'inscription et seul visible par A",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"af4e601e-60ae-4f3e-af02-f28863e28335\",\"display_name\":\"qualif-a\",\"version\":1}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "nom du profil repris des métadonnées d'inscription",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"af4e601e-60ae-4f3e-af02-f28863e28335\",\"display_name\":\"qualif-a\",\"version\":1}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "aucun user_settings pré-créé à l'inscription",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "A ne peut pas renommer le profil de B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "jeu de données complet créé par chaque utilisateur via l'API (18 tables)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.user_settings TO authenticated;\",\"message\":\"permission denied for table user_setti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.user_settings TO authenticated;\",\"message\":\"permission denied for table user_setti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de user_settings est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"},{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.accounts TO authenticated;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.accounts TO authenticated;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de accounts est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"},{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.categories TO authenticated;\",\"message\":\"permission denied for table categories\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.categories TO authenticated;\",\"message\":\"permission denied for table categories\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de categories est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.import_batches TO authenticated;\",\"message\":\"permission denied for table import_ba"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.import_batches TO authenticated;\",\"message\":\"permission denied for table import_ba"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de import_batches est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"},{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.transactions TO authenticated;\",\"message\":\"permission denied for table transaction"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.transactions TO authenticated;\",\"message\":\"permission denied for table transaction"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de transactions est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.attachments TO authenticated;\",\"message\":\"permission denied for table attachments\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.attachments TO authenticated;\",\"message\":\"permission denied for table attachments\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de attachments est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.budgets TO authenticated;\",\"message\":\"permission denied for table budgets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.budgets TO authenticated;\",\"message\":\"permission denied for table budgets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de budgets est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.savings_goals TO authenticated;\",\"message\":\"permission denied for table savings_go"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.savings_goals TO authenticated;\",\"message\":\"permission denied for table savings_go"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de savings_goals est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.goal_contributions TO authenticated;\",\"message\":\"permission denied for table goal_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.goal_contributions TO authenticated;\",\"message\":\"permission denied for table goal_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de goal_contributions est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_rules TO authenticated;\",\"message\":\"permission denied for table recurrin"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_rules TO authenticated;\",\"message\":\"permission denied for table recurrin"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de recurring_rules est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_occurrences TO authenticated;\",\"message\":\"permission denied for table re"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_occurrences TO authenticated;\",\"message\":\"permission denied for table re"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de recurring_occurrences est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debts TO authenticated;\",\"message\":\"permission denied for table debts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debts TO authenticated;\",\"message\":\"permission denied for table debts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de debts est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debt_payments TO authenticated;\",\"message\":\"permission denied for table debt_payme"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debt_payments TO authenticated;\",\"message\":\"permission denied for table debt_payme"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de debt_payments est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.assets TO authenticated;\",\"message\":\"permission denied for table assets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.assets TO authenticated;\",\"message\":\"permission denied for table assets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de assets est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.asset_valuations TO authenticated;\",\"message\":\"permission denied for table asset_v"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.asset_valuations TO authenticated;\",\"message\":\"permission denied for table asset_v"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de asset_valuations est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.exchange_rates TO authenticated;\",\"message\":\"permission denied for table exchange_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.exchange_rates TO authenticated;\",\"message\":\"permission denied for table exchange_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de exchange_rates est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne modifie aucune ligne de A",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.notification_states TO authenticated;\",\"message\":\"permission denied for table noti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.notification_states TO authenticated;\",\"message\":\"permission denied for table noti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne peut pas transférer ses lignes à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"NEXORA: la colonne user_id de notification_states est immuable\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "lignes de A intactes après les tentatives de B",
+      "ok": true,
+      "detail": "HTTP 200 [{\"deleted_at\":null,\"user_id\":\"af4e601e-60ae-4f3e-af02-f28863e28335\"},{\"deleted_at\":null,\"user_id\":\"af4e601e-60ae-4f3e-af02-f28863e28335\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "B ne peut pas insérer une ligne au nom de A (RLS with check)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"new row violates row-level security policy for table \\\"accounts\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "upsert de B sur l'identifiant d'un compte de A : refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"new row violates row-level security policy (USING expression) for table \\\"accounts\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "compte de A inchangé après l'upsert de B",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"af4e601e-60ae-4f3e-af02-f28863e28335\",\"name\":\"Banque\",\"version\":1}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas référencer compte de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"accounts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_account_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas référencer catégorie de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"categories\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_category_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas référencer dette de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"debts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_debt_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne peut pas référencer objectif de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"savings_goals\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"goal_contributions\\\" violates foreign key constraint \\\"goal_contributions_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne peut pas référencer actif de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"assets\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"asset_valuations\\\" violates foreign key constraint \\\"asset_valuations_asset_fk\\\"\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne peut pas référencer règle récurrente de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"recurring_rules\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"recurring_occurrences\\\" violates foreign key constraint \\\"recurring_occu"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "contrôle positif : B référence sa propre catégorie",
+      "ok": true,
+      "detail": "HTTP 201 null"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "Q6 référence pendante : erreur différée (23503) renvoyée à la validation",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"debts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_debt_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "dette ↔ transaction en deux requêtes séparées : la première est refusée (chaque requête est une transaction)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"debts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_debt_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "unicité différée (budget en double) renvoyée par PostgREST",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"23P01\",\"details\":\"Key conflicts with existing key.\",\"hint\":null,\"message\":\"conflicting key value violates exclusion constraint \\\"budgets_one_per_month_category\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : version imposée par le serveur (999 ignoré)",
+      "ok": true,
+      "detail": "HTTP 201 [{\"id\":\"99645aa6-d953-4803-8c24-f5e3dc69dcba\",\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\",\"name\":\"X\",\"type\":\"bank\",\"currency\":\"MAD\",\"initial_balance\":0,\"initial_balance_date\":\"2026-03-01\",\"archiv"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : sync_txid et server_updated_at imposés par le serveur",
+      "ok": true,
+      "detail": "HTTP 201 [{\"id\":\"99645aa6-d953-4803-8c24-f5e3dc69dcba\",\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\",\"name\":\"X\",\"type\":\"bank\",\"currency\":\"MAD\",\"initial_balance\":0,\"initial_balance_date\":\"2026-03-01\",\"archiv"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : created_at métier du client conservé à la milliseconde",
+      "ok": true,
+      "detail": "2020-01-02T03:04:05.678+00:00"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : suppression logique horodatée par le serveur, version + 1",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"99645aa6-d953-4803-8c24-f5e3dc69dcba\",\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\",\"name\":\"X\",\"type\":\"bank\",\"currency\":\"MAD\",\"initial_balance\":0,\"initial_balance_date\":\"2026-03-01\",\"archiv"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : ligne supprimée logiquement toujours lisible par son propriétaire",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"99645aa6-d953-4803-8c24-f5e3dc69dcba\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 0.1 + 0.2 : valeur renvoyée à l'écriture identique (0.30000000000000004)",
+      "ok": true,
+      "detail": "HTTP 201 [{\"id\":\"ed67d881-1d02-470a-abd2-77790c2e7fee\",\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\",\"base\":\"USD\",\"quote\":\"MAD\",\"rate\":0.30000000000000004,\"date\":\"2026-03-02\",\"source\":\"manual\",\"created_at\":"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 0.1 + 0.2 : valeur relue identique (0.30000000000000004)",
+      "ok": true,
+      "detail": "réponse brute [{\"rate\":0.30000000000000004}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 1/3 : valeur renvoyée à l'écriture identique (0.3333333333333333)",
+      "ok": true,
+      "detail": "HTTP 201 [{\"id\":\"a707a6d3-a41d-4758-9784-2b988c30e444\",\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\",\"base\":\"USD\",\"quote\":\"MAD\",\"rate\":0.3333333333333333,\"date\":\"2026-03-02\",\"source\":\"manual\",\"created_at\":\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 1/3 : valeur relue identique (0.3333333333333333)",
+      "ok": true,
+      "detail": "réponse brute [{\"rate\":0.3333333333333333}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 10.86 : valeur renvoyée à l'écriture identique (10.86)",
+      "ok": true,
+      "detail": "HTTP 201 [{\"id\":\"59bbc258-fb31-4311-bcac-747f964d2533\",\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\",\"base\":\"USD\",\"quote\":\"MAD\",\"rate\":10.86,\"date\":\"2026-03-02\",\"source\":\"manual\",\"created_at\":\"2026-10-31T12"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 10.86 : valeur relue identique (10.86)",
+      "ok": true,
+      "detail": "réponse brute [{\"rate\":10.86}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux d'intérêt : valeur renvoyée identique (4.123456789012345)",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"ed329c2b-2ef7-4f62-a2b1-33c84e14bdcb\",\"user_id\":\"f8dca7b4-f22a-4ca5-bae4-ffed190bcc6c\",\"label\":\"Crédit\",\"type\":\"loan\",\"direction\":\"payable\",\"principal\":1000000,\"currency\":\"MAD\",\"start_date\":\"2"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux d'intérêt : valeur relue identique (4.123456789012345)",
+      "ok": true,
+      "detail": "réponse brute [{\"interest_rate\":4.123456789012345}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "anon (clé publique sans session) : lecture refusée",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT SELECT ON public.accounts TO anon;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "anon : écriture refusée",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT ON public.accounts TO anon;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "fonction privée handle_new_user non exposée par l'API",
+      "ok": true,
+      "detail": "HTTP 404 {\"code\":\"PGRST202\",\"details\":\"Searched for the function public.handle_new_user without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.\",\"hint\":"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "fonction privée tg_sync_metadata non exposée par l'API",
+      "ok": true,
+      "detail": "HTTP 404 {\"code\":\"PGRST202\",\"details\":\"Searched for the function public.tg_sync_metadata without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.\",\"hint\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "jeton modifié (sub remplacé, signature invalide) : refusé",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"PGRST301\",\"details\":\"None of the keys was able to decode the JWT\",\"hint\":null,\"message\":\"No suitable key or wrong key type\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "GraphQL (anon) : aucune table NEXORA exposée",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "GraphQL (B) : uniquement ses propres comptes",
+      "ok": true,
+      "detail": "HTTP 200 {\"errors\":[{\"message\":\"pg_graphql extension is not enabled.\"}]}"
+    }
+  ]
+}
