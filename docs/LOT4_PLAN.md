@@ -1,9 +1,9 @@
 # NEXORA — Lot 4 : écriture serveur atomique et versionnée (`apply_changeset`)
 
-> **STATUT (01/11/2026) : EN COURS.** Étapes 4.0 et 4.1 réalisées et poussées (`5b494f0`) ;
-> étape 4.2 réalisée sur `claude/stoic-edison-8s0vhq`, en attente de revue. Étapes 4.3 à 4.7
-> non commencées. Aucun projet Supabase hébergé, aucune migration ajoutée ou modifiée,
-> aucune donnée réelle touchée.
+> **STATUT (01/11/2026) : EN COURS.** Étapes 4.0–4.1 (`5b494f0`) et 4.2 (`f59d88d`)
+> réalisées et poussées ; étape 4.3 réalisée sur `claude/stoic-edison-8s0vhq`, en attente de
+> revue. Étapes 4.4 à 4.7 non commencées. Aucun projet Supabase hébergé, aucune migration
+> ajoutée ou modifiée, aucune donnée réelle touchée.
 
 Références : `docs/AUDIT_LOT1_CLOUD.md` (§ C.3, C.4, F), `docs/LOT2_REPOSITORY.md`,
 `docs/LOT3_PLAN.md`, `docs/LOT3B_CLOTURE.md`, `docs/SUIVI_TECHNIQUE.md` (R1–R3, P1–P11).
@@ -29,7 +29,7 @@ Références : `docs/AUDIT_LOT1_CLOUD.md` (§ C.3, C.4, F), `docs/LOT2_REPOSITOR
 | 4.0 | Préalables : décisions consignées, documentation périmée corrigée | **Réalisée** (§ 3) |
 | 4.1 | Atomicité R2 : `saveAsset` + valorisation initiale, `resetToEmpty` | **Réalisée** (§ 4) |
 | 4.2 | Mapping TypeScript ↔ SQL (`src/data/cloud/mapping.ts`) | **Réalisée** (§ 5) |
-| 4.3 | Protocole `ChangeSet` versionné (versions attendues, `changesetId`, conflit) | À faire |
+| 4.3 | Protocole `ChangeSet` versionné (versions attendues, `changesetId`, conflit) | **Réalisée** (§ 6) |
 | 4.4 | Fonction SQL `apply_changeset` (nouvelles migrations) | À faire |
 | 4.5 | Tests PostgreSQL 16 / 17 éphémères | À faire |
 | 4.6 | Qualification HTTP (Codespaces, par le responsable du projet) | À faire |
@@ -279,3 +279,226 @@ Vérifié dans le code, les migrations et les tests (aucune modification de code
 client ; la réactivation par `put` (n° 4) dépend de l'implémentation d'`apply_changeset` ;
 la propagation des suppressions vers les autres appareils relève du Lot 5 ; la purge des
 lignes supprimées reste au Lot 8 (P5).
+
+## 6. Étape 4.3 — protocole ChangeSet v1 (contrôle optimiste)
+
+### 6.1 Fichiers
+
+| Fichier | Statut | Rôle |
+|---|---|---|
+| `src/data/cloud/transport.ts` | modifié | Protocole v1 (`ChangeSet`, `ChangeOp`, `CommitResult`, `ResolveResult`), erreurs typées, empreinte de lot, vérification des confirmations |
+| `src/data/cloud/CloudCacheDB.ts` | créé | Base `nexora-cache-<uid>` : tables métier v1 + table annexe `serverVersions` (version 2 de cette base seulement) ; nommage du cache (déplacé de `CloudStorage`, réexporté) et protection du constructeur (§ 6.10) |
+| `src/data/cloud/CloudStorage.ts` | modifié | Versions observées à la lecture, construction du lot, confirmation, application atomique au cache, résolution d'un lot non confirmé |
+| `src/data/cloud/CloudRepository.ts` | modifié | Cache `CloudCacheDB` par défaut ; chaque méthode susceptible d'écrire s'exécute dans une « opération » (`runOperation`) |
+| `src/data/cloud/MemoryTransport.ts` | modifié | Serveur simulé versionné : contrôle optimiste, idempotence, abandon, pannes simulées |
+| `src/data/db.ts` | modifié | Paramètre facultatif d'options Dexie (fabrique IndexedDB distincte = autre appareil, **tests uniquement**) ; schéma `nexora` v1 inchangé |
+| `src/data/cloud/protocol.test.ts` | créé | 38 tests du protocole (dont 12 pour les tables locales et la protection du cache) |
+| `src/data/contract.test.ts` | modifié | Outillage : 3 caches construits en `CloudCacheDB` ; test « serveur ≡ cache » restreint aux 18 tables synchronisées, avec contrôle explicite de `meta` (présente dans le cache, absente du serveur) |
+
+### 6.2 Schéma du lot (protocole v1)
+
+```ts
+interface ChangeSet {
+  protocol: 1;
+  changesetId: string;          // UUID v4 (crypto.randomUUID), unique par lot ; clé d'idempotence
+  userId: string;               // propriétaire logique (le serveur impose son utilisateur authentifié)
+  ops: ChangeOp[];              // au plus une opération par (table, clé), dans l'ordre des écritures
+}
+type ChangeOp =
+  | { table; type: 'put';    key; expectedVersion: number | null; row }   // ligne métier TS complète
+  | { table; type: 'delete'; key; expectedVersion: number | null };       // jamais de ligne
+
+interface CommitResult {        // confirmation du serveur
+  changesetId: string;
+  status: 'applied' | 'replayed';
+  versions: { table; key; version: number; deleted: boolean }[];  // une entrée par opération, même ordre
+}
+type ResolveResult = CommitResult | { changesetId: string; status: 'abandoned' };
+
+interface CloudTransport {
+  commit(changes: ChangeSet): Promise<CommitResult>;
+  resolve(changesetId: string, userId: string): Promise<ResolveResult>;
+}
+```
+
+Les lignes restent au format TypeScript : la conversion SQL (`mapping.ts`, étape 4.2)
+appartient au transport réseau (4.4 / Lot 5). Une confirmation n'est acceptée que si elle
+correspond EXACTEMENT au lot (`checkCommitResult` : même `changesetId`, une entrée par
+opération dans le même ordre, même table et même clé, version entière supérieure à la
+version attendue, état supprimé cohérent avec le type d'opération).
+
+### 6.3 Convention de version
+
+`expectedVersion` est la dernière version serveur que le client connaît pour la clé, **telle
+qu'observée lors de la première lecture de la clé par l'opération** (y compris une lecture
+hors transaction) ; pour une écriture sans lecture préalable, celle connue au moment de
+l'écriture.
+
+| Cas | `expectedVersion` envoyée | Condition côté serveur | Résultat |
+|---|---|---|---|
+| Création d'une clé inconnue | `null` | la clé n'existe pas (ni active ni supprimée) | version 1, active |
+| Modification d'une ligne active | v | version actuelle = v | v + 1, active |
+| Suppression logique | v | ligne active et version actuelle = v | v + 1, supprimée (ligne conservée) |
+| Réactivation (écriture d'une clé supprimée) | v (version de la ligne supprimée, conservée dans le cache) | version actuelle = v | v + 1, active |
+| Rejeu d'un lot accepté (même `changesetId`, même contenu) | — | lot déjà traité | **aucune nouvelle version** : résultat d'origine, `status: 'replayed'` |
+| Clé créée puis supprimée dans la même transaction | — | — | opération non transmise |
+
+Toute autre situation est un conflit. Aucune exception D4-4 n'a été nécessaire :
+`restoreBackup` et `resetToEmpty` se ramènent à des suppressions et réécritures versionnées
+ordinaires.
+
+### 6.4 Serveur simulé (`MemoryTransport`)
+
+Ordre de traitement d'un lot : (1) forme du lot (protocole, UUID, lot non vide, tables
+connues et synchronisées — toute table de `EXCLUDED_TABLES`, dont `meta`, est refusée —, une opération par clé, clé cohérente avec la ligne, version entière ≥ 1 ou `null`)
+→ `CloudProtocolError('invalid_changeset')` ; (2) idempotence : `changesetId` déjà accepté →
+même contenu (empreinte canonique) : résultat d'origine ; autre contenu ou autre
+utilisateur : `CloudProtocolError('changeset_id_reused')` ; lot abandonné :
+`CloudProtocolError('changeset_abandoned')` ; (3) isolation (ligne d'un autre utilisateur)
+→ `IsolationViolationError` ; (4) **toutes** les versions vérifiées avant application → un
+seul écart : `CloudConflictError` (liste des clés : version attendue, version et état
+actuels) ; (5) application tout ou rien, lignes supprimées conservées.
+
+Pannes simulées : `failNext` / `failWhen` (échec avant application), `loseResponseNext`
+(appliqué puis réponse perdue), `garbleResponseNext` (réponse altérée), `resolveFailure`
+(résolution impossible). `rows()` ne renvoie que les lignes actives ; `entry()` donne
+version et état d'une clé.
+
+### 6.5 Conflits, idempotence, issue inconnue
+
+| Situation | Erreur | Serveur | Cache (lignes et versions) | Suite |
+|---|---|---|---|---|
+| Version obsolète | `CloudConflictError` (refus définitif) | rien appliqué | inchangé | recharger (Lot 5) puis réessayer |
+| Lot mal formé, identifiant réutilisé, lot abandonné | `CloudProtocolError` (définitif) | rien appliqué | inchangé | — |
+| Isolation | `CloudTransportError` (cause `IsolationViolationError`, définitif) | rien appliqué | inchangé | — |
+| Échec réseau (avant ou après application : indiscernable) | `CloudTransportError` | appliqué **ou non** | inchangé | lot conservé « non confirmé » |
+| Réponse ambiguë | `CloudTransportError` | appliqué | inchangé | lot conservé « non confirmé » |
+| Accepté mais écriture du cache impossible | `CloudCacheWriteError` | appliqué | inchangé (transaction Dexie annulée) | résultat conservé, réappliqué |
+
+**Réponse perdue après acceptation** (comportement défini, sans file d'attente) : un seul
+emplacement mémoire contient le lot non confirmé. L'opération est signalée **non
+enregistrée** ; rien n'est écrit localement. Avant toute nouvelle opération d'écriture
+(`runOperation`, puis à nouveau à l'ouverture de la transaction), le client appelle
+`resolve(changesetId)` :
+
+* le serveur l'avait appliqué → il renvoie le résultat d'origine (`replayed`) ; le cache
+  applique lignes et versions, puis la nouvelle opération lit des données à jour (testé :
+  aucune perte, aucun doublon, aucun faux conflit) ;
+* il ne l'avait pas appliqué → il le marque **abandonné** et renvoie `abandoned` ; le lot ne
+  sera jamais appliqué, même s'il arrive plus tard (testé) ;
+* résolution impossible (réseau) → toute écriture est refusée (`CloudTransportError`) ; la
+  lecture reste possible (hors ligne : lecture seule, D4) ; aucune écriture n'est rejouée
+  automatiquement.
+
+Une opération signalée en échec n'est donc jamais présentée comme enregistrée ; si le
+serveur l'avait acceptée, le cache la fait apparaître lors de la résolution.
+
+### 6.6 Atomicité du cache
+
+* Pendant une transaction : écritures dans la surcouche (inchangé, Lot 2).
+* Après confirmation valide : lignes **et** versions écrites dans **une** transaction Dexie
+  (`rw` sur les tables touchées + `serverVersions`) ; en cas d'échec, Dexie annule tout.
+* Ligne et version sont lues ensemble (transaction Dexie de lecture) : instantané cohérent
+  même si un autre onglet écrit en parallèle.
+* Une suppression retire la ligne du cache mais conserve sa version (`deleted: true`).
+* Les versions vivent dans `nexora-cache-<uid>` uniquement (jamais `nexora`), jamais dans
+  les lignes métier, `snapshot()` ni `exportBackup()` (testé).
+
+### 6.7 Défauts trouvés et corrigés pendant l'étape
+
+1. Version attendue lue au moment de l'**envoi** : deux onglets partageant le cache
+   pouvaient écraser une écriture sans conflit → version observée à la **lecture**.
+2. Lecture **hors transaction** (ex. `updateAccount` lit puis écrit) : la version, capturée
+   plus tard, pouvait être plus récente que les données lues (écriture perdue démontrée
+   après une réponse perdue) → observations à l'échelle de l'opération publique
+   (`runOperation`), et résolution du lot non confirmé avant les lectures.
+
+### 6.8 Tests et résultats
+
+`src/data/cloud/protocol.test.ts` (38 tests, fake-indexeddb, utilisateurs fictifs ; un
+« appareil » = une fabrique IndexedDB distincte) :
+
+| Exigence | Tests |
+|---|---|
+| Forme du lot, clé créée puis supprimée non transmise | 2 |
+| Création (v1), modification (v + 1), suppression logique, réactivation, création sur clé existante | 4 |
+| Scénario de référence à deux appareils (7 étapes) ; écritures concurrentes même clé (deux appareils, deux onglets) ; lecture hors transaction ; lot multi-tables en conflit ; clé déterministe sur deux appareils | 6 |
+| Lot multi-tables atomique ; rejeu idempotent ; réutilisation frauduleuse ; 8 lots mal formés ; échec avant confirmation ; réponse perdue ; 5 réponses ambiguës ; résolution impossible ; échec du cache ; mode désactivé | 10 |
+| Persistance à la réouverture, isolation par utilisateur, exclusion des sauvegardes et instantanés | 3 |
+| 54 méthodes et suite variée : versions du cache ≡ serveur (tables synchronisées), `meta` locale | 1 |
+| Tables locales (§ 6.10) : `meta` dans le cache et jamais transmise, autres tables transmises ; versions limitées aux tables synchronisées ; atomicité (conflit, échec du cache, panne sur l'écriture locale) ; réponse perdue (rejouée / abandonnée) ; lot purement local sans appel serveur ; refus serveur | 7 |
+| Protection de `CloudCacheDB` (§ 6.10) : refus de `nexora` sans création de base ; préfixe, autre utilisateur, identifiant invalide ; nom valide (version 2) ; base `nexora` jamais mise à jour ; `CloudRepository` | 5 |
+
+**Contrôles par mutation** (code cassé puis restauré) : serveur sans contrôle de version
+(7 tests en échec), version lue à l'envoi (1), lecture hors transaction non observée (1),
+pas d'idempotence (2), échec réseau non retenu (3), versions écrites avant confirmation (7),
+réponse non vérifiée (1), pas de résolution avant l'écriture (1), abandon non respecté (1),
+version supprimée non conservée (4) — **10 sur 10 détectées**. Tables locales et
+protection du cache : `meta` non séparée (60), écritures locales avant confirmation (4), lot
+local envoyé au serveur (1), écritures locales hors de la transaction confirmée (1 — détectée
+après ajout du test « panne sur l'écriture locale »), serveur acceptant `meta` (1), garde du
+constructeur retirée (3) — **6 sur 6 détectées**.
+
+**Résultat** : `npm run check` — typecheck OK, **15 fichiers, 455 tests, 455 réussis**
+(417 des étapes précédentes + 38 nouveaux), build OK. Aucune migration modifiée.
+
+### 6.9 Limites et dépendances
+
+* **R3 partiellement traité** : prouvé sur le serveur simulé ; reste le contrôle dans
+  PostgreSQL (4.4–4.5) et la qualification HTTP (4.6).
+* **4.4 (`apply_changeset`) doit reproduire `MemoryTransport`** : table des lots traités
+  par utilisateur (identifiant, empreinte, résultat, statut appliqué / abandonné) pour
+  l'idempotence et `resolve` ; vérification de toutes les versions avant écriture ; une
+  seule écriture par clé (version + 1) ; `delete` = `deleted_at` non nul ; `put` sur une
+  ligne supprimée = `deleted_at` remis à `null` (§ 5.7) ; codes d'erreur distincts pour
+  conflit, protocole et isolation ; taille maximale mesurée (D4-6).
+* **Table `meta`** : traitée (§ 6.10) — locale, jamais transmise ; `apply_changeset` n'a
+  pas à la connaître et aucune table PostgreSQL `meta` n'est créée.
+* **Premier usage d'un appareil** : sans récupération initiale (Lot 5), `ensureUser` crée
+  `users` / `settings` avec `expectedVersion = null` alors que le serveur possède déjà le
+  profil (`handle_new_user`) ou les paramètres d'un autre appareil → conflit. La
+  récupération initiale est un préalable à toute écriture cloud réelle.
+* **Après un conflit**, le cache reste dans son état antérieur : le rechargement relève du
+  Lot 5 ; réessayer sans recharger produit le même conflit.
+* **Lot non confirmé** : conservé en mémoire seulement (perdu à la fermeture ; rattrapage
+  par la récupération du Lot 5). Les méthodes en lecture seule (`snapshot`…) ne déclenchent
+  pas de résolution.
+* Aucun transport réseau, aucune authentification, aucun `supabase-js` (Lot 5 / 6).
+
+### 6.10 Tables locales (`meta`) et protection du cache
+
+**Constat** (vérifié dans le code) : `meta` ne contient que `{ key: 'schemaVersion',
+value: 1 }`, écrit par `ensureUser` (et donc `resetToEmpty`) ; **aucune méthode ne la lit**
+(`exportBackup` / `restoreBackup` utilisent la constante `SCHEMA_VERSION`) ; elle ne fait pas
+partie de `USER_TABLES`. C'est une information purement locale.
+
+**Distinction cache local / serveur** : la liste de référence des tables locales est
+`EXCLUDED_TABLES` du mapping (aujourd'hui `meta` seule), sans duplication.
+
+* `CloudStorage` sépare, à la fin de chaque transaction, les opérations destinées au serveur
+  (le `ChangeSet`) des écritures locales. Une écriture locale n'est **jamais** transmise et
+  ne reçoit **aucune** version serveur.
+* Les écritures locales sont appliquées dans **la même transaction Dexie** que les lignes et
+  versions confirmées : un conflit, un refus ou un échec d'écriture du cache — y compris une
+  panne sur l'écriture locale elle-même — n'écrit rien du tout (testé).
+* **Lot non confirmé** : ses écritures locales sont conservées avec lui ; appliquées
+  seulement lors d'une résolution qui confirme le lot (`replayed`), **abandonnées** avec lui
+  s'il ne l'a jamais été (testé).
+* **Lot purement local** : appliqué au cache dans une transaction Dexie, sans aucun appel au
+  serveur (même en mode désactivé, puisque rien n'est demandé au serveur). Aucune méthode ne
+  produit aujourd'hui un tel lot.
+* `MemoryTransport` (et demain `apply_changeset`) refuse toute table de `EXCLUDED_TABLES`
+  (`invalid_changeset`). Aucune table PostgreSQL `meta` n'est créée.
+* **Équivalence** : `meta` reste écrite dans le cache comme dans la base locale ; la
+  comparaison « base locale ≡ cache cloud » du Lot 2 (toutes tables, `meta` comprise) est
+  inchangée et réussie ; les 54 méthodes sont inchangées.
+
+**Protection du constructeur `CloudCacheDB`** : `new CloudCacheDB(name, { userId, dexie? })`.
+Avant même la construction de la base Dexie, le nom est contrôlé (`assertCloudCacheName`) :
+`nexora` refusé ; préfixe `nexora-cache-` obligatoire ; nom exactement égal à
+`nexora-cache-<userId>` (identifiant au format autorisé). Un nom refusé ne crée aucune base,
+et la version 2 (table annexe) ne peut jamais être déclarée sur la base locale réelle : un
+test crée une base `nexora` (fabrique simulée), tente `new CloudCacheDB('nexora', …)`, puis
+vérifie qu'elle est toujours en version 1, sans table annexe, données intactes.
+`CloudStorage` conserve son propre contrôle (défense en profondeur) ; le schéma de
+`NexoraDB` est inchangé.

@@ -8,7 +8,7 @@
  * Toutes les tables (sauf `meta`) sont indexées par `userId` : chaque requête du
  * repository est filtrée sur l'utilisateur courant.
  */
-import Dexie, { type Table } from 'dexie';
+import Dexie, { type DexieOptions, type Table } from 'dexie';
 import type {
   Account,
   Asset,
@@ -56,8 +56,9 @@ export class NexoraDB extends Dexie {
   notificationStates!: Table<NotificationState, [string, string]>;
   importBatches!: Table<ImportBatch, string>;
 
-  constructor(name = 'nexora') {
-    super(name);
+  /** `options` : réservé aux tests (fabrique IndexedDB distincte = autre appareil simulé). */
+  constructor(name = 'nexora', options?: DexieOptions) {
+    super(name, options);
     this.version(1).stores({
       meta: 'key',
       users: 'id',

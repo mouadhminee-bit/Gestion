@@ -32,10 +32,11 @@ import { RepositoryCore } from './RepositoryCore';
 import { REPOSITORY_METHODS, type NexoraRepository } from './contracts';
 import { ALL_TABLES, PRIMARY_KEYS, SCHEMA_VERSION, USER_TABLES, type TableName } from './tables';
 import { CloudRepository } from './cloud/CloudRepository';
+import { CloudCacheDB } from './cloud/CloudCacheDB';
 import { CLOUD_CACHE_PREFIX, ConstraintError, cloudCacheName } from './cloud/CloudStorage';
 import { CloudTransportError, CloudWriteDisabledError, DisabledTransport } from './cloud/transport';
 import { IsolationViolationError, MemoryTransport } from './cloud/MemoryTransport';
-import { MappingError, assertCloudTable, deserializeRow, fromSqlKey, serializeRow, toCloudRow, toSqlKey } from './cloud/mapping';
+import { EXCLUDED_TABLES, MappingError, assertCloudTable, deserializeRow, fromSqlKey, serializeRow, toCloudRow, toSqlKey } from './cloud/mapping';
 import { generateDemoData } from './demo';
 import type { Account, Category, DataSnapshot } from '@/domain/types';
 import type { TransactionDraft } from '@/domain/validation';
@@ -54,7 +55,7 @@ function local(userId: string) {
 }
 
 function cloud(userId: string, transport = new MemoryTransport()) {
-  const cache = new NexoraDB(cloudCacheName(userId));
+  const cache = new CloudCacheDB(cloudCacheName(userId), { userId });
   return { repo: new CloudRepository(userId, { transport, cache }), cache, transport };
 }
 
@@ -433,7 +434,10 @@ describe('contrat : équivalence LocalRepository ↔ CloudRepository', () => {
     resetIds();
     await scenario(c.repo);
     const d = await dump(c.cache);
-    for (const t of ALL_TABLES) {
+    // Tables locales (`meta`, Lot 4.3) : présentes dans le cache, jamais sur le serveur.
+    expect(d.meta.length).toBeGreaterThan(0);
+    expect(c.transport.rows(u, 'meta')).toEqual([]);
+    for (const t of ALL_TABLES.filter((x) => !(x in EXCLUDED_TABLES))) {
       const server = c.transport.rows(u, t);
       const norm = (rows: unknown[]) => (t === 'attachments' ? (rows as { blob?: Blob }[]).map((x) => ({ ...x, blob: { size: x.blob?.size, type: x.blob?.type } })) : rows);
       expect(norm(server).length, t).toBe(d[t].length);
@@ -449,7 +453,7 @@ describe('contrat : équivalence LocalRepository ↔ CloudRepository', () => {
 describe('contrat : écritures cloud refusées par défaut', () => {
   it('transport par défaut = DisabledTransport ; toute écriture échoue, le cache reste vide', async () => {
     const u = uid();
-    const cache = new NexoraDB(cloudCacheName(u));
+    const cache = new CloudCacheDB(cloudCacheName(u), { userId: u });
     const repo = new CloudRepository(u, { cache });
     expect(repo.transportKind).toBe('disabled');
     expect(repo.cacheName).toBe(`nexora-cache-${u}`);
@@ -463,7 +467,7 @@ describe('contrat : écritures cloud refusées par défaut', () => {
 
   it('lecture seule : un cache déjà rempli reste lisible et intact, toute écriture est refusée', async () => {
     const u = uid();
-    const cache = new NexoraDB(cloudCacheName(u));
+    const cache = new CloudCacheDB(cloudCacheName(u), { userId: u });
     // Cache rempli par un repository cloud « en ligne », puis rouvert avec le transport par défaut.
     const online = new CloudRepository(u, { cache, transport: new MemoryTransport() });
     const { bank, cat } = await seeded(online);
