@@ -1,5 +1,11 @@
 # NEXORA — Lot 3 : schéma PostgreSQL / Supabase versionné — PROPOSITION
 
+> **STATUT (01/11/2026) : RÉALISÉ ET VALIDÉ.** Lot 3 validé sur PostgreSQL local
+> (`docs/LOT3_SCHEMA.md`, commit `46b83b4`) ; étape 3b close — schéma qualifié sur la pile
+> Supabase locale (PostgreSQL 17.11), une 7e migration ajoutée
+> (`docs/LOT3B_CLOTURE.md`). Le texte ci-dessous est la proposition d'origine, conservée
+> telle qu'approuvée.
+
 *Cadrage du 31/10/2026, en attente d'approbation explicite. Aucune implémentation, aucune
 connexion à Supabase, aucun projet créé, aucun schéma modifié, aucune donnée touchée.*
 
@@ -286,3 +292,13 @@ pgTAP optionnel plus tard (D3-4).
 | D3-7 | Taux en `double precision` (et non `numeric`) | Oui (§ 5.2) |
 | D3-8 | Pas d'unicité sur les taux de change (D12 de l'audit non appliquée) | Oui : `saveRate` accepte les doublons |
 | D3-9 | Étape 3b (facultative, par vous) : rejouer les tests dans Codespaces avec `supabase start` ; application au projet Supabase de développement seulement après le Lot 4 | Oui |
+
+## 12. Clôture (01/11/2026)
+
+| Élément du plan | Résultat |
+|---|---|
+| Migrations versionnées | 6 migrations du Lot 3 (inchangées depuis `46b83b4`) + migration 7 (étape 3b : sérialisation exacte des flottants par l'API) |
+| Tests SQL sur base éphémère | PostgreSQL 16.15 : 1 106/1 106 ; PostgreSQL 17.11 : identique (0 écart) |
+| Étape 3b (D3-9) | Pile Supabase locale : SQL 1 152/1 152, HTTP 143/143 (deux utilisateurs authentifiés), précision API 8/8, 0 régression vs PG 16 |
+| Écarts au plan | E1–E10 (`docs/LOT3_SCHEMA.md` § 7) ; ajout de la migration 7 (`docs/qualification/3b-pg17-local.md` § 6) |
+| Points restants | R1–R3, P1–P8, P9 (projet hébergé) — `docs/SUIVI_TECHNIQUE.md` |

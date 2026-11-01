@@ -1,5 +1,9 @@
 # NEXORA — étape 3b-3 : qualification dans GitHub Codespaces (mode opératoire)
 
+> **Exécution finale réussie (01/11/2026)** : SQL 1 152/1 152, HTTP 143/143, précision API 8/8,
+> 0 régression vs PostgreSQL 16, 0 conteneur / 0 volume restants. Clôture :
+> `docs/LOT3B_CLOTURE.md`. Ce mode opératoire reste valable pour rejouer la qualification.
+
 À exécuter **par vous**, dans un Codespace de la branche `claude/stoic-edison-8s0vhq`.
 La qualification utilise la pile Supabase **locale** complète, lancée dans le Codespace et
 détruite à la fin. Aucun projet Supabase, aucun compte Supabase, aucune connexion distante,

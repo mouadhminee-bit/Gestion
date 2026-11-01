@@ -23,6 +23,15 @@ uniquement par un lot validé qui la traite explicitement (test à l'appui).
 | P6 | `restoreBackup` ne valide aucune ligne : une sauvegarde corrompue ou modifiée à la main peut contenir des valeurs que le schéma refuse. Valider les sauvegardes avant écriture | Lot 3 (rapport § 8) | 7 |
 | P7 | Réutiliser l'UUID d'une ligne d'autrui provoque une collision de clé (23505) : révèle l'existence d'un UUID aléatoire, sans accès aux données | Lot 3 | 7 (avec R1) |
 | P8 | Une transaction longue retient la borne de récupération (`pg_snapshot_xmin`) : aucune perte, mais retard de synchronisation | Lot 3 | 4–5 |
-| P9 | Validation du schéma sur la vraie pile Supabase (`supabase start` dans Codespaces, puis projet de développement) ; aligner `major_version` de `supabase/config.toml` | Lot 3 (étape 3b) | 3b / 4 |
-| P10 | Si le rôle `postgres` de Supabase n'a pas `BYPASSRLS`, le déclencheur d'inscription `handle_new_user` (`SECURITY DEFINER`, propriétaire `postgres`) ne peut pas insérer dans `profiles` (RLS forcée) : inscription impossible. Reproduit en local (profil « supabase-like » sans `BYPASSRLS`). **Résolu pour la pile Supabase locale** (Q1 positive : `postgres` a `BYPASSRLS`, inscription fonctionnelle, 2e exécution Codespaces) ; à revérifier sur un projet hébergé (3b-4) | Étape 3b | 3b-4 |
-| P11 | Arrondi des `double precision` dans les réponses de l'API : l'image Supabase fixe `extra_float_digits = 0` (postgresql.conf), hérité par les sessions PostgREST (perte à la sérialisation de la réponse ; écriture et stockage exacts). **Correction proposée** : migration 7 (`alter role anon/authenticated/service_role set extra_float_digits = 1`, appliqué par PostgREST à chaque requête). Validée localement par émulation ; **à confirmer par 143/143 tests HTTP** sur la pile Supabase locale | Étape 3b | 3b |
+| P9 | Validation du schéma sur la vraie pile Supabase. **Pile locale : qualifiée** (étape 3b close, `docs/LOT3B_CLOTURE.md` ; `major_version = 17` aligné). **Reste ouvert : projet hébergé (3b-4, reporté)** — y revérifier notamment `BYPASSRLS` de `postgres` (ex-P10), l'application des réglages de rôle de la migration 7 (ex-P11), les restrictions `supautils` et la configuration d'authentification | Lot 3 (étape 3b) | 3b-4 |
+
+## Points clos
+
+| # | Point | Clôture | Preuves |
+|---|---|---|---|
+| P10 | Inscription impossible si le rôle `postgres` n'a pas `BYPASSRLS` (déclencheur `handle_new_user`, RLS forcée sur `profiles`) | **Clos pour la pile Supabase locale** — étape 3b, 01/11/2026. Vérification sur projet hébergé rattachée à P9 | Q1 positive (`postgres` a `BYPASSRLS`) ; profil créé à l'inscription vérifié par la suite HTTP 143/143 ; cas négatif reproduit en local (profil « supabase-like » sans `BYPASSRLS`) |
+| P11 | Arrondi des `double precision` dans les réponses de l'API (l'image Supabase fixe `extra_float_digits = 0`) | **Clos** — étape 3b, 01/11/2026 | Perte localisée à la sérialisation de la réponse (écriture et stockage exacts, bits vérifiés) ; correction par la migration 7 ; 8/8 contrôles stricts et 143/143 HTTP sur la pile locale ; mutation sans migration 7 = mêmes 3 valeurs en échec (`docs/qualification/3b-pg17-local.md` § 6) |
+
+Les fichiers bruts de l'exécution Codespaces finale ne sont pas versionnés (voir
+`docs/LOT3B_CLOTURE.md` § 4.1) : clôtures fondées sur les résultats communiqués et sur les
+preuves reproductibles du dépôt.

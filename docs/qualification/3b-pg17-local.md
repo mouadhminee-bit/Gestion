@@ -187,3 +187,16 @@ observées échouent et `10.86` passe — même signature que les 6 échecs HTTP
 
 **Validation finale requise** : la suite HTTP sur la vraie pile (143 assertions) et la chaîne
 numérique complète, produites par `npm run qualify:supabase` (rapport § « Chaîne numérique »).
+
+## 7. Résultat final sur la pile Supabase locale (exécution Codespaces de clôture)
+
+| Contrôle | Résultat |
+|---|---|
+| SQL (PostgreSQL 17.11, suites 01–10 + P1) | 1 152 / 1 152 |
+| Comparaison avec la référence PostgreSQL 16 | 1 106 identiques, 0 régression |
+| HTTP (GoTrue + PostgREST, deux utilisateurs authentifiés) | 143 / 143 |
+| Précision des taux par l'API | 8 / 8 — la migration 7 rend la réponse JSON exacte |
+| Nettoyage | 0 conteneur, 0 volume |
+
+Résultats communiqués ; fichiers bruts non versionnés (`docs/LOT3B_CLOTURE.md` § 4.1).
+P10 et P11 : clos (`docs/SUIVI_TECHNIQUE.md`, « Points clos »).

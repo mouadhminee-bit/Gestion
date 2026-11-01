@@ -1,5 +1,9 @@
 # NEXORA — Étape 3b : qualification sur la véritable pile Supabase — PROPOSITION
 
+> **STATUT (01/11/2026) : CLOSE.** 3b-1, 3b-2 et 3b-3 réalisées ; 3b-4 (projet hébergé)
+> **reportée**. Réponses à Q1–Q6, preuves et limites : `docs/LOT3B_CLOTURE.md`. Le texte
+> ci-dessous est la proposition d'origine.
+
 *Cadrage du 01/11/2026, en attente d'autorisation explicite. Aucun projet créé, aucune
 connexion à Supabase, aucune donnée touchée.*
 
