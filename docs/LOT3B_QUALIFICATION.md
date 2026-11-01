@@ -74,7 +74,20 @@ Le script écrit trois fichiers sans secret :
 * `docs/qualification/3b-local-sql.json` — résultats SQL bruts ;
 * `docs/qualification/3b-local-http.json` — résultats HTTP bruts.
 
-Les commiter et les pousser **sur cette branche uniquement** :
+**Avant tout ajout**, récupérer la branche à jour puis contrôler les trois fichiers (aucun
+secret affiché ; code 0 = propres et cohérents) :
+
+```bash
+git pull origin claude/stoic-edison-8s0vhq
+```
+
+```bash
+node scripts/check-qualification-evidence.mjs
+```
+
+Si le verdict est « NE PAS AJOUTER », ne pas commiter : transmettre les constats (fichier,
+ligne, règle — jamais la valeur). Sinon, les commiter et les pousser **sur cette branche
+uniquement** :
 
 ```bash
 git add docs/qualification/3b-local-report.md docs/qualification/3b-local-sql.json docs/qualification/3b-local-http.json

@@ -198,5 +198,5 @@ numérique complète, produites par `npm run qualify:supabase` (rapport § « Ch
 | Précision des taux par l'API | 8 / 8 — la migration 7 rend la réponse JSON exacte |
 | Nettoyage | 0 conteneur, 0 volume |
 
-Résultats communiqués ; fichiers bruts non versionnés (`docs/LOT3B_CLOTURE.md` § 4.1).
-P10 et P11 : clos (`docs/SUIVI_TECHNIQUE.md`, « Points clos »).
+Résultats communiqués ; fichiers bruts non versionnés à ce jour (`docs/LOT3B_CLOTURE.md` § 3).
+P11 : clos pour la pile locale ; P10 : résolu pour la pile locale, vérification hébergée ouverte ; P9 : validation hébergée non réalisée (`docs/SUIVI_TECHNIQUE.md`).

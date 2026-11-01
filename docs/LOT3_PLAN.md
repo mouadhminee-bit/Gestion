@@ -1,10 +1,82 @@
-# NEXORA — Lot 3 : schéma PostgreSQL / Supabase versionné — PROPOSITION
+# NEXORA — Lot 3 : schéma PostgreSQL / Supabase versionné — PLAN ET BILAN D'EXÉCUTION
 
-> **STATUT (01/11/2026) : RÉALISÉ ET VALIDÉ.** Lot 3 validé sur PostgreSQL local
-> (`docs/LOT3_SCHEMA.md`, commit `46b83b4`) ; étape 3b close — schéma qualifié sur la pile
-> Supabase locale (PostgreSQL 17.11), une 7e migration ajoutée
-> (`docs/LOT3B_CLOTURE.md`). Le texte ci-dessous est la proposition d'origine, conservée
-> telle qu'approuvée.
+> **STATUT (01/11/2026) : EXÉCUTÉ — Lot 3 validé sur PostgreSQL local ; étape 3b
+> (qualification sur la pile Supabase LOCALE) close.** Aucune validation sur un projet
+> Supabase hébergé. Partie I : bilan d'exécution. Partie II : proposition d'origine du
+> 31/10/2026, conservée **sans modification** (ses chiffres, notamment « 6 migrations »,
+> sont ceux du plan initial).
+
+# Partie I — Bilan d'exécution
+
+## I.1 Livré
+
+| Élément | Résultat |
+|---|---|
+| Migrations versionnées | **7** : les 6 du plan (`…000100` à `…000600`, validées au commit `46b83b4`, inchangées depuis) + `20261101000700_api_float_serialization.sql`, ajoutée pendant l'étape 3b (§ I.4) |
+| Schéma | 18 tables, RLS activée et forcée, 53 politiques, 25 clés étrangères composites différées, métadonnées serveur (`version`, `sync_txid`, `server_updated_at`, `deleted_at`) — `docs/LOT3_SCHEMA.md` |
+| Tests SQL | `supabase/db-tests/` (suites 01–10 + contrôles plateforme P1), `npm run test:db` |
+| Qualification réelle | `npm run qualify:supabase` (pile Supabase locale, GoTrue + PostgREST) |
+
+## I.2 Environnements de validation
+
+| Environnement | Rôle |
+|---|---|
+| PostgreSQL **16.15** éphémère (`/tmp`) | Validation du Lot 3 ; référence de comparaison (`supabase/db-tests/baseline/pg16.json`) |
+| PostgreSQL **17.11** éphémère (`/tmp`) | Compatibilité de version (profil standard et profil « supabase-like ») |
+| **Pile Supabase locale** dans GitHub Codespaces (PostgreSQL 17.11 Supabase, GoTrue, PostgREST, Kong) | Étape 3b : qualification réelle, exécutée par le responsable du projet, détruite après chaque exécution |
+| Projet Supabase **hébergé** | **Non réalisé** (3b-4 reportée) |
+
+## I.3 Résultats
+
+| Contrôle | Résultat |
+|---|---|
+| SQL, PostgreSQL 16.15 (référence) | 1 106 / 1 106 |
+| SQL, PostgreSQL 17.11 local | 1 106 / 1 106, identiques à la référence |
+| SQL, pile Supabase locale (PostgreSQL 17.11) | **1 152 / 1 152** (dont contrôles plateforme) |
+| Comparaison PG 16 / PG 17 | **1 106 identiques, 0 régression** |
+| HTTP, GoTrue + PostgREST, deux utilisateurs réellement authentifiés | **143 / 143** |
+| Précision numérique par l'API (taux de change et d'intérêt) | **8 / 8** contrôles exacts |
+| Migrations appliquées sur la pile | 7 / 7 |
+| Nettoyage | 0 conteneur, 0 volume |
+| Application (`npm run check`) | 314 / 314, build réussi — `src/` inchangé depuis le Lot 2 |
+
+## I.4 Correction ajoutée en cours d'exécution : migration 7
+
+L'image PostgreSQL de Supabase fixe `extra_float_digits = 0` ; les réponses JSON de
+PostgREST arrondissaient les `double precision` à 15 chiffres (6 échecs HTTP). Écriture et
+stockage étaient exacts. La migration 7 fixe `extra_float_digits = 1` sur `anon`,
+`authenticated` et `service_role`, réglages que PostgREST applique à chaque requête. Aucun
+type, aucune valeur, aucune règle métier modifiés. Démonstration :
+`docs/qualification/3b-pg17-local.md` § 6.
+
+## I.5 Suite donnée aux décisions D3-1 à D3-9
+
+Les décisions approuvées sont conservées telles quelles en partie II (§ 11).
+
+| # | Suite donnée |
+|---|---|
+| D3-1 | Appliqué : clusters PostgreSQL éphémères dans `/tmp`, détruits après chaque exécution |
+| D3-2 | Appliqué : `sync_txid` + borne `pg_snapshot_xmin`, scénarios concurrents validés (16/16) |
+| D3-3 | Appliqué : horodatages métier du client conservés, métadonnées serveur distinctes |
+| D3-4 | Appliqué : tests SQL simples (`psql`), sans pgTAP |
+| D3-5 | Appliqué : `supabase/schema.sql` conservé en archive avec en-tête |
+| D3-6 | Appliqué : `npm run test:db` (puis `npm run qualify:supabase` en 3b) |
+| D3-7 | Appliqué : `double precision` ; restitution exacte prouvée sur les bits, puis par l'API après la migration 7 |
+| D3-8 | Appliqué : aucune unicité sur les taux de change |
+| D3-9 | Réalisé **partiellement** : rejouée dans Codespaces avec la pile Supabase locale (`supabase start`) ; **l'application au projet de développement hébergé n'a pas eu lieu** |
+
+## I.6 Limites de validation
+
+* **Aucune connexion à un projet Supabase hébergé** : configuration de plateforme, rôles
+  réservés, pooler, version exacte des composants et authentification réelle non qualifiés.
+* Données exclusivement fictives ; compatibilité des données Edge existantes non testée.
+* Concurrence prouvée au niveau base ; contrôle de version optimiste (conflits entre
+  appareils) **non réalisé** — Lot 4 (R3).
+* Détail : `docs/LOT3B_CLOTURE.md` § 7 (limites) et § 8 (conditions préalables). Points ouverts : `docs/SUIVI_TECHNIQUE.md`.
+
+---
+
+# Partie II — Proposition d'origine (31/10/2026, approuvée le 01/11/2026)
 
 *Cadrage du 31/10/2026, en attente d'approbation explicite. Aucune implémentation, aucune
 connexion à Supabase, aucun projet créé, aucun schéma modifié, aucune donnée touchée.*
@@ -292,13 +364,3 @@ pgTAP optionnel plus tard (D3-4).
 | D3-7 | Taux en `double precision` (et non `numeric`) | Oui (§ 5.2) |
 | D3-8 | Pas d'unicité sur les taux de change (D12 de l'audit non appliquée) | Oui : `saveRate` accepte les doublons |
 | D3-9 | Étape 3b (facultative, par vous) : rejouer les tests dans Codespaces avec `supabase start` ; application au projet Supabase de développement seulement après le Lot 4 | Oui |
-
-## 12. Clôture (01/11/2026)
-
-| Élément du plan | Résultat |
-|---|---|
-| Migrations versionnées | 6 migrations du Lot 3 (inchangées depuis `46b83b4`) + migration 7 (étape 3b : sérialisation exacte des flottants par l'API) |
-| Tests SQL sur base éphémère | PostgreSQL 16.15 : 1 106/1 106 ; PostgreSQL 17.11 : identique (0 écart) |
-| Étape 3b (D3-9) | Pile Supabase locale : SQL 1 152/1 152, HTTP 143/143 (deux utilisateurs authentifiés), précision API 8/8, 0 régression vs PG 16 |
-| Écarts au plan | E1–E10 (`docs/LOT3_SCHEMA.md` § 7) ; ajout de la migration 7 (`docs/qualification/3b-pg17-local.md` § 6) |
-| Points restants | R1–R3, P1–P8, P9 (projet hébergé) — `docs/SUIVI_TECHNIQUE.md` |

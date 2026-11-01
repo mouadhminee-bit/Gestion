@@ -1,128 +1,112 @@
-# NEXORA — Clôture formelle de l'étape 3b (qualification sur la pile Supabase locale)
+# NEXORA — Conclusion formelle de l'étape 3b (qualification sur la pile Supabase locale)
 
-*Clôture du 01/11/2026 sur `claude/stoic-edison-8s0vhq`, commit `ea45a41`. Aucune étape du
-Lot 4 n'est engagée.*
+*Version consolidée du 01/11/2026 sur `claude/stoic-edison-8s0vhq`. Remplace la version du
+commit `0d9efbc`. Aucune étape du Lot 4 n'est engagée.*
 
 ## 1. Décision
 
-**L'étape 3b est close : le schéma NEXORA (7 migrations) est qualifié sur la pile Supabase
-locale complète** (PostgreSQL 17.11, GoTrue, PostgREST, Kong), avec deux utilisateurs
-réellement authentifiés, sans régression par rapport à PostgreSQL 16.
+**L'étape 3b est close.** Le schéma NEXORA (7 migrations) est qualifié sur la **pile
+Supabase locale** complète, avec deux utilisateurs réellement authentifiés et sans régression
+par rapport à PostgreSQL 16. La validation sur un **projet Supabase hébergé** n'a **pas** été
+réalisée (3b-4 reportée).
 
-La qualification sur un **projet Supabase hébergé** (3b-4) reste **reportée** et hors
-périmètre de cette clôture.
+## 2. Périmètre validé
 
-## 2. État du dépôt (vérifié)
+| Domaine | Validé sur | Résultat |
+|---|---|---|
+| Application des 7 migrations | pile Supabase locale (CLI), PostgreSQL 16.15 et 17.11 éphémères | 7 / 7 |
+| Schéma, contraintes, compatibilité avec le domaine TypeScript | PG 16.15, PG 17.11, pile locale | 1 106 assertions identiques PG 16 / PG 17 |
+| RLS, isolation (18 tables, 25 clés composites), privilèges, rôles `anon` / `authenticated` | pile locale (SQL + HTTP) | SQL 1 152 / 1 152 ; HTTP 143 / 143 |
+| Authentification réelle (GoTrue) et API (PostgREST) avec deux utilisateurs | pile locale | 143 / 143 |
+| Contraintes différées et erreurs renvoyées par l'API (`23503`, `23P01`) | pile locale | conformes |
+| Déclencheurs et métadonnées serveur | PG 16 / 17, pile locale | conformes |
+| Synchronisation (`sync_txid`, borne `pg_snapshot_xmin`, sessions concurrentes) | PG 16 / 17, pile locale | 16 / 16 (dont 300 étapes aléatoires) |
+| Précision des taux de change et d'intérêt par l'API | pile locale, après migration 7 | 8 / 8 exacts |
+| Nettoyage de l'environnement | Codespaces | 0 conteneur, 0 volume |
+| Non-régression applicative | conteneur de session | `npm run check` 314 / 314, build réussi |
+
+Questions de qualification : Q1 à Q6 **positives** sur la pile locale (`postgres` contourne
+la RLS forcée ; déclencheur sur `auth.users` accepté ; utilisateurs fictifs créés en SQL ;
+`dblink` disponible dans un schéma dédié ; privilèges, GraphQL et RPC maîtrisés ; erreurs
+différées renvoyées par PostgREST).
+
+## 3. Preuves conservées
+
+| Preuve | Statut |
+|---|---|
+| `docs/qualification/3b-pg17-local.json` / `.md` (PG 17 local, analyses dblink, flottants, chaîne numérique) | **versionnées** |
+| `supabase/db-tests/baseline/pg16.json` (référence PG 16, 1 106 assertions) | versionnée |
+| Suites et outillage (`supabase/db-tests/`, `scripts/db-test.sh`, `scripts/qualify-supabase.sh`) permettant de rejouer la qualification | versionnés |
+| `docs/qualification/3b-local-report.md`, `3b-local-sql.json`, `3b-local-http.json` (exécution Codespaces finale) | **non versionnées à ce jour** : présentes uniquement dans le Codespace. À contrôler par `node scripts/check-qualification-evidence.mjs` (secrets, données personnelles, URL non locales, cohérence), puis à ajouter — procédure : `docs/LOT3B_QUALIFICATION.md` § 5 |
+
+Tant que ces trois fichiers ne sont pas versionnés, les résultats Codespaces finaux (SQL
+1 152/1 152, HTTP 143/143, précision 8/8, PG 16/17 1 106 identiques, 7 migrations, nettoyage
+complet) reposent sur le compte rendu du responsable de la qualification ; les preuves
+locales reproductibles ci-dessus les corroborent.
+
+## 4. Points P9, P10, P11
+
+| # | Statut |
+|---|---|
+| P9 | **Ouvert** — qualification sur la pile Supabase locale réussie ; **validation sur un projet hébergé non réalisée** |
+| P10 | **Ouvert** — résolu pour la pile locale testée (`postgres` a `BYPASSRLS`, inscription fonctionnelle) ; **vérification sur un projet hébergé à faire** |
+| P11 | **Clos pour la pile locale** — 143/143 HTTP et 8/8 contrôles de précision après la migration 7 ; l'application des réglages de rôle sur un projet hébergé est à vérifier avec P9 |
+
+## 5. Réserves R1, R2, R3
+
+**Aucune n'est levée.**
+
+* **R1** — remappage des identifiants à la restauration de sauvegarde : Lot 7.
+* **R2** — atomicité de `saveAsset` et de la valorisation initiale : fiabilisation, avant la
+  mise en production cloud.
+* **R3** — concurrence entre plusieurs appareils : le Lot 3 n'a posé que `version` et les
+  métadonnées de synchronisation. **Le contrôle de version optimiste n'est pas réalisé** :
+  il relève du Lot 4 (`apply_changeset`), la récupération des changements du Lot 5.
+
+## 6. Hors périmètre
+
+Projet Supabase hébergé (3b-4) ; connexion de l'application à Supabase ; authentification
+dans l'application (Lot 6) ; écriture applicative atomique `apply_changeset` et contrôle
+optimiste (Lot 4) ; synchronisation réelle (Lot 5) ; Storage et pièces jointes (Lot 7) ;
+purge des suppressions logiques et CI (Lot 8) ; migration des données Edge ; toute
+modification de `src/`, des données IndexedDB, de la production ou de `nexora-dev`.
+
+## 7. Limites de la qualification locale
+
+1. **Pile locale ≠ plateforme hébergée** : configuration serveur, restrictions `supautils`
+   sur les rôles réservés, versions exactes de PostgREST / GoTrue, pooler Supavisor, réseau et
+   TLS peuvent différer ; `BYPASSRLS` de `postgres` et les réglages de rôle de la migration 7
+   y sont à revérifier.
+2. **Authentification simplifiée** : confirmation d'e-mail désactivée, clés locales par
+   défaut ; politiques de mots de passe, limites de débit et clés de signature de la
+   plateforme non testées.
+3. **Concurrence** : prouvée au niveau base, pas via l'API sous charge ; aucune mesure de
+   performance de la RLS sur gros volumes.
+4. **Données fictives uniquement** ; compatibilité des données Edge existantes non testée
+   (P3).
+5. **Écritures** : requêtes PostgREST unitaires ; aucune écriture multi-tables atomique
+   côté serveur (Lot 4).
+6. **Traçabilité** : rapports Codespaces finaux non versionnés (§ 3) ; aucune CI.
+7. **PostgreSQL 17 local** : binaires d'un paquet npm (empaquetage bêta) ; la référence de
+   version reste l'image Supabase.
+
+## 8. Conditions préalables aux lots suivants
+
+| Avant | Condition |
+|---|---|
+| **Lot 4** (`apply_changeset`, contrôle optimiste) | Décision explicite de lancement ; archivage des trois rapports Codespaces (§ 3) recommandé ; correspondance TypeScript ↔ SQL de `users` / `meta` à définir (P2) ; tests de conflit à deux clients prévus pour R3 ; le schéma des 7 migrations sert de base (toute modification d'une migration validée exige une anomalie démontrée et une approbation) |
+| **Lot 5** (synchronisation) | Lot 4 validé ; P1 et P8 traités dans la conception |
+| **Lot 6** (authentification dans l'application) | P9 et P10 vérifiés sur un projet hébergé de **développement** (3b-4) |
+| **Mise en production du cloud** | R1, R2, R3 levées ; P9, P10 clos sur l'hébergé ; P3 traité avant toute migration des données Edge ; projet de production distinct du développement |
+
+## 9. État du dépôt à la clôture
 
 | Élément | État |
 |---|---|
-| Branche de travail | `claude/stoic-edison-8s0vhq`, `HEAD` = `ea45a41`, identique au dépôt distant |
-| Production (`claude/nexora-finance-platform-81blaa`) | `5fd37c3`, **inchangée** depuis le début de la session |
-| `nexora-dev` | `341f3da`, **inchangée** |
-| `src/` | **aucune modification** depuis la validation du Lot 2 (`d1c789e`) ; aucun fichier `src/` touché par l'étape 3b |
-| `netlify.toml`, `package-lock.json` | inchangés ; aucun déploiement déclenché |
-| Base IndexedDB `nexora` (Edge) | jamais ouverte : tests sur fake-indexeddb, clusters PostgreSQL éphémères et pile Supabase locale jetable, données fictives (`@example.test`) uniquement |
-| Projet Supabase hébergé | aucun créé, aucune connexion distante |
-
-## 3. Migrations
-
-| Migration | Lignes | Empreinte SHA-256 (16 premiers caractères) | État |
-|---|---|---|---|
-| `20261101000100_conventions.sql` | 54 | `187f8c5d6c83ce0a` | validée Lot 3, **identique** au commit `46b83b4` |
-| `20261101000200_profiles_settings.sql` | 50 | `7bd6926f59165fbd` | idem |
-| `20261101000300_core_tables.sql` | 352 | `be23a37551c092e4` | idem |
-| `20261101000400_relations.sql` | 149 | `db238e97eda8ab5c` | idem |
-| `20261101000500_triggers.sql` | 69 | `348d3f49f7155239` | idem |
-| `20261101000600_rls_grants.sql` | 53 | `50e1aa1f1ba2d934` | idem |
-| `20261101000700_api_float_serialization.sql` | 28 | `b21d26dc7291c629` | **ajoutée en 3b** : `alter role anon / authenticated / service_role set extra_float_digits = 1` + rechargement de PostgREST |
-
-La migration 7 ne modifie ni table, ni type, ni donnée, ni règle métier : elle fixe la
-représentation texte des `double precision` dans les sessions de l'API.
-
-## 4. Preuves
-
-### 4.1 Pile Supabase locale (Codespaces, exécution finale)
-
-Résultats communiqués par le responsable de la qualification :
-
-| Contrôle | Résultat |
-|---|---|
-| Serveur | PostgreSQL 17.11 (image Supabase) |
-| Migrations | 7/7 appliquées par le CLI Supabase |
-| Assertions SQL (suites 01–10 + contrôles plateforme P1) | **1 152 / 1 152** |
-| Comparaison avec la référence PostgreSQL 16 | **1 106 identiques**, 0 manquante, 0 régression |
-| Suite HTTP (GoTrue + PostgREST, deux utilisateurs authentifiés) | **143 / 143** |
-| Isolation | 18 tables couvertes |
-| Précision numérique par l'API | **8 / 8** (0.1 + 0.2, 1/3, 10.86, 4.123456789012345 ; écriture et relecture, égalité stricte) |
-| Destruction | 0 conteneur, 0 volume restants |
-
-⚠ Les fichiers bruts de cette exécution (`docs/qualification/3b-local-report.md`,
-`3b-local-sql.json`, `3b-local-http.json`) **ne sont pas versionnés** dans le dépôt. La
-clôture repose sur les résultats communiqués et sur les preuves locales ci-dessous. Pour une
-traçabilité complète, il est recommandé de les pousser (commandes au § 5 de
-`docs/LOT3B_QUALIFICATION.md`) — non bloquant.
-
-### 4.2 Preuves reproductibles dans le dépôt
-
-| Preuve | Où |
-|---|---|
-| Référence PostgreSQL 16 (1 106 assertions) | `supabase/db-tests/baseline/pg16.json` |
-| PostgreSQL 17.11 local, identique à la référence | `docs/qualification/3b-pg17-local.json`, `.md` |
-| Cause de l'échec dblink reproduite puis corrigée (profil « supabase-like ») | `docs/qualification/3b-pg17-local.md` § 1, § 3 |
-| Écarts de représentation des flottants (SQL) reproduits avec `extra_float_digits = 0` | idem § 5 |
-| Arrondi par l'API : origine (`postgresql.conf` de l'image Supabase), chaîne numérique, correction, **mutation sans migration 7 = mêmes 3 valeurs en échec** | idem § 6 ; `supabase/db-tests/10_api_serialization.sql` |
-| Exécution de clôture locale | `npm run check` 314/314 + build ; `npm run test:db` 1 106/1 106 ; profil supabase-like 1 152/1 152 |
-
-## 5. Questions de qualification (Q1–Q6)
-
-| # | Question | Réponse |
-|---|---|---|
-| Q1 | Le rôle `postgres` contourne-t-il la RLS forcée ? | **Oui** sur la pile locale (`BYPASSRLS`) : inscription fonctionnelle |
-| Q2 | Déclencheur sur `auth.users` accepté ? | **Oui** (migrations appliquées, profil créé à l'inscription) |
-| Q3 | Création directe d'utilisateurs fictifs en SQL ? | **Oui** |
-| Q4 | `dblink` disponible ? | **Oui**, dans un schéma dédié inaccessible aux rôles applicatifs, via `dblink_connect` uniquement |
-| Q5 | Privilèges par défaut, GraphQL, RPC maîtrisés ? | **Oui** (contrôles plateforme et HTTP) |
-| Q6 | Erreurs différées (`23503`, `23P01`) renvoyées par PostgREST ? | **Oui** (suite HTTP) |
-
-## 6. Points clos
-
-| # | Point | Preuve de clôture |
-|---|---|---|
-| P10 | Inscription impossible si `postgres` n'a pas `BYPASSRLS` | Q1 positive sur la pile locale ; création du profil vérifiée par la suite HTTP (143/143). **Clos pour la pile locale** ; la vérification sur un projet hébergé est rattachée à P9 |
-| P11 | Arrondi des `double precision` dans les réponses de l'API | Origine démontrée (image Supabase, `extra_float_digits = 0`) ; perte localisée à la sérialisation de la réponse ; correction par la migration 7 ; 8/8 contrôles stricts et 143/143 sur la vraie pile ; mutation confirmant la causalité. **Clos** |
-| Écarts PG 16 / 17 (`0.3`, `4.12345678901235`) | Différence de représentation, bits identiques | **Clos** (tests fondés sur `float8send`) |
-| Échec `dblink_connect_u` | Outillage de test | **Clos** (schéma dédié, aucun privilège pour les rôles applicatifs) |
-
-## 7. Ce qui reste hors périmètre ou ouvert
-
-**Réserves (inchangées, bloquantes pour la mise en production du cloud)** : R1 (remappage des
-identifiants à la restauration), R2 (atomicité `saveAsset` + valorisation initiale), R3
-(concurrence entre appareils : contrôle de version au Lot 4, récupération au Lot 5).
-
-**Points ouverts** : P1 à P8 (inchangés, voir `docs/SUIVI_TECHNIQUE.md`) ; **P9** partiellement
-clos — pile locale qualifiée, **projet hébergé (3b-4) reporté**.
-
-**Hors périmètre de l'étape 3b** : écriture applicative (`apply_changeset`, Lot 4),
-synchronisation réelle (Lot 5), authentification dans l'application (Lot 6), Storage et
-pièces jointes (Lot 7), purge et CI (Lot 8), migration des données Edge.
-
-## 8. Limites de la qualification locale
-
-1. **Pile locale ≠ plateforme hébergée.** Configuration serveur, restrictions `supautils`
-   (rôles réservés), versions exactes de PostgREST / GoTrue, pooler Supavisor, réseau et TLS
-   peuvent différer. En particulier, `alter role … set` sur `anon` / `authenticated` (migration
-   7) et l'attribut `BYPASSRLS` de `postgres` (Q1) **doivent être revérifiés** sur un projet
-   hébergé.
-2. **Authentification simplifiée** : confirmation d'e-mail désactivée, clés locales par
-   défaut ; politiques de mots de passe, limites de débit et signature des jetons de la
-   plateforme non testées.
-3. **Concurrence** : prouvée au niveau base (sessions concurrentes, 300 étapes aléatoires),
-   pas via l'API sous charge ; aucune mesure de performance de la RLS sur gros volumes.
-4. **Données** : uniquement fictives ; compatibilité des données Edge existantes non testée
-   (P3).
-5. **Écriture applicative absente** : les écritures HTTP testées sont des requêtes PostgREST
-   unitaires ; l'atomicité multi-tables côté serveur relève du Lot 4.
-6. **Traçabilité** : résultats Codespaces finaux communiqués, fichiers bruts non versionnés
-   (§ 4.1) ; aucune CI ne rejoue automatiquement la qualification.
-7. **PostgreSQL 17 local** : binaires d'un paquet npm (`@embedded-postgres`, version bêta de
-   l'empaquetage) ; la référence de version reste celle de l'image Supabase.
+| Branche | `claude/stoic-edison-8s0vhq` |
+| Production `claude/nexora-finance-platform-81blaa` | `5fd37c3`, inchangée |
+| `nexora-dev` | `341f3da`, inchangée |
+| `src/` | inchangé depuis la validation du Lot 2 (`d1c789e`) |
+| Six migrations du Lot 3 | identiques au commit `46b83b4` |
+| Migration 7 | `20261101000700_api_float_serialization.sql`, inchangée depuis `ea45a41` |
+| Base IndexedDB Edge, projet hébergé, Netlify | non touchés |
