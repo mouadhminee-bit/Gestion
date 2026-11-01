@@ -16,6 +16,12 @@ base existante touchée, aucun fichier `src/` modifié.*
 | Configuration CLI locale | `supabase/config.toml` |
 | Registre des réserves (mis à jour) | `docs/SUIVI_TECHNIQUE.md` |
 
+> **Addendum étape 3b** : une 7e migration, `20261101000700_api_float_serialization.sql`,
+> fixe `extra_float_digits = 1` sur les rôles `anon`, `authenticated` et `service_role` afin
+> que l'API restitue exactement les `double precision` (voir
+> `docs/qualification/3b-pg17-local.md` § 6). Les réglages de rôle étant globaux à
+> l'instance, ils ne figurent pas dans `LOT3_SCHEMA_DUMP.sql` (export limité aux schémas).
+
 ## 2. Fichiers créés et modifiés
 
 | Fichier | Statut |

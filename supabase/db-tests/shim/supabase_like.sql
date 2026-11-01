@@ -11,9 +11,8 @@
 -- NE JAMAIS APPLIQUER À SUPABASE.
 -- =============================================================================
 
-grant anon, authenticated, service_role to postgres;
-create role authenticator noinherit nologin;
-grant anon, authenticated, service_role to authenticator;
+-- Comme Supabase (PostgreSQL ≥ 16, migration 20250605172253) : option ADMIN.
+grant anon, authenticated, service_role to postgres with admin option;
 
 grant usage on schema auth to postgres;
 grant all on table auth.users to postgres;

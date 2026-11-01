@@ -13,7 +13,8 @@
 #             RESULTS_JSON=<fichier> (export des résultats), DUMP_SCHEMA=<fichier>,
 #             ADMIN_ROLE=service_role (simule un propriétaire qui ne contourne pas la RLS),
 #             PG_PROFILE=supabase-like (postgres NON superutilisateur, extensions créées par le
-#             superutilisateur supabase_admin, authentification par mot de passe ; voir
+#             superutilisateur supabase_admin, authentification par mot de passe,
+#             extra_float_digits = 0 dans postgresql.conf comme l'image Supabase ; voir
 #             supabase/db-tests/shim/supabase_like.sql), POSTGRES_BYPASSRLS=1 (avec ce profil),
 #             EXTRA_FLOAT_DIGITS=<n> (réglage de sérialisation des flottants appliqué à la base,
 #             ex. 0 pour reproduire une sortie texte arrondie à 15 chiffres).
@@ -63,6 +64,10 @@ else
   as_pg "$PG_BIN/initdb" -D "$DATA" -U postgres -A scram-sha-256 --pwfile="$WORK/pw" -E UTF8 --no-locale >/dev/null
   export PGPASSWORD=postgres
   DSN_PASSWORD=" password=postgres"
+fi
+if [ "$PG_PROFILE" = "supabase-like" ]; then
+  # Comme l'image PostgreSQL de Supabase (postgresql.conf.j2) : sortie texte des flottants à 15 chiffres.
+  echo "extra_float_digits = 0" >> "$DATA/postgresql.conf"
 fi
 as_pg "$PG_BIN/pg_ctl" -D "$DATA" -l "$WORK/postgres.log" -w \
   -o "-c listen_addresses='' -k $WORK -p $PORT -c fsync=off -c max_connections=30" start >/dev/null

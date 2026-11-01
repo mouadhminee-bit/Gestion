@@ -207,8 +207,23 @@ async function main() {
 
   // --- Précision des flottants par l'API (PostgREST) ----------------------------
   // Contrôle strict : les nombres JavaScript envoyés doivent être relus à l'identique
-  // (égalité ===, donc mêmes bits IEEE-754), à l'écriture comme à la lecture. Le texte
-  // brut de la réponse est consigné pour montrer la sérialisation effective.
+  // (égalité ===, donc mêmes bits IEEE-754), à l'écriture comme à la lecture. Chaque étape
+  // de la chaîne est consignée (CHAIN_JSON) : JSON envoyé, réponses brutes, valeurs et bits
+  // reconstruits ; scripts/qualify-supabase.sh y ajoute les bits stockés et relus en SQL.
+  const bitsOf = (v) => { const b = Buffer.alloc(8); b.writeDoubleBE(v); return b.toString('hex'); };
+  const chain = [];
+  const probe = async (label, table, column, id, value, write) => {
+    const sentJson = JSON.stringify({ [column]: value });
+    const w = await write(value);
+    const writeRaw = JSON.stringify(w.json);
+    const writeValue = w.json?.[0]?.[column];
+    const readRaw = await fetch(`${API}/rest/v1/${table}?id=eq.${id}&select=${column}`, { headers: { apikey: ANON, Authorization: `Bearer ${B.token}` } }).then((x) => x.text());
+    const readValue = JSON.parse(readRaw)?.[0]?.[column];
+    chain.push({ label, table, column, id, value_js: String(value), bits_js: bitsOf(value), sent_json: sentJson,
+      write_status: w.status, write_raw: writeRaw, write_value: String(writeValue), write_bits: typeof writeValue === 'number' ? bitsOf(writeValue) : null,
+      read_raw: readRaw, read_value: String(readValue), read_bits: typeof readValue === 'number' ? bitsOf(readValue) : null });
+    return { w, writeValue, readRaw, readValue };
+  };
   const exact = [
     ['taux 0.1 + 0.2', 0.1 + 0.2],
     ['taux 1/3', 1 / 3],
@@ -216,16 +231,17 @@ async function main() {
   ];
   for (const [label, value] of exact) {
     const id = randomUUID();
-    r = await rest('POST', 'exchange_rates', { token: B.token, body: { id, user_id: B.id, base: 'USD', quote: 'MAD', rate: value, date: '2026-03-02', source: 'manual', created_at: TS }, prefer: 'return=representation' });
-    ok(r.status === 201 && r.json?.[0]?.rate === value, `API ${label} : valeur renvoyée à l'écriture identique (${value})`, describe(r));
-    const raw = await fetch(`${API}/rest/v1/exchange_rates?id=eq.${id}&select=rate`, { headers: { apikey: ANON, Authorization: `Bearer ${B.token}` } }).then((x) => x.text());
-    ok(JSON.parse(raw)?.[0]?.rate === value, `API ${label} : valeur relue identique (${value})`, `réponse brute ${raw}`);
+    const p = await probe(label, 'exchange_rates', 'rate', id, value, (v) =>
+      rest('POST', 'exchange_rates', { token: B.token, body: { id, user_id: B.id, base: 'USD', quote: 'MAD', rate: v, date: '2026-03-02', source: 'manual', created_at: TS }, prefer: 'return=representation' }));
+    ok(p.w.status === 201 && p.writeValue === value, `API ${label} : valeur renvoyée à l'écriture identique (${value})`, describe(p.w));
+    ok(p.readValue === value, `API ${label} : valeur relue identique (${value})`, `réponse brute ${p.readRaw}`);
   }
   const rateValue = 4.123456789012345;
-  r = await call('PATCH', `/rest/v1/debts?id=eq.${b.debt}`, { token: B.token, body: { interest_rate: rateValue }, prefer: 'return=representation' });
-  ok(r.status === 200 && r.json?.[0]?.interest_rate === rateValue, `API taux d'intérêt : valeur renvoyée identique (${rateValue})`, describe(r));
-  const rawDebt = await fetch(`${API}/rest/v1/debts?id=eq.${b.debt}&select=interest_rate`, { headers: { apikey: ANON, Authorization: `Bearer ${B.token}` } }).then((x) => x.text());
-  ok(JSON.parse(rawDebt)?.[0]?.interest_rate === rateValue, `API taux d'intérêt : valeur relue identique (${rateValue})`, `réponse brute ${rawDebt}`);
+  const pd = await probe("taux d'intérêt", 'debts', 'interest_rate', b.debt, rateValue, (v) =>
+    call('PATCH', `/rest/v1/debts?id=eq.${b.debt}`, { token: B.token, body: { interest_rate: v }, prefer: 'return=representation' }));
+  ok(pd.w.status === 200 && pd.writeValue === rateValue, `API taux d'intérêt : valeur renvoyée identique (${rateValue})`, describe(pd.w));
+  ok(pd.readValue === rateValue, `API taux d'intérêt : valeur relue identique (${rateValue})`, `réponse brute ${pd.readRaw}`);
+  if (process.env.CHAIN_JSON) writeFileSync(process.env.CHAIN_JSON, JSON.stringify(chain, null, 2));
 
   // --- Rôle anonyme, fonctions privées, jeton falsifié, GraphQL ----------------
   r = await rest('GET', 'accounts?select=id');

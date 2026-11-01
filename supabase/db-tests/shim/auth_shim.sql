@@ -13,6 +13,9 @@
 create role anon nologin noinherit;
 create role authenticated nologin noinherit;
 create role service_role nologin noinherit bypassrls;
+-- Rôle de connexion de PostgREST : membre des rôles qu'il endosse (comme Supabase).
+create role authenticator nologin noinherit;
+grant anon, authenticated, service_role to authenticator;
 
 grant usage on schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;

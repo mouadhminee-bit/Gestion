@@ -145,8 +145,18 @@ psqlx -tA -c "
 # -----------------------------------------------------------------------------
 step "4. Suite HTTP : deux utilisateurs réellement authentifiés (GoTrue + PostgREST)"
 HTTP_STATUS=0
-SUPABASE_API_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" RESULTS_JSON="$RUN/http.json" \
+# PostgREST relit les réglages des rôles endossés (migration 7) : rechargement explicite.
+psqlx -tA -c "notify pgrst, 'reload config'" >/dev/null && sleep 3
+SUPABASE_API_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" RESULTS_JSON="$RUN/http.json" CHAIN_JSON="$RUN/chain.json" \
   node supabase/db-tests/http/rls.mjs | tee "$RUN/http.log" || HTTP_STATUS=$?
+
+step "4b. Chaîne numérique des taux (JavaScript → PostgREST → PostgreSQL → PostgREST → JavaScript)"
+CHAIN_STATUS=0
+if [ -s "$RUN/chain.json" ]; then
+  DB_CONTAINER="$DB_CONTAINER" node supabase/db-tests/http/chain-report.mjs "$RUN/chain.json" "$RUN/chain.md" || CHAIN_STATUS=$?
+else
+  echo "Chaîne numérique non produite (suite HTTP interrompue avant)." | tee "$RUN/chain.md"; CHAIN_STATUS=1
+fi
 
 # -----------------------------------------------------------------------------
 step "5. Comparaison avec la référence PostgreSQL 16 et rapport"
@@ -170,7 +180,7 @@ IMAGES="$(docker ps --filter "label=com.supabase.cli.project=${PROJECT_ID}" --fo
   echo "| Migrations appliquées | \`${APPLIED}\` |"
   echo "| Rôle administrateur des tests (Q1) | \`${ADMIN_ROLE}\` |"
   echo "| Fichiers SQL interrompus | ${SQL_ERRORS:-aucun} |"
-  echo "| Code de sortie HTTP / comparaison | ${HTTP_STATUS} / ${CMP_STATUS} |"
+  echo "| Code de sortie HTTP / chaîne numérique / comparaison | ${HTTP_STATUS} / ${CHAIN_STATUS} / ${CMP_STATUS} |"
   echo
   echo "## Composants de la pile"
   echo
@@ -191,6 +201,8 @@ IMAGES="$(docker ps --filter "label=com.supabase.cli.project=${PROJECT_ID}" --fo
     for (const r of j.results ?? []) if (r.name.startsWith("CONSTAT") || r.name.startsWith("Q")) console.log(`| ${r.ok ? "" : "❌ "}${r.name.replaceAll("|", "/")} | ${String(r.detail ?? "").replaceAll("|", "/")} |`);
   ' "$OUT/3b-local-sql.json"
   echo
+  cat "$RUN/chain.md"
+  echo
   echo "## Suite HTTP (deux utilisateurs authentifiés)"
   echo
   echo '```'
@@ -199,7 +211,7 @@ IMAGES="$(docker ps --filter "label=com.supabase.cli.project=${PROJECT_ID}" --fo
 } > "$OUT/3b-local-report.md"
 echo "Rapport : docs/qualification/3b-local-report.md (+ 3b-local-sql.json, 3b-local-http.json)"
 
-if [ -n "$SQL_ERRORS" ] || [ "$HTTP_STATUS" != "0" ] || [ "$CMP_STATUS" != "0" ]; then
+if [ -n "$SQL_ERRORS" ] || [ "$HTTP_STATUS" != "0" ] || [ "$CHAIN_STATUS" != "0" ] || [ "$CMP_STATUS" != "0" ]; then
   echo "QUALIFICATION : ÉCARTS DÉTECTÉS (voir le rapport)."
   exit 1
 fi

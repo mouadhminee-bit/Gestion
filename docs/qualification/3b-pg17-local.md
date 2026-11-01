@@ -145,3 +145,45 @@ valeurs arrondies. D'où le contrôle ajouté côté API (ci-dessous).
 **Strictness conservée** (mutation, copie jetable, `extra_float_digits = 0`) : `rate` en `real`
 → 13 échecs (bits `3fd3333340000000` au lieu de `3fd3333333333334`) ; `interest_rate` en
 `numeric(6,3)` → 5 échecs. Une perte réelle reste détectée, quel que soit le réglage de session.
+
+## 6. Arrondi des taux dans les réponses de l'API (3e exécution Codespaces : 6 échecs HTTP)
+
+**Observation** : `0.30000000000000004 → 0.3`, `0.3333333333333333 → 0.333333333333333`,
+`4.123456789012345 → 4.12345678901235` dans les réponses PostgREST ; `10.86` exact.
+
+**Origine** (code source public consulté, aucune connexion à Supabase) : l'image PostgreSQL de
+Supabase fixe `extra_float_digits = 0` dans `postgresql.conf`
+(`supabase/postgres`, `ansible/files/postgresql_config/postgresql.conf.j2`, ligne 675).
+PostgREST ne modifie pas ce réglage ; ses sessions en héritent.
+
+**Chaîne numérique** (sources PostgREST `Query/SqlFragment.hs`, `Query/PreQuery.hs`,
+`Config/Database.hs`, et `10_api_serialization.sql`) :
+
+| Étape | Mécanisme | Résultat |
+|---|---|---|
+| 1. JSON envoyé par JavaScript | `JSON.stringify` : forme la plus courte (`0.30000000000000004`) | exact |
+| 2. Lecture par PostgREST | corps transmis en JSON, converti par `json_to_recordset` (lecture du nombre indépendante de `extra_float_digits`) | **exact** (bits vérifiés sous réglage 0) |
+| 3. Stockage | `double precision` | **exact** (`float8send` = constante IEEE-754) |
+| 4. Relecture SQL | texte selon le réglage de la session | `0.3` à 0 (affichage), exact à 1 |
+| 5. Session de l'API | hérite de `extra_float_digits = 0` (fichier de configuration) | — |
+| 6. Réponse JSON brute | `json_agg` convertit chaque `float8` en texte avec le réglage de la session | **PERTE : 15 chiffres** |
+| 7. Valeur JavaScript | relit fidèlement le texte arrondi | valeur différente (`3fd3333333333333`) |
+
+La perte a lieu **à la sérialisation de la réponse** (étape 6), jamais à l'écriture ni au
+stockage. `10.86` passe car il est exact sur 15 chiffres.
+
+**Correction** : 7e migration `20261101000700_api_float_serialization.sql` (les six autres
+inchangées) — `alter role anon / authenticated / service_role set extra_float_digits = 1`.
+PostgREST applique à chaque requête les réglages du rôle endossé, en paramètres locaux à la
+transaction ; Supabase utilise ce mécanisme pour `statement_timeout`, et accorde à `postgres`
+l'option ADMIN sur ces rôles (PostgreSQL ≥ 16). Aucun type, aucune valeur, aucun calcul
+modifiés ; seule la représentation texte des flottants dans les réponses de l'API devient
+exacte (forme la plus courte, relue à l'identique). Sans effet hors Supabase (1 = défaut).
+
+**Validation locale** (émulation fidèle de la séquence PostgREST, profil « supabase-like » avec
+`extra_float_digits = 0` dans `postgresql.conf`, PG 16.15 et 17.11) : avec la migration 7, les
+réponses JSON se relisent bit à bit ; **sans** elle (mutation), exactement les trois valeurs
+observées échouent et `10.86` passe — même signature que les 6 échecs HTTP de Codespaces.
+
+**Validation finale requise** : la suite HTTP sur la vraie pile (143 assertions) et la chaîne
+numérique complète, produites par `npm run qualify:supabase` (rapport § « Chaîne numérique »).
