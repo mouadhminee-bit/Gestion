@@ -46,10 +46,11 @@ dans l'outillage.
 
 | Exécution | Serveur | Profil | Assertions | Échecs | Écarts vs référence PG 16 |
 |---|---|---|---|---|---|
-| Référence (`baseline/pg16.json`, régénérée) | PostgreSQL 16.15 | standard | 1 072 | 0 | — |
-| PG 17 | PostgreSQL 17.11 | standard | 1 072 | 0 | **0** |
-| PG 17 « supabase-like », `postgres` avec `BYPASSRLS` | PostgreSQL 17.11 | `postgres` non superutilisateur, extensions créées par `supabase_admin`, SCRAM, 1re connexion candidate volontairement injoignable | 1 112 (dont 40 contrôles plateforme `P1`) | 0 | **0** (+ 40 en plus, attendus) |
-| PG 16 « supabase-like », `postgres` avec `BYPASSRLS` | PostgreSQL 16.15 | idem | 1 112 | 0 | **0** (+ 40) |
+| Référence (`baseline/pg16.json`, régénérée) | PostgreSQL 16.15 | standard | 1 093 | 0 | — |
+| PG 17 | PostgreSQL 17.11 | standard | 1 093 | 0 | **0** |
+| PG 16 et PG 17, `extra_float_digits = 0` (condition de la pile Supabase) | 16.15 / 17.11 | standard | 1 093 | 0 | **0** |
+| PG 17 « supabase-like », `postgres` avec `BYPASSRLS` | PostgreSQL 17.11 | `postgres` non superutilisateur, extensions créées par `supabase_admin`, SCRAM, 1re connexion candidate volontairement injoignable | 1 135 (dont 42 contrôles plateforme `P1`) | 0 | **0** (+ 42 en plus, attendus) |
+| PG 16 « supabase-like », `postgres` avec `BYPASSRLS` | PostgreSQL 16.15 | idem | 1 135 | 0 | **0** (+ 42) |
 | PG 17 / 16 « supabase-like », `postgres` **sans** `BYPASSRLS` | — | idem | — | — | **arrêt** : voir § 4 |
 
 ### Comparaison détaillée PG 16 → PG 17 (profil standard)
@@ -57,17 +58,17 @@ dans l'outillage.
 | | Référence | Cible |
 |---|---|---|
 | Version PostgreSQL | 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) | 17.11 |
-| Assertions | 1072 | 1072 |
+| Assertions | 1093 | 1093 |
 | Échecs | 0 | 0 |
 
-Identiques : **1072** · manquantes : **0** · en plus : **0** · régressions : **0**
+Identiques : **1093** · manquantes : **0** · en plus : **0** · régressions : **0**
 
 | Fichier | Réussies | Échecs |
 |---|---|---|
 | 01_catalog.sql | 556 | 0 |
 | 02_isolation.sql | 297 | 0 |
 | 03_triggers.sql | 20 | 0 |
-| 04_constraints.sql | 101 | 0 |
+| 04_constraints.sql | 122 | 0 |
 | 05_relations.sql | 7 | 0 |
 | 06_soft_delete.sql | 16 | 0 |
 | 07_sync.sql | 16 | 0 |
@@ -100,3 +101,47 @@ l'exécution dans Codespaces tranchera (contrôle `CONSTAT Q1` du rapport). **Le
 sont pas modifiées à ce stade** ; si Q1 est négative, une correction ciblée vous sera
 proposée avant toute modification (par exemple une politique d'insertion limitée au
 propriétaire de la fonction d'inscription).
+
+*Mise à jour : la 2e exécution dans Codespaces a montré que `postgres` dispose de `BYPASSRLS`
+sur la pile locale (Q1 positive) : l'inscription fonctionne, P10 est résolu pour cette
+configuration.*
+
+## 5. Écarts PG 16 / PG 17 de la 2e exécution Codespaces : `0.1 + 0.2` et taux d'intérêt
+
+**Observation** (pile Supabase locale, PostgreSQL 17.11) : `0.3` au lieu de
+`0.30000000000000004`, et `4.12345678901235` au lieu de `4.123456789012345`.
+
+**Analyse** (clusters éphémères PG 16.15 et PG 17.11, valeurs vérifiées indépendamment en Python) :
+
+| Valeur | Bits IEEE-754 (`float8send`) PG 16 = PG 17 | Texte, `extra_float_digits = 1` (défaut) | Texte, `extra_float_digits = 0` | Relu depuis le texte à 0 |
+|---|---|---|---|---|
+| `0.30000000000000004` (`0.1 + 0.2`, calculé ou saisi) | `3fd3333333333334` | `0.30000000000000004` | `0.3` | **autre valeur** (`3fd3333333333333`) |
+| `4.123456789012345` | `40107e6b74dd1bd9` | `4.123456789012345` | `4.12345678901235` | **autre valeur** |
+
+* **Stockage** : bits identiques sur PG 16 et PG 17 — aucune perte.
+* **Calcul** : `0.1::float8 + 0.2::float8` donne les mêmes bits sur les deux versions.
+* **Sérialisation** : avec `extra_float_digits = 0`, PostgreSQL affiche 15 chiffres
+  significatifs (`%.15g`) ; c'est **exactement** le texte observé. Reproduit à l'identique en
+  local : `EXTRA_FLOAT_DIGITS=0 bash scripts/db-test.sh` (anciens tests) → les deux mêmes
+  échecs, mêmes valeurs. La pile Supabase applique donc `extra_float_digits = 0` à la session
+  des tests ; l'origine précise (fichier, base ou rôle) est désormais consignée par `P1`.
+* Les anciens tests comparaient `valeur::text` : ils mesuraient la **sérialisation de la
+  session**, pas la précision stockée. La différence est une différence de représentation.
+
+**Attention** : cette représentation n'est pas anodine. À 15 chiffres, le texte ne se relit
+pas à l'identique (`'0.3'::float8 ≠ 0.30000000000000004`), et `to_jsonb` hérite du réglage.
+Un client qui lirait les taux en texte ou en JSON dans une session réglée à 0 recevrait des
+valeurs arrondies. D'où le contrôle ajouté côté API (ci-dessous).
+
+**Adaptation des tests** (aucune migration, aucun type, aucune règle métier modifiés) :
+
+| Contrôle | Avant | Après |
+|---|---|---|
+| Précision stockée | `valeur::text = '0.30000000000000004'` (dépend de la session) | **bits relus = constante IEEE-754 attendue** (`float8send`), pour `0.1 + 0.2`, `1/3`, `10.86`, `4.123456789012345` ; les deux assertions historiques gardent leur nom et deviennent binaires |
+| Représentation | — | sous `extra_float_digits = 1` fixé explicitement : texte = forme la plus courte, **relu à l'identique**, et `to_jsonb` relu à l'identique |
+| Réglage de la session | — | `CONSTAT` (valeur et source) ; `P1` : origine (fichier, `pg_db_role_setting`) |
+| API (PostgREST) | — | `rls.mjs` : 8 assertions **strictes** (`===`, donc mêmes bits) sur les valeurs renvoyées à l'écriture et relues, avec le texte brut de la réponse consigné |
+
+**Strictness conservée** (mutation, copie jetable, `extra_float_digits = 0`) : `rate` en `real`
+→ 13 échecs (bits `3fd3333340000000` au lieu de `3fd3333333333334`) ; `interest_rate` en
+`numeric(6,3)` → 5 échecs. Une perte réelle reste détectée, quel que soit le réglage de session.

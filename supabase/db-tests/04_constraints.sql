@@ -146,15 +146,44 @@ begin
 end $$;
 
 -- Restitution exacte des nombres JavaScript (double precision)
+--
+-- Contrôle STRICT, indépendant de la sérialisation : les bits IEEE-754 relus (float8send)
+-- doivent être exactement ceux attendus — toute perte de précision, même sur le dernier
+-- bit, est détectée. La représentation texte / JSON est ensuite vérifiée sous
+-- extra_float_digits = 1 (défaut de PostgreSQL ≥ 12 : forme la plus courte qui se relit à
+-- l'identique), fixé explicitement : le réglage de la session (ex. 0 sur la pile Supabase
+-- locale, qui arrondit l'affichage à 15 chiffres) est consigné, pas imposé.
 do $$
 declare
   u uuid := tests.new_user('float');
   ids jsonb := tests.seed(u);
+  c record;
   r double precision;
+  session_efd text := current_setting('extra_float_digits');
+  session_src text := (select source from pg_settings where name = 'extra_float_digits');
 begin
+  for c in select * from (values
+      ('exchange_rates', 'rate', 'taux 0.1 + 0.2', 0.30000000000000004::float8, '3fd3333333333334', '0.30000000000000004'),
+      ('exchange_rates', 'rate', 'taux 1/3', (1::float8 / 3), '3fd5555555555555', '0.3333333333333333'),
+      ('exchange_rates', 'rate', 'taux 10.86', 10.86::float8, '4025b851eb851eb8', '10.86'),
+      ('debts', 'interest_rate', 'taux d''intérêt 4.123456789012345', 4.123456789012345::float8, '40107e6b74dd1bd9', '4.123456789012345')
+    ) v(tbl, col, label, val, bits, shortest) loop
+    execute format('update public.%I set %I = $1 where id = $2', c.tbl, c.col) using c.val, (ids ->> c.tbl)::uuid;
+    execute format('select %I from public.%I where id = $1', c.col, c.tbl) into r using (ids ->> c.tbl)::uuid;
+    perform tests.eq(encode(float8send(c.val), 'hex'), c.bits, format('%s : valeur calculée/saisie = bits IEEE-754 attendus', c.label));
+    perform tests.eq(encode(float8send(r), 'hex'), c.bits, format('%s : bits relus identiques (aucune perte de précision au stockage)', c.label));
+    set local extra_float_digits = 1;
+    perform tests.eq(r::text, c.shortest, format('%s : texte exact sous extra_float_digits = 1', c.label));
+    perform tests.eq(encode(float8send((r::text)::float8), 'hex'), c.bits, format('%s : le texte se relit à l''identique (aller-retour exact)', c.label));
+    perform tests.eq((select encode(float8send(((to_jsonb(r))::text)::float8), 'hex')), c.bits, format('%s : JSON (to_jsonb) exact et relu à l''identique', c.label));
+    perform set_config('extra_float_digits', session_efd, true);
+  end loop;
+  -- Les deux assertions historiques (mêmes noms), désormais fondées sur les bits.
   update public.exchange_rates set rate = 0.30000000000000004 where id = (ids ->> 'exchange_rates')::uuid;
   select rate into r from public.exchange_rates where id = (ids ->> 'exchange_rates')::uuid;
-  perform tests.eq(r::text, '0.30000000000000004', 'taux 0.1 + 0.2 restitué exactement (aucun arrondi décimal)');
-  update public.debts set interest_rate = 4.123456789012345 where id = (ids ->> 'debts')::uuid;
-  perform tests.eq((select interest_rate::text from public.debts where id = (ids ->> 'debts')::uuid), '4.123456789012345', 'taux d''intérêt restitué exactement');
+  perform tests.eq(encode(float8send(r), 'hex'), '3fd3333333333334', 'taux 0.1 + 0.2 restitué exactement (aucun arrondi décimal)');
+  perform tests.eq((select encode(float8send(interest_rate), 'hex') from public.debts where id = (ids ->> 'debts')::uuid), '40107e6b74dd1bd9', 'taux d''intérêt restitué exactement');
+  perform tests.ok(true, 'CONSTAT sérialisation des flottants de la session',
+    format('extra_float_digits = %s (source : %s) ; texte de 0.30000000000000004 dans cette session : %s',
+      session_efd, session_src, 0.30000000000000004::float8::text));
 end $$;

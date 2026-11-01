@@ -47,6 +47,17 @@ begin
   -- Q4 : dblink (sessions concurrentes de la suite 07)
   perform tests.ok(exists (select 1 from pg_extension where extname = 'dblink'), 'Q4 dblink disponible (suite de synchronisation exécutée)');
 
+  -- Sérialisation des flottants : origine du réglage extra_float_digits (texte / JSON).
+  select format('valeur=%s, source=%s, fichier=%s:%s, défaut compilé=%s', setting, source,
+      coalesce(sourcefile, '—'), coalesce(sourceline::text, '—'), boot_val)
+    into v from pg_settings where name = 'extra_float_digits';
+  perform tests.ok(true, 'CONSTAT extra_float_digits de la session d''administration', v);
+  select coalesce(string_agg(format('%s / %s : %s',
+      coalesce((select datname from pg_database where oid = s.setdatabase), 'toutes bases'),
+      coalesce(pg_get_userbyid(nullif(s.setrole, 0)), 'tous rôles'), array_to_string(s.setconfig, ', ')), ' ; '), 'aucun')
+    into v from pg_db_role_setting s;
+  perform tests.ok(true, 'CONSTAT réglages par base / par rôle (pg_db_role_setting)', v);
+
   -- Q5 : surfaces d'accès propres à Supabase
   select string_agg(extname || ' ' || extversion, ', ' order by extname) into v from pg_extension;
   perform tests.ok(true, 'CONSTAT extensions installées', v);

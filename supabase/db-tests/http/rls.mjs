@@ -205,6 +205,28 @@ async function main() {
   r = await rest('GET', `accounts?id=eq.${row?.id}&select=id`, { token: B.token });
   ok(r.status === 200 && r.json.length === 1, 'API : ligne supprimée logiquement toujours lisible par son propriétaire', describe(r));
 
+  // --- Précision des flottants par l'API (PostgREST) ----------------------------
+  // Contrôle strict : les nombres JavaScript envoyés doivent être relus à l'identique
+  // (égalité ===, donc mêmes bits IEEE-754), à l'écriture comme à la lecture. Le texte
+  // brut de la réponse est consigné pour montrer la sérialisation effective.
+  const exact = [
+    ['taux 0.1 + 0.2', 0.1 + 0.2],
+    ['taux 1/3', 1 / 3],
+    ['taux 10.86', 10.86],
+  ];
+  for (const [label, value] of exact) {
+    const id = randomUUID();
+    r = await rest('POST', 'exchange_rates', { token: B.token, body: { id, user_id: B.id, base: 'USD', quote: 'MAD', rate: value, date: '2026-03-02', source: 'manual', created_at: TS }, prefer: 'return=representation' });
+    ok(r.status === 201 && r.json?.[0]?.rate === value, `API ${label} : valeur renvoyée à l'écriture identique (${value})`, describe(r));
+    const raw = await fetch(`${API}/rest/v1/exchange_rates?id=eq.${id}&select=rate`, { headers: { apikey: ANON, Authorization: `Bearer ${B.token}` } }).then((x) => x.text());
+    ok(JSON.parse(raw)?.[0]?.rate === value, `API ${label} : valeur relue identique (${value})`, `réponse brute ${raw}`);
+  }
+  const rateValue = 4.123456789012345;
+  r = await call('PATCH', `/rest/v1/debts?id=eq.${b.debt}`, { token: B.token, body: { interest_rate: rateValue }, prefer: 'return=representation' });
+  ok(r.status === 200 && r.json?.[0]?.interest_rate === rateValue, `API taux d'intérêt : valeur renvoyée identique (${rateValue})`, describe(r));
+  const rawDebt = await fetch(`${API}/rest/v1/debts?id=eq.${b.debt}&select=interest_rate`, { headers: { apikey: ANON, Authorization: `Bearer ${B.token}` } }).then((x) => x.text());
+  ok(JSON.parse(rawDebt)?.[0]?.interest_rate === rateValue, `API taux d'intérêt : valeur relue identique (${rateValue})`, `réponse brute ${rawDebt}`);
+
   // --- Rôle anonyme, fonctions privées, jeton falsifié, GraphQL ----------------
   r = await rest('GET', 'accounts?select=id');
   ok(r.status >= 400 && code(r) === '42501', 'anon (clé publique sans session) : lecture refusée', describe(r));

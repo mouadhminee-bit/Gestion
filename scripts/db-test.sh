@@ -14,7 +14,9 @@
 #             ADMIN_ROLE=service_role (simule un propriétaire qui ne contourne pas la RLS),
 #             PG_PROFILE=supabase-like (postgres NON superutilisateur, extensions créées par le
 #             superutilisateur supabase_admin, authentification par mot de passe ; voir
-#             supabase/db-tests/shim/supabase_like.sql), POSTGRES_BYPASSRLS=1 (avec ce profil).
+#             supabase/db-tests/shim/supabase_like.sql), POSTGRES_BYPASSRLS=1 (avec ce profil),
+#             EXTRA_FLOAT_DIGITS=<n> (réglage de sérialisation des flottants appliqué à la base,
+#             ex. 0 pour reproduire une sortie texte arrondie à 15 chiffres).
 # =============================================================================
 set -euo pipefail
 
@@ -72,6 +74,10 @@ if [ "$PG_PROFILE" = "supabase-like" ]; then
   BYPASS=$([ "${POSTGRES_BYPASSRLS:-0}" = "1" ] && echo bypassrls || echo nobypassrls)
   "${SUPER[@]}" -d "$DB" -c "create role postgres login password 'postgres' createrole createdb $BYPASS; alter database $DB owner to postgres;" >/dev/null
   echo "Profil supabase-like : postgres non superutilisateur ($BYPASS), extensions créées par supabase_admin"
+fi
+if [ -n "${EXTRA_FLOAT_DIGITS:-}" ]; then
+  "${SUPER[@]}" -d postgres -c "alter database $DB set extra_float_digits = ${EXTRA_FLOAT_DIGITS}" >/dev/null
+  echo "Réglage de la base : extra_float_digits = ${EXTRA_FLOAT_DIGITS}"
 fi
 PSQL=(psql -X -q -v ON_ERROR_STOP=1 -h "$WORK" -p "$PORT" -U postgres)
 

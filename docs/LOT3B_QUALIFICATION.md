@@ -53,6 +53,10 @@ répartition des privilèges de Supabase : `PG_PROFILE=supabase-like bash script
 (voir `docs/qualification/3b-pg17-local.md`). dblink est installé dans le schéma dédié
 `tests_dblink`, inaccessible à `anon` et `authenticated` ; seule `dblink_connect` est utilisée.
 
+Précision des flottants : la comparaison PG 16 / PG 17 repose sur les **bits** stockés
+(`float8send`) et non sur le texte de la session ; la suite HTTP vérifie strictement
+(`===`) que l'API renvoie les taux à l'identique (voir `docs/qualification/3b-pg17-local.md` § 5).
+
 Questions tranchées par la qualification (`docs/LOT3B_PLAN.md` § 6) : Q1 rôle `postgres` et
 RLS forcée · Q2 déclencheur sur `auth.users` · Q3 création directe d'utilisateurs ·
 Q4 `dblink` · Q5 privilèges par défaut, GraphQL, RPC · Q6 erreurs différées via PostgREST.
