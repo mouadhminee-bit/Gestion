@@ -20,36 +20,37 @@ insert into public.accounts (id, user_id, name, type, currency, initial_balance,
   select acc, u, 'Compte de base', 'bank', 'MAD', 0, '2026-03-01', false, true, '#fff', 0, now(), now() from sy;
 
 create function pg_temp.connect_all() returns void language plpgsql as $$
-declare
-  dsn text := (select tests.config.dsn from tests.config);
 begin
-  perform tests.dblink_connect('s1', dsn);
-  perform tests.dblink_connect('s2', dsn);
-  perform tests.dblink_connect('s3', dsn);
-  perform tests.dblink_connect('pull', dsn);
+  perform tests.db_connect('s1');
+  perform tests.db_connect('s2');
+  perform tests.db_connect('s3');
+  perform tests.db_connect('pull');
   -- Les sessions concurrentes agissent avec le rôle administrateur des tests.
-  perform tests.dblink_exec(c, format('set role %I', (select admin_role from tests.config)))
+  perform tests.db_exec(c, format('set role %I', (select admin_role from tests.config)))
     from unnest(array['s1', 's2', 's3', 'pull']) c;
 end $$;
 
 create function pg_temp.disconnect_all() returns void language plpgsql as $$
 begin
-  perform tests.dblink_disconnect('s1');
-  perform tests.dblink_disconnect('s2');
-  perform tests.dblink_disconnect('s3');
-  perform tests.dblink_disconnect('pull');
+  perform tests.db_disconnect('s1');
+  perform tests.db_disconnect('s2');
+  perform tests.db_disconnect('s3');
+  perform tests.db_disconnect('pull');
 end $$;
 
 create function pg_temp.x(conn text, sql text) returns void language plpgsql as $$
 begin
-  perform tests.dblink_exec(conn, sql);
+  perform tests.db_exec(conn, sql);
 end $$;
 
 -- Récupération depuis la session « pull » : renvoie la borne et les lignes.
 create function pg_temp.pull(u uuid, cur xid8, out hi xid8, out rows jsonb) language plpgsql as $$
+declare
+  j jsonb := tests.db_value('pull', format(
+    'select json_build_object(''hi'', hi::text, ''rows'', rows)::text from tests.pull(%L, %L)', u, cur))::jsonb;
 begin
-  select t.hi::xid8, t.rows::jsonb into hi, rows
-  from tests.dblink('pull', format('select hi::text, rows::text from tests.pull(%L, %L)', u, cur)) as t(hi text, rows text);
+  hi := (j ->> 'hi')::xid8;
+  rows := j -> 'rows';
 end $$;
 
 -- Applique des lignes reçues au cache modèle : garde la version la plus haute par clé.
@@ -75,12 +76,12 @@ create function pg_temp.truth(u uuid) returns jsonb language plpgsql as $$
 declare
   r jsonb;
 begin
-  select t.j::jsonb into r from tests.dblink('pull', format($q$
+  r := tests.db_value('pull', format($q$
     select coalesce(jsonb_object_agg(k, jsonb_build_object('v', v, 'd', d, 'name', nm)), '{}')::text from (
       select 'accounts:' || id k, version v, deleted_at is not null d, name nm from public.accounts where user_id = %1$L
       union all
       select 'transactions:' || id, version, deleted_at is not null, label from public.transactions where user_id = %1$L) s
-  $q$, u)) as t(j text);
+  $q$, u))::jsonb;
   return r;
 end $$;
 
@@ -123,7 +124,7 @@ begin
   -- S1 — deux transactions validées dans l'ordre inverse de leur démarrage
   perform pg_temp.x('s1', 'begin');
   perform pg_temp.x('s1', pg_temp.ins_account(u, a1, 'A1 (s1, démarrée en premier)'));
-  select t.v::xid8 into t1 from tests.dblink('s1', 'select pg_current_xact_id()::text') t(v text);
+  t1 := tests.db_value('s1', 'select pg_current_xact_id()::text')::xid8;
   perform pg_sleep(0.02);
   perform pg_temp.x('s2', 'begin');
   perform pg_temp.x('s2', pg_temp.ins_account(u, a2, 'A2 (s2, validée en premier)'));
@@ -135,15 +136,15 @@ begin
     'name', 'S1 ordre inversé : la borne reste ≤ à la transaction en cours ; la ligne validée APRÈS elle est différée'));
   cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   -- Contrôle négatif : curseur naïf sur l'horodatage serveur
-  select t.c::timestamptz into naive_cursor from tests.dblink('pull', format(
-    'select max(server_updated_at)::text from public.accounts where user_id = %L', u)) t(c text);
+  naive_cursor := tests.db_value('pull', format(
+    'select max(server_updated_at)::text from public.accounts where user_id = %L', u))::timestamptz;
   perform pg_temp.x('s1', 'commit');
   select * into p from pg_temp.pull(u, cur);
   res := res || jsonb_build_array(jsonb_build_object('ok', pg_temp.has(p.rows, a1) and pg_temp.has(p.rows, a2),
     'name', 'S1 ordre inversé : après validation, la récupération suivante renvoie A1 et A2 (aucune perte)'));
   cache := pg_temp.apply(cache, p.rows); cur := p.hi;
-  select t.r::jsonb into naive_rows from tests.dblink('pull', format(
-    $q$select coalesce(jsonb_agg(id), '[]')::text from public.accounts where user_id = %L and server_updated_at > %L$q$, u, naive_cursor)) t(r text);
+  naive_rows := tests.db_value('pull', format(
+    $q$select coalesce(jsonb_agg(id), '[]')::text from public.accounts where user_id = %L and server_updated_at > %L$q$, u, naive_cursor))::jsonb;
   res := res || jsonb_build_array(jsonb_build_object('ok', not (naive_rows ? a1::text),
     'name', 'S1 contrôle négatif : un curseur sur l''horodatage aurait PERDU A1 (justifie sync_txid)'));
 

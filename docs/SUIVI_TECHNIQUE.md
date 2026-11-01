@@ -24,3 +24,4 @@ uniquement par un lot validé qui la traite explicitement (test à l'appui).
 | P7 | Réutiliser l'UUID d'une ligne d'autrui provoque une collision de clé (23505) : révèle l'existence d'un UUID aléatoire, sans accès aux données | Lot 3 | 7 (avec R1) |
 | P8 | Une transaction longue retient la borne de récupération (`pg_snapshot_xmin`) : aucune perte, mais retard de synchronisation | Lot 3 | 4–5 |
 | P9 | Validation du schéma sur la vraie pile Supabase (`supabase start` dans Codespaces, puis projet de développement) ; aligner `major_version` de `supabase/config.toml` | Lot 3 (étape 3b) | 3b / 4 |
+| P10 | Si le rôle `postgres` de Supabase n'a pas `BYPASSRLS`, le déclencheur d'inscription `handle_new_user` (`SECURITY DEFINER`, propriétaire `postgres`) ne peut pas insérer dans `profiles` (RLS forcée) : inscription impossible. Reproduit en local (profil « supabase-like » sans `BYPASSRLS`) ; à trancher par Q1 | Étape 3b | 3b / 4 |

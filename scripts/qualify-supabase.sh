@@ -37,7 +37,8 @@ PROJECT_ID="nexora"
 DB_CONTAINER="supabase_db_${PROJECT_ID}"
 EXPECTED_API="http://127.0.0.1:54321"
 EXPECTED_DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-INNER_DSN="host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres"
+# Identifiants LOCAUX par défaut de la pile Supabase de développement (non secrets).
+LOCAL_DSN_TAIL="port=5432 dbname=postgres user=postgres password=postgres"
 OUT="$ROOT/docs/qualification"
 RUN="$(mktemp -d /tmp/nexora-qualif.XXXXXX)"
 STARTED=0
@@ -50,6 +51,7 @@ step() { echo; echo "== $*"; }
 
 cleanup() {
   status=$?
+  trap - EXIT INT TERM   # une seule exécution (signal puis sortie)
   if [ "$STARTED" = "1" ] && [ "${KEEP_STACK:-}" != "1" ]; then
     step "Destruction de la pile locale (supabase stop --no-backup)"
     "${SB[@]}" stop --no-backup --project-id "$PROJECT_ID" >/dev/null 2>&1 || "${SB[@]}" stop --no-backup >/dev/null 2>&1 || true
@@ -99,6 +101,13 @@ ANON_KEY="$(val ANON_KEY)"
 [ "$(docker inspect -f '{{ index .Config.Labels "com.supabase.cli.project" }}' "$DB_CONTAINER" 2>/dev/null)" = "$PROJECT_ID" ] \
   || refuse "conteneur ${DB_CONTAINER} absent ou non étiqueté pour le projet ${PROJECT_ID}."
 echo "Cible vérifiée : ${API_URL} / conteneur ${DB_CONTAINER}."
+
+# Connexions des sessions concurrentes (dblink, depuis la base elle-même) : boucle locale,
+# puis adresse du conteneur — dblink_connect exige, pour un non-superutilisateur, une
+# connexion réellement authentifiée par mot de passe (la boucle locale peut être en « trust »).
+DB_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$DB_CONTAINER" | awk '{print $1}')"
+INNER_DSN="host=127.0.0.1 ${LOCAL_DSN_TAIL}"
+[ -n "$DB_IP" ] && INNER_DSN="${INNER_DSN}|host=${DB_IP} ${LOCAL_DSN_TAIL}"
 
 psqlx() {
   docker exec -i -e PGPASSWORD=postgres -e PGOPTIONS="${PGOPTS:-}" "$DB_CONTAINER" \

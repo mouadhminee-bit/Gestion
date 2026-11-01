@@ -48,6 +48,11 @@ npm run qualify:supabase
 | 5. Rapport | Comparaison assertion par assertion avec `supabase/db-tests/baseline/pg16.json` ; rapport dans `docs/qualification/` | jetons et clés **masqués** dans les fichiers écrits |
 | 6. Destruction | `supabase stop --no-backup` (conteneurs **et** volumes de données supprimés), y compris en cas d'échec ou d'interruption ; vérification qu'il ne reste aucun conteneur ni volume du projet | `KEEP_STACK=1` conserve la pile pour diagnostic (à arrêter ensuite, § 6) |
 
+Avant chaque exécution dans Codespaces, la même suite peut être rejouée en local avec la
+répartition des privilèges de Supabase : `PG_PROFILE=supabase-like bash scripts/db-test.sh`
+(voir `docs/qualification/3b-pg17-local.md`). dblink est installé dans le schéma dédié
+`tests_dblink`, inaccessible à `anon` et `authenticated` ; seule `dblink_connect` est utilisée.
+
 Questions tranchées par la qualification (`docs/LOT3B_PLAN.md` § 6) : Q1 rôle `postgres` et
 RLS forcée · Q2 déclencheur sur `auth.users` · Q3 création directe d'utilisateurs ·
 Q4 `dblink` · Q5 privilèges par défaut, GraphQL, RPC · Q6 erreurs différées via PostgREST.

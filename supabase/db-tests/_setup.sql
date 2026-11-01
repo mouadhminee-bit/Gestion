@@ -6,11 +6,17 @@
 \set ON_ERROR_STOP on
 
 create schema tests;
-create extension if not exists dblink schema tests;
+-- dblink : schéma dédié, SANS accès pour anon / authenticated (le schéma tests leur est
+-- ouvert pour les assertions ; dblink n'y est donc jamais installé). Seule la variante
+-- dblink_connect (connexion authentifiée explicite) est utilisée ; dblink_connect_u jamais.
+create schema if not exists tests_dblink;
+revoke all on schema tests_dblink from public;
+create extension if not exists dblink schema tests_dblink;
 grant usage on schema tests to anon, authenticated;
 
--- dsn : connexion des sessions concurrentes (dblink) ; admin_role : rôle « administrateur »
--- des tests (postgres en local ; sur Supabase, service_role si postgres ne contourne pas la RLS).
+-- dsn : connexion(s) des sessions concurrentes (dblink), candidates séparées par « | » et
+-- essayées dans l'ordre ; admin_role : rôle « administrateur » des tests (postgres en local ;
+-- sur Supabase, service_role si postgres ne contourne pas la RLS).
 create table tests.config (dsn text not null, admin_role text not null);
 insert into tests.config values (:'dsn', :'admin_role');
 
@@ -114,6 +120,52 @@ begin
 end $$;
 
 grant execute on all functions in schema tests to anon, authenticated;
+
+-- Sessions concurrentes (dblink) — enveloppes : schéma de l'extension résolu dynamiquement,
+-- connexion par dblink_connect avec chaîne explicite (jamais dblink_connect_u).
+create function tests.dblink_schema() returns text language sql stable as $$
+  select extnamespace::regnamespace::text from pg_extension where extname = 'dblink'
+$$;
+
+create function tests.db_connect(conn text) returns int
+language plpgsql as $$
+declare
+  candidates text[] := string_to_array((select dsn from tests.config), '|');
+  i int;
+  last_err text;
+begin
+  for i in 1 .. coalesce(array_length(candidates, 1), 0) loop
+    begin
+      execute format('select %s.dblink_connect($1, $2)', tests.dblink_schema()) using conn, candidates[i];
+      return i;
+    exception when others then
+      last_err := sqlstate || ' ' || sqlerrm;
+    end;
+  end loop;
+  raise exception 'dblink : aucune connexion possible pour « % » (%)', conn, last_err;
+end $$;
+
+create function tests.db_exec(conn text, sql text) returns void
+language plpgsql as $$
+begin
+  execute format('select %s.dblink_exec($1, $2)', tests.dblink_schema()) using conn, sql;
+end $$;
+
+-- Requête distante renvoyant une seule valeur texte.
+create function tests.db_value(conn text, sql text) returns text
+language plpgsql as $$
+declare
+  v text;
+begin
+  execute format('select t.v from %s.dblink($1, $2) as t(v text)', tests.dblink_schema()) into v using conn, sql;
+  return v;
+end $$;
+
+create function tests.db_disconnect(conn text) returns void
+language plpgsql as $$
+begin
+  execute format('select %s.dblink_disconnect($1)', tests.dblink_schema()) using conn;
+end $$;
 
 -- Utilisateur FICTIF (@example.test). Créé par l'utilisateur de session (auth.users n'est pas
 -- accessible aux rôles applicatifs), puis le rôle courant est rétabli.
@@ -277,6 +329,15 @@ end $$;
 grant select on all tables in schema tests to anon, authenticated;
 
 -- Rôle administrateur alternatif (Supabase, si postgres ne contourne pas la RLS forcée).
+-- Accès à dblink accordé UNIQUEMENT à ce rôle et uniquement s'il est utilisé.
+do $$
+declare
+  r text := (select admin_role from tests.config);
+begin
+  if r <> session_user then
+    execute format('grant usage on schema tests_dblink to %I', r);
+  end if;
+end $$;
 grant usage on schema tests to service_role;
 grant all on all tables in schema tests to service_role;
 grant all on all sequences in schema tests to service_role;
