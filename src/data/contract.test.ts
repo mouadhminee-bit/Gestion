@@ -35,6 +35,7 @@ import { CloudRepository } from './cloud/CloudRepository';
 import { CLOUD_CACHE_PREFIX, ConstraintError, cloudCacheName } from './cloud/CloudStorage';
 import { CloudTransportError, CloudWriteDisabledError, DisabledTransport } from './cloud/transport';
 import { IsolationViolationError, MemoryTransport } from './cloud/MemoryTransport';
+import { MappingError, assertCloudTable, deserializeRow, fromSqlKey, serializeRow, toCloudRow, toSqlKey } from './cloud/mapping';
 import { generateDemoData } from './demo';
 import type { Account, Category, DataSnapshot } from '@/domain/types';
 import type { TransactionDraft } from '@/domain/validation';
@@ -844,6 +845,66 @@ describe('contrat : atomicité R2 (saveAsset, resetToEmpty)', () => {
     const c = await run(cloud(u).repo);
     vi.useRealTimers();
     expect(c).toEqual(l);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6 ter. Mapping TypeScript ↔ PostgreSQL (Lot 4, étape 4.2) sur le jeu de conformité
+// ---------------------------------------------------------------------------
+
+describe('contrat : mapping cloud sur le jeu de conformité (Lot 4.2)', () => {
+  it('100 % des lignes écrites par le scénario (54 méthodes) convertibles aller-retour sans perte métier', async () => {
+    // Utilisateur au format UUID (comme auth.uid()). Le scénario s'achevant par une
+    // réinitialisation, on contrôle TOUTES les lignes écrites, telles que transmises au
+    // serveur simulé (opérations `put` de chaque lot), et non le seul état final.
+    const U = 'cccccccc-0000-4000-8000-000000000001';
+    const { repo, transport } = cloud(U);
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-31T12:00:00Z') });
+    resetIds();
+    const run = await scenario(repo);
+    vi.useRealTimers();
+    expect([...run.called].filter((m) => (REPOSITORY_METHODS as readonly string[]).includes(m))).toHaveLength(54);
+
+    const pg = (v: unknown) => (typeof v === 'string' && /T.*Z$/.test(v) ? v.replace(/\.000Z$/, '+00:00').replace(/Z$/, '+00:00') : v);
+    const meta = { version: 3, sync_txid: '987654321', server_updated_at: '2026-11-01T10:00:00.123456+00:00', deleted_at: null };
+    const perTable: Record<string, number> = {};
+    const normalized: Record<string, number> = {};
+    let deletes = 0;
+    for (const op of transport.commits.flatMap((c) => c.ops)) {
+      if (op.table === 'meta') {
+        expect(() => assertCloudTable(op.table)).toThrow(MappingError); // exclue : jamais transmise
+        continue;
+      }
+      const table = op.table;
+      assertCloudTable(table);
+      if (op.type === 'delete') {
+        // Clé de suppression : convertible dans les deux sens.
+        expect(fromSqlKey(table, toSqlKey(table, op.key))).toEqual(op.key);
+        deletes++;
+        continue;
+      }
+      const row = op.row;
+      perTable[table] = (perTable[table] ?? 0) + 1;
+      const { values, key } = serializeRow(table, row, { userId: U });
+      expect(fromSqlKey(table, key)).toEqual(op.key);
+      // Réponse simulée du serveur : colonnes écrites (+ created_at du profil), horodatages PostgREST, JSON.
+      const server = JSON.parse(JSON.stringify({ ...Object.fromEntries(Object.entries(values).map(([k, v]) => [k, pg(v)])), ...(table === 'users' ? { created_at: pg(row.createdAt) } : {}), ...meta }));
+      const { row: back, meta: m } = deserializeRow(table, server);
+      expect(m.version).toBe(3);
+      const original = JSON.parse(JSON.stringify(toCloudRow(table, row as never))) as Record<string, unknown>;
+      for (const k of new Set([...Object.keys(original), ...Object.keys(back)])) {
+        const a = original[k];
+        const b = (back as Record<string, unknown>)[k];
+        if (JSON.stringify(a) === JSON.stringify(b)) continue;
+        const label = `${table}.${k}:${a === undefined ? 'absent' : JSON.stringify(a)}→${b === undefined ? 'absent' : JSON.stringify(b)}`;
+        normalized[label] = (normalized[label] ?? 0) + 1;
+      }
+    }
+    // Seule l'exception documentée (docs/LOT4_PLAN.md § 5.4) peut apparaître.
+    expect(Object.keys(normalized).filter((k) => k !== 'recurringRules.subcategoryId:absent→null')).toEqual([]);
+    // Les 18 tables synchronisées sont toutes exercées par le scénario.
+    expect(Object.keys(perTable).sort()).toEqual(ALL_TABLES.filter((t) => t !== 'meta').sort());
+    expect(deletes).toBeGreaterThan(0);
   });
 });
 

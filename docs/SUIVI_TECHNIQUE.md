@@ -16,7 +16,7 @@ uniquement par un lot validé qui la traite explicitement (test à l'appui).
 | # | Point | Origine | Lot |
 |---|---|---|---|
 | P1 | Cache cloud en retard si l'écriture du cache échoue après acceptation du serveur | Lot 2 § 8.2 | 5 |
-| P2 | `ChangeSet` sans version ; correspondance des tables `users` / `meta` vers le serveur | Lot 2 § 8.3 | 4 |
+| P2 | `ChangeSet` sans version ; correspondance des tables `users` / `meta` vers le serveur. **Correspondance traitée à l'étape 4.2** (`src/data/cloud/mapping.ts` : `users` → `profiles` en mise à jour seule, `meta` exclue — `docs/LOT4_PLAN.md` § 5) ; version du `ChangeSet` : étape 4.3 | Lot 2 § 8.3 | 4 |
 | P3 | Références orphelines possibles dans les données locales existantes (suppressions physiques en IndexedDB : compte supprimé encore référencé par un objectif, etc.) : à détecter et réparer avant toute migration des données Edge | Cadrage Lot 3 | lot « migration Edge » |
 | P4 | Pièces jointes exclues des sauvegardes JSON alors que `transactions.attachmentId` est conservé | existant | 7 |
 | P5 | Purge des lignes supprimées logiquement (croissance des tombstones) | Cadrage Lot 3 | 8 |
