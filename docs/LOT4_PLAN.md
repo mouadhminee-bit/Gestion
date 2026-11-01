@@ -1,9 +1,10 @@
 # NEXORA — Lot 4 : écriture serveur atomique et versionnée (`apply_changeset`)
 
-> **STATUT (01/11/2026) : EN COURS.** Étapes 4.0–4.1 (`5b494f0`) et 4.2 (`f59d88d`)
-> réalisées et poussées ; étape 4.3 réalisée sur `claude/stoic-edison-8s0vhq`, en attente de
-> revue. Étapes 4.4 à 4.7 non commencées. Aucun projet Supabase hébergé, aucune migration
-> ajoutée ou modifiée, aucune donnée réelle touchée.
+> **STATUT (01/11/2026) : EN COURS.** Étapes 4.0–4.1 (`5b494f0`), 4.2 (`f59d88d`) et 4.3
+> (`4be509f`) réalisées et poussées ; étape 4.4 **implémentée, non qualifiée** (tests
+> exploratoires sur PostgreSQL éphémère ; décisions en attente, § 7.11), non commitée.
+> Étapes 4.5 à 4.7 non commencées. Aucun projet Supabase hébergé, migrations 1 à 7
+> inchangées, aucune donnée réelle touchée.
 
 Références : `docs/AUDIT_LOT1_CLOUD.md` (§ C.3, C.4, F), `docs/LOT2_REPOSITORY.md`,
 `docs/LOT3_PLAN.md`, `docs/LOT3B_CLOTURE.md`, `docs/SUIVI_TECHNIQUE.md` (R1–R3, P1–P11).
@@ -30,7 +31,7 @@ Références : `docs/AUDIT_LOT1_CLOUD.md` (§ C.3, C.4, F), `docs/LOT2_REPOSITOR
 | 4.1 | Atomicité R2 : `saveAsset` + valorisation initiale, `resetToEmpty` | **Réalisée** (§ 4) |
 | 4.2 | Mapping TypeScript ↔ SQL (`src/data/cloud/mapping.ts`) | **Réalisée** (§ 5) |
 | 4.3 | Protocole `ChangeSet` versionné (versions attendues, `changesetId`, conflit) | **Réalisée** (§ 6) |
-| 4.4 | Fonction SQL `apply_changeset` (nouvelles migrations) | À faire |
+| 4.4 | Fonction SQL `apply_changeset` (nouvelles migrations) | **Implémentée, en attente de validation** (§ 7) |
 | 4.5 | Tests PostgreSQL 16 / 17 éphémères | À faire |
 | 4.6 | Qualification HTTP (Codespaces, par le responsable du projet) | À faire |
 | 4.7 | Clôture et archivage | À faire |
@@ -502,3 +503,280 @@ test crée une base `nexora` (fabrique simulée), tente `new CloudCacheDB('nexor
 vérifie qu'elle est toujours en version 1, sans table annexe, données intactes.
 `CloudStorage` conserve son propre contrôle (défense en profondeur) ; le schéma de
 `NexoraDB` est inchangé.
+
+## 7. Étape 4.4 — `apply_changeset` (PostgreSQL)
+
+> Implémentation et **tests exploratoires** (PostgreSQL 16.15 et 17.11 éphémères, profils
+> standard et « supabase-like »). La **qualification formelle** relève de 4.5 (SQL) et 4.6
+> (HTTP, pile Supabase locale dans Codespaces). Rien n'est déclaré qualifié ici.
+
+### 7.1 Livrables
+
+| Fichier | Contenu |
+|---|---|
+| `supabase/migrations/20261101000800_apply_changeset.sql` | Rôle `nexora_writer` ; `private.request_uid()` ; liste blanche `private.changeset_tables` ; suivi `private.changesets` ; `private.changeset_error()` ; `public.apply_changeset(jsonb)` ; `public.resolve_changeset(text)` ; politiques et privilèges ; révocation D4-1 |
+| `supabase/db-tests/11_apply_changeset.sql` | 258 assertions (nominal, versions, atomicité, idempotence, sécurité, forme, taille, concurrence à deux sessions) |
+| `src/data/cloud/applyChangeset.test.ts` | 4 tests : liste blanche SQL ≡ mapping (4.2), enveloppe ≡ protocole v1 (`transport.ts`), aucune table `meta`, migrations 1–7 intactes |
+
+Migrations 1 à 7 : **inchangées**. Aucun code applicatif modifié (aucun transport, aucun
+`supabase-js`, `CloudRepository` non connecté).
+
+### 7.2 Signature et format filaire
+
+```sql
+public.apply_changeset(p_changeset jsonb) returns jsonb     -- SECURITY DEFINER, owner nexora_writer
+public.resolve_changeset(p_changeset_id text) returns jsonb -- SECURITY DEFINER, owner nexora_writer
+```
+
+Enveloppe = protocole v1 (`transport.ts`), **dont la table, la clé et la ligne sont exprimées
+sous forme SQL par le mapping TS** (étape 4.2 ; « la conversion SQL appartient au transport ») :
+
+```jsonc
+// requête
+{ "protocol": 1, "changesetId": "<uuid>", "userId": "<uuid = auth.uid()>",
+  "ops": [
+    { "table": "accounts", "type": "put", "key": { "id": "<uuid>" }, "expectedVersion": null,
+      "row": { /* exactement les colonnes écrites (serializeRow().values) */ } },
+    { "table": "recurring_occurrences", "type": "delete",
+      "key": { "rule_id": "<uuid>", "due_date": "2026-03-31" }, "expectedVersion": 3 } ] }
+// réponse
+{ "changesetId": "<uuid>", "status": "applied" | "replayed",
+  "versions": [ { "table": "accounts", "key": { "id": "<uuid>" }, "version": 1, "deleted": false }, … ] }
+// resolve_changeset
+{ "changesetId": "<uuid>", "status": "replayed", "versions": [ … ] }   // appliqué
+{ "changesetId": "<uuid>", "status": "abandoned" }                    // jamais appliqué, ne le sera jamais
+// erreur changeset_pending                                           // issue pas encore déterminée
+```
+
+Le transport HTTP (Lot 5) convertira dans les deux sens avec `sqlTableOf` / `tableOfSql`,
+`toSqlKey` / `fromSqlKey` et `serializeRow` ; `checkCommitResult` s'applique après
+conversion inverse. Aucune seconde définition du protocole.
+
+### 7.3 Traitement d'un lot
+
+1. **Identité** : `private.request_uid()` (mêmes sources que `auth.uid()` : `request.jwt.claim.sub`
+   puis `request.jwt.claims->>'sub'`, testé équivalent) ; absente ou invalide → `unauthorized`.
+   `userId` du lot ≠ utilisateur authentifié → `unauthorized`.
+2. **Enveloppe** : objet ; champs exactement `protocol, changesetId, userId, ops` ; `protocol = 1`
+   (nombre) ; UUID ; `ops` tableau non vide ; taille (§ 7.8).
+3. **Verrou par utilisateur** (§ 7.5), puis **idempotence** (§ 7.6) : un lot déjà appliqué est
+   renvoyé (`replayed`) avant toute autre vérification.
+4. **Phase 1 — forme** de chaque opération, sans lecture métier : table de la liste blanche
+   (`meta` et toute autre → `unsupported_table`) ; `type` ; `expectedVersion` entier 1…2⁵³−1 ou
+   `null` ; clé = exactement les colonnes de la clé primaire ; une opération par clé ; `put` :
+   ligne = exactement les colonnes écrites, **aucune métadonnée serveur**, clé cohérente ;
+   `delete` sans ligne ; propriétaire de la clé et de la ligne = utilisateur authentifié.
+5. **Phase 2 — versions** : chaque ligne visée est lue `FOR UPDATE` ; **toutes** les versions
+   sont comparées avant la première écriture ; un seul écart → `version_conflict` (liste
+   complète des écarts), rien n'est écrit.
+6. **Phase 3 — écritures**, dans l'ordre du lot : création (`INSERT`), modification ou
+   réactivation (`UPDATE` des colonnes écrites hors clé, `deleted_at = NULL`), suppression
+   logique (`UPDATE … deleted_at = now()`). Toute erreur annule le lot entier.
+7. Enregistrement du lot dans `private.changesets`, confirmation renvoyée.
+
+Les contraintes différées (clés étrangères, unicités par exclusion) sont vérifiées à la
+validation de la transaction de la requête : un échec annule aussi l'enregistrement du lot.
+
+### 7.4 Versions, suppression logique, métadonnées serveur
+
+Conditions identiques à `MemoryTransport` (§ 6.3) : création `null` ⇔ clé inexistante (ni
+active ni supprimée) ; modification / réactivation v ⇔ version actuelle v ; suppression v ⇔
+ligne active en version v. `version`, `sync_txid`, `server_updated_at` et `deleted_at` restent
+calculés par le déclencheur existant `private.tg_sync_metadata` (aucun second mécanisme) :
+INSERT → version 1 ; UPDATE → version + 1 ; `deleted_at` non nul → horodatage `now()` du
+serveur (la valeur envoyée par la fonction n'est qu'un signal) ; `deleted_at = NULL` →
+réactivation. Aucune suppression physique (aucun `DELETE`, aucun privilège `DELETE`).
+Colonnes immuables (`id`, `user_id`, `created_at`) : protégées par le déclencheur (`42501`
+→ `invalid_row`).
+
+### 7.5 Verrouillage et concurrence
+
+* **`pg_advisory_xact_lock` par utilisateur** (clé : `hashtextextended('nexora.changeset:' || uid)`),
+  pris avant toute lecture, libéré à la fin de la transaction : un seul lot ou une seule
+  résolution à la fois **par utilisateur**, tous appareils confondus. Justification : rend
+  sûres, sans interblocage, (a) les créations concurrentes d'une même clé (qu'un `FOR UPDATE`
+  ne peut pas verrouiller, la ligne n'existant pas), (b) les soumissions concurrentes d'un
+  même `changesetId`, (c) l'ordre des verrous de lignes ; le débit d'un même utilisateur est
+  faible. Deux utilisateurs différents ne se bloquent jamais (collision de hachage : simple
+  attente, jamais d'erreur).
+* **`SELECT … FOR UPDATE`** sur chaque ligne visée (défense en profondeur).
+* Testé avec deux sessions réelles (`dblink`) : même version initiale → la seconde reçoit
+  `version_conflict`, l'écriture acceptée n'est pas écrasée (version 2) ; même lot en
+  parallèle → `applied` puis `replayed`, appliqué une fois ; création concurrente d'une
+  clé → conflit pour la seconde ; résolution pendant un lot en cours → `changeset_pending`.
+
+### 7.6 Idempotence et résolution (`private.changesets`)
+
+| Colonne | Rôle |
+|---|---|
+| `(user_id, changeset_id)` | clé primaire : identifiant unique **dans le périmètre utilisateur** |
+| `status` | `applied` / `abandoned` |
+| `fingerprint` | SHA-256 du lot reçu sous forme `jsonb` canonique (ordre des champs indifférent) |
+| `op_count`, `result` | confirmation renvoyée (tables, clés, versions — aucune donnée métier) |
+
+Même identifiant + même empreinte → `replayed` (résultat d'origine, rien réappliqué) ;
+empreinte différente → `changeset_id_reused` ; lot abandonné → `changeset_abandoned`.
+`resolve_changeset` : appliqué → `replayed` ; inconnu → enregistré **abandonné** (il ne sera
+jamais appliqué) ; verrou non obtenu en 5 s → `changeset_pending` (issue non encore
+déterminée, rien n'est modifié). Suppression du compte : cascade depuis `auth.users`.
+
+### 7.7 Codes d'erreur
+
+Format PostgREST : `{ code: SQLSTATE, message: <code du protocole>, details: <JSON> }` ;
+un SQLSTATE `PTxxx` fait renvoyer le statut HTTP `xxx`. Aucun détail ne porte sur les
+données d'un autre utilisateur.
+
+| Code du protocole | SQLSTATE / HTTP | Cas |
+|---|---|---|
+| `unauthorized` | `PT403` / 403 | non authentifié, `userId` ou propriétaire d'une ligne / clé ≠ utilisateur |
+| `unsupported_protocol` | `PT400` / 400 | `protocol` ≠ 1 |
+| `invalid_changeset` | `PT400` / 400 | enveloppe mal formée, UUID invalide, lot vide, deux opérations sur une clé |
+| `unsupported_table` | `PT400` / 400 | table hors liste blanche (dont `meta`) |
+| `invalid_operation` | `PT400` / 400 | type, champ ou `expectedVersion` invalides ; suppression ou création d'un profil |
+| `invalid_key` | `PT400` / 400 | colonnes de clé, valeur, incohérence clé / ligne |
+| `invalid_row` | `PT400` / 400 | colonnes inexactes, métadonnée serveur, type invalide, `CHECK`, `NOT NULL`, colonne immuable (`details.sqlstate`, `details.constraint`, `details.op`) |
+| `changeset_too_large` | `PT413` / 413 | > 5 000 opérations ou > 4 Mio |
+| `version_conflict` | `PT409` / 409 | `details.conflicts[] = { table, key, expectedVersion, actualVersion, actualDeleted }` |
+| `duplicate_key` | `PT409` / 409 | clé primaire déjà prise par une ligne invisible (autre utilisateur, P7) |
+| `changeset_id_reused` | `PT409` / 409 | même identifiant, autre contenu |
+| `changeset_abandoned` | `PT409` / 409 | lot abandonné lors d'une résolution |
+| `changeset_pending` | `PT409` / 409 | (`resolve_changeset`) issue non encore déterminée |
+| *(`replayed`)* | 200 | n'est pas une erreur : statut de la réponse |
+| `23503` / `23P01` (SQLSTATE natifs) | 409 (PostgREST) | contrainte **différée** (référence, unicité par exclusion) à la validation → côté client : `invalid_row` / `duplicate_key` |
+| `42501` (permission) | 401/403 | `anon` ou écriture directe sur une table |
+
+Correspondance avec le client TS (Lot 5) : `version_conflict` → `CloudConflictError` ;
+`invalid_*`, `unsupported_*`, `changeset_id_reused`, `changeset_abandoned` →
+`CloudProtocolError` (codes à étendre) ; `unauthorized` → refus définitif ;
+`changeset_pending`, réseau → `CloudTransportError` (lot conservé non confirmé, § 6.5).
+
+### 7.8 Taille maximale (D4-6) — mesures
+
+Lots réels produits par `CloudRepository` à partir du jeu de démonstration, convertis par le
+mapping (un utilisateur fictif et des identifiants neufs par volume ; volume multiplié en
+dupliquant les transactions simples), appliqués après leur lot `ensureUser`, contraintes
+différées comprises, sur PostgreSQL éphémère :
+
+| Lot | Opérations | JSON | PG 16.15 (application + différées) | PG 17.11 | Rejeu |
+|---|---|---|---|---|---|
+| `ensureUser` | 40 | 18 Ko | — | — | — |
+| Démo (restauration complète, 239 transactions, 14 tables) | 456 | 0,32 Mo | 0,33 s | 0,38 s | 6–9 ms |
+| ×5 (967 transactions) | 1 184 | 1,0 Mo | 0,77 s | 0,94 s | 14 ms |
+| ×10 (1 877 transactions) | 2 094 | 1,8 Mo | 1,36 s | 2,08 s | 26–40 ms |
+| ×20 (3 697 transactions) | 3 914 | 3,5 Mo | 2,88 s | 3,82 s | 64 ms |
+
+Chaque lot : **100 % des lignes relues identiques** à celles envoyées (hors métadonnées
+serveur) et suppressions logiques effectives. Coût **linéaire** (≈ 0,7 à 1 ms par
+opération) — une première version était quadratique (concaténations `jsonb` dans la
+boucle, 8,5 s pour ×20) et a été corrigée.
+
+**Limite proposée : 5 000 opérations et 4 Mio de JSON** (≈ 4 à 5 s sur ces bancs) : couvre
+le volume ×20 de la démo (≈ 3 700 transactions) avec une marge, et reste sous l'ordre de
+grandeur du `statement_timeout` que Supabase applique au rôle `authenticated` (de quelques
+secondes ; **valeur exacte, limite de taille des requêtes de la passerelle et performances
+de la pile Supabase non mesurées ici** : à vérifier en 4.6). Un lot plus volumineux
+(restauration d'une très grosse sauvegarde) devra être découpé — ce qui casse l'atomicité
+de la restauration : à traiter avec R1 (Lot 7). Une opération courante produit de 1 à
+quelques dizaines d'opérations.
+
+### 7.9 Droits PostgreSQL
+
+| Rôle | Tables métier (17) | `profiles` | `private.*` | Fonctions |
+|---|---|---|---|---|
+| `anon` | aucun | aucun | aucun | aucune |
+| `authenticated` | **SELECT seul** (INSERT / UPDATE révoqués, D4-1) | SELECT | aucun | EXECUTE `apply_changeset`, `resolve_changeset` |
+| `nexora_writer` (NOLOGIN, sans BYPASSRLS, propriétaire des 2 fonctions) | SELECT, INSERT, UPDATE + politiques `user_id = request_uid()` | SELECT, UPDATE (`display_name`) + politiques `id = request_uid()` | SELECT liste blanche ; SELECT, INSERT suivi (+ RLS) ; EXECUTE fonctions internes | — |
+
+* `SECURITY DEFINER` est nécessaire : sans écriture directe, `authenticated` ne pourrait pas
+  écrire en `SECURITY INVOKER`. Le propriétaire n'est **pas** `postgres` mais un rôle sans
+  `BYPASSRLS` : la **RLS forcée reste appliquée** dans la fonction (défense en profondeur) et
+  l'isolation ne dépend pas de `BYPASSRLS` sur la plateforme (P10).
+* `search_path = ''`, objets qualifiés ; noms de tables et colonnes issus uniquement de la
+  liste blanche statique (`format('%I')`), valeurs passées en paramètres (`USING`) et typées
+  par `jsonb_populate_record` : aucune injection (testé avec un nom de colonne malveillant).
+* `authenticator` (PostgREST) n'est pas membre de `nexora_writer` ; `PUBLIC`, `anon` et
+  `service_role` n'exécutent pas les fonctions. `CREATE` sur `public` n'est accordé à
+  `nexora_writer` que le temps du transfert de propriété.
+* Inchangé : `handle_new_user`, déclencheurs, `service_role` (contourne la RLS par
+  conception) ; les politiques `… to authenticated` d'insertion / mise à jour du Lot 3
+  restent en place mais sont **inertes** (plus de privilège).
+
+### 7.10 Résultats des tests (exploratoires)
+
+**Suite 11** (version finale, migration identique à celle mesurée au banc D4-6) :
+
+| Environnement | Suite 11 | Banc D4-6 |
+|---|---|---|
+| PostgreSQL 16.15, profil standard | **258 / 258** | 12 / 12 |
+| PostgreSQL 17.11 (paquet npm, comme 3b) | **258 / 258** | 12 / 12 |
+| PG 16 « supabase-like », `postgres` non superutilisateur **avec** BYPASSRLS (= pile Supabase locale, Q1) | **258 / 258** | — |
+| PG 16 « supabase-like », `postgres` **sans** BYPASSRLS | non exécutable : création des utilisateurs de test impossible (`handle_new_user`, **P10 préexistant**, identique sans migration 8) | — |
+| `npm run check` | 16 fichiers, **459 / 459** (455 + 4), build OK | — |
+
+**Contrôles par mutation** (copie temporaire de la migration, suite 11 finale ; détection par
+assertions, sans blocage ni interruption) :
+
+| # | Mutation | Échecs | Détection |
+|---|---|---|---|
+| S1 | contrôle de version retiré | 31 | assertions |
+| S2 | réactivation sans `deleted_at = NULL` | 1 | assertion |
+| S3 | verrou par utilisateur retiré | 4 | 3 assertions déterministes (même lot en parallèle → `version_conflict` au lieu de `replayed` ; création concurrente → `duplicate_key` au lieu de `version_conflict`) + 1 assertion bornée (résolution pendant un lot : pas de `changeset_pending` en 10 s) |
+| S4 | idempotence retirée | 7 | assertions |
+| S5 | contrôle du propriétaire retiré (clé et ligne) | 6 | assertions (la RLS du rôle d'écriture empêche toujours l'écriture : défense en profondeur ; seul le code d'erreur change) |
+| S6 | révocation D4-1 absente | 36 | assertions |
+
+Défauts du banc corrigés pendant ces contrôles (aucune modification de la migration) :
+sans le verrou par utilisateur, `resolve_changeset` attend la ligne non validée de
+`private.changesets` alors que la validation est commandée par la session de test → attente
+circulaire entre sessions, que PostgreSQL ne détecte pas (suite bloquée jusqu'au délai de
+900 s) ; les scénarios concurrents attendent désormais de **constater** le blocage de la
+seconde session (`pg_locks`) au lieu d'une pause, la résolution est envoyée en asynchrone
+avec attente bornée puis annulation, et l'annulation (`query_canceled`, non couverte par
+`WHEN OTHERS`) est interceptée. Défauts de la fonction corrigés pendant l'étape : coût
+quadratique (§ 7.8) et index d'opération erroné dans `invalid_row` (variable de boucle
+PL/pgSQL masquant la variable externe).
+
+**Anciennes suites (Lot 3)** — même résultat sur PG 16, PG 17 et « supabase-like » avec
+BYPASSRLS ; « avant » = migrations 1–7 (1 106 / 1 106, et 1 152 / 1 152 en « supabase-like »,
+identiques au Lot 3B) :
+
+| Suite | Avant migration 8 | Après migration 8 | Cause | Action nécessaire (D4-9) |
+|---|---|---|---|---|
+| 01_catalog | 556 / 556 | 554 / 662 (108 échecs) | invariants devenus faux : politiques « `to authenticated` filtrées par `auth.uid()` », « 53 politiques », « aucune fonction dans `public` » | réécrire ces invariants pour l'état final (politiques du rôle d'écriture, 2 RPC autorisées) ; ajouter « aucune écriture d'`authenticated` » |
+| 02_isolation | 297 / 297 | interrompue (l. 75) | B tente des `UPDATE` directs : `permission denied` (42501) au lieu de 0 ligne | préparation des données en administrateur ; tentatives d'écriture de B → refus 42501, puis par `apply_changeset` → `unauthorized` / conflit |
+| 03_triggers | 20 / 20 | interrompue (l. 46) | écritures directes en `authenticated` | passer par `apply_changeset` (métadonnées serveur) ou par l'administrateur |
+| 04_constraints | 122 / 122 | 23 / 122 (99 échecs) | insertions directes des cas « acceptés » | passer par `apply_changeset` (cas acceptés → `applied` ; refusés → `invalid_row` + SQLSTATE d'origine) |
+| 05_relations | 7 / 7 | 0 / 7 | idem (références croisées, contraintes différées) | idem |
+| 06_soft_delete | 16 / 16 | interrompue (l. 97) | `UPDATE … deleted_at` direct | suppression / réactivation par `apply_changeset` |
+| 07_sync | 16 / 16 | 16 / 16 | écrit en administrateur | aucune |
+| 08_lifecycle | 44 / 44 | interrompue (l. 38) ; sans révocation : 3 échecs | mise à jour directe du profil ; invariants « une seule fonction SECURITY DEFINER », « fonctions de `private` = déclencheurs » | profil via `apply_changeset` ; invariants à mettre à jour |
+| 09_harness_security | 15 / 15 | 15 / 15 | — | aucune |
+| 10_api_serialization | 13 / 13 (17 « supabase-like ») | idem | écrit en administrateur | aucune |
+| P1_supabase_platform | 42 / 42 | 41 / 42 | Q5 « aucune fonction RPC dans `public` » | autoriser exactement les 2 RPC, avec leurs droits |
+| `http/rls.mjs` (143, 4.6) | 143 / 143 (3b) | non exécuté ici | écritures directes par PostgREST | convertir en tests de refus + écritures via `/rpc/apply_changeset` |
+
+Sans la révocation (contrôle séparé), seuls 01 (108) et 08 (3) échouent : les autres échecs
+viennent uniquement de D4-1.
+
+### 7.11 Décisions à valider
+
+| # | Question | Options | Recommandation |
+|---|---|---|---|
+| D4-9 | Adaptation des suites qualifiées du Lot 3 (périmètre : tableau § 7.10 — 01, 02, 03, 04, 05, 06, 08, P1, `rls.mjs` ; 07, 09, 10 inchangées) | (a) adapter 01–10 : écritures de préparation en administrateur, écritures d'`authenticated` converties en **tests de refus** (42501) ou passées par `apply_changeset`, invariants du catalogue mis à jour (rôle d'écriture, 2 RPC) ; nouvelle référence PG 16 ; (b) faire tourner les suites du Lot 3 sur les migrations 1–7 seulement et la suite 11 sur 1–8 | **(a)** : la qualification doit porter sur l'état final ; (b) laisserait l'état de production sans preuve d'isolation |
+| D4-10 | Rôle propriétaire des fonctions | `nexora_writer` dédié (implémenté) ; ou `postgres` | `nexora_writer` (RLS maintenue, indépendant de `BYPASSRLS`). **À vérifier en 4.6 sur Supabase** : création du rôle et transfert de propriété par `postgres` |
+| D4-11 | Format filaire | noms SQL (implémenté, mapping côté client) ; ou noms TS convertis par le serveur | noms SQL : une seule correspondance, dans `mapping.ts` |
+| D4-12 | Limite D4-6 | 5 000 opérations / 4 Mio (implémenté) | valider, sous réserve de la mesure du `statement_timeout` et de la taille de requête en 4.6 |
+| D4-13 | Écarts assumés avec `MemoryTransport` | serveur : identifiant de lot par utilisateur (MemoryTransport : global) ; création de profil refusée (`invalid_operation`) ; `changeset_pending` | aligner `MemoryTransport` au Lot 5 (avec le transport HTTP) |
+
+### 7.12 Limites et reports
+
+* Non qualifié : 4.5 (suites SQL adaptées, PG 16/17, référence) et 4.6 (HTTP, deux
+  utilisateurs réels, `statement_timeout`, taille de requête, rôle `nexora_writer` sur la
+  pile Supabase) restent à faire.
+* Premier `ensureUser` : la ligne `profiles` existe déjà (déclencheur) → `version_conflict`
+  tant que la récupération initiale (Lot 5) n'a pas fourni sa version.
+* Table de suivi : croît d'une ligne par lot ; purge à définir (Lot 8, avec P5).
+* `changesetId` réutilisé par un autre utilisateur : traité comme un lot distinct (périmètre
+  utilisateur), sans fuite d'information.
+* R1 (restauration entre utilisateurs, `duplicate_key`), R3 (rechargement après conflit,
+  Lot 5) et P10 (hébergé) restent ouverts.
