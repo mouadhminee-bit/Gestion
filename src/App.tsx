@@ -127,7 +127,11 @@ export function App() {
         <TooltipProvider>
           <ToastProvider>
             <ConfirmProvider>
-              <Root />
+              {/* Filet global : une donnée inattendue dans AppProvider / AppShell (hors pages)
+                  affiche un écran d'erreur au lieu d'une page blanche. */}
+              <ErrorBoundary>
+                <Root />
+              </ErrorBoundary>
             </ConfirmProvider>
           </ToastProvider>
         </TooltipProvider>

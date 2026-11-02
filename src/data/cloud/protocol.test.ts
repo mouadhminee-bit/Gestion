@@ -627,7 +627,8 @@ describe('protocole v1 : stockage des versions', () => {
     const backup = await repo.exportBackup();
     expect(JSON.stringify(snap)).not.toMatch(forbidden);
     expect(JSON.stringify(backup)).not.toMatch(forbidden);
-    expect(Object.keys(backup.data).sort()).toEqual([...USER_TABLES].sort());
+    // Format v2 : les 16 tables utilisateur + les pièces jointes (backup/format.ts).
+    expect(Object.keys(backup.data).sort()).toEqual([...USER_TABLES, 'attachments'].sort());
     for (const t of ALL_TABLES) for (const row of await cache.table(t).toArray()) expect(JSON.stringify(row), t).not.toMatch(forbidden);
     expect(await cache.serverVersions.count()).toBeGreaterThan(0);
     // Une restauration de cette sauvegarde n'introduit aucune version dans les données.

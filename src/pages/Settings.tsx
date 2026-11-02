@@ -10,6 +10,10 @@ import { Field, Input, Segmented, Select, Switch } from '@/components/ui/Field';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { accountsCSV, budgetsCSV, download, transactionsCSV } from '@/features/export';
 import { generateDemoData } from '@/data/demo';
+import { MAX_BACKUP_FILE_BYTES, fingerprintData, formatIssue, planRestore, undoStore, type RestorePlan } from '@/data/backup';
+import { useRestoreUndo } from '@/features/backup/RestoreUndo';
+import { ValidationError } from '@/domain/errors';
+import { monthAfterRestore, resetUiStateAfterRestore } from '@/app/uiState';
 import { downloadText } from '@/domain/csv';
 import { CURRENCIES, currencyInfo } from '@/domain/money';
 import { localeOptions, TIME_ZONES } from '@/domain/settings';
@@ -32,12 +36,13 @@ function weekday(day: 0 | 1, locale: string): string {
 const SECTIONS = ['profile', 'regional', 'display', 'notifications', 'categories', 'rates', 'data', 'privacy'] as const;
 
 export default function Settings() {
-  const { settings, repo, data, ctx, today, fmt, uiLocale } = useApp();
+  const { settings, repo, data, ctx, today, fmt, uiLocale, setMonth } = useApp();
   const { lang } = useI18n();
   const toast = useToast();
   const confirm = useConfirm();
   const location = useLocation();
   const fileRef = useRef<HTMLInputElement>(null);
+  const { undo } = useRestoreUndo();
   const [name, setName] = useState(settings.displayName);
   const [thresholds, setThresholds] = useState(settings.budgetAlertThresholds.join(', '));
 
@@ -57,33 +62,82 @@ export default function Settings() {
     toast.success(t('set.backupExported'));
   }
 
+  /**
+   * Restauration en trois phases (voir docs/BACKUP_RESTORE.md) :
+   *  A. lecture, migration et validation complète du fichier — aucune écriture ;
+   *  B. sauvegarde de sécurité de l'état actuel, vérifiée par relecture, puis aperçu
+   *     des volumes et confirmation explicite ;
+   *  C. téléchargement de la sauvegarde de sécurité, application atomique et vérifiée,
+   *     réinitialisation des états d'interface (filtres, mois) incompatibles.
+   */
   async function restore(file: File) {
-    if (file.size > 50 * 1024 * 1024) return toast.error(t('set.fileTooBig'));
+    if (file.size > MAX_BACKUP_FILE_BYTES) return toast.error(t('set.fileTooBig'));
     try {
-      const parsed = JSON.parse(await file.text());
-      if (!(await confirm({ title: t('set.restore.title'), message: t('set.restore.message', { file: file.name, date: parsed?.exportedAt ? new Date(parsed.exportedAt).toLocaleString(gregorian(uiLocale)) : t('set.unknownDate') }), confirmLabel: t('set.restore.confirm') }))) return;
-      await repo.restoreBackup(parsed);
-      toast.success(t('set.restored'));
+      const parsed: unknown = JSON.parse(await file.text());
+      const plan = await planRestore(repo, parsed);
+      const exportedAt = (parsed as { exportedAt?: unknown }).exportedAt;
+      const date = typeof exportedAt === 'string' && !Number.isNaN(Date.parse(exportedAt)) ? new Date(exportedAt).toLocaleString(gregorian(uiLocale)) : t('set.unknownDate');
+      const ok = await confirm({
+        title: t('set.restore.title'),
+        message: <RestorePreview plan={plan} intro={t('set.restore.message', { file: file.name, date })} />,
+        confirmLabel: t('set.restore.confirm'),
+      });
+      if (!ok) return;
+      const safetyName = `${t('bk.safetyFile')}-${plan.safety.exportedAt.slice(0, 19).replace(/[:T]/g, '-')}.json`;
+      downloadText(safetyName, plan.safety.json, 'application/json');
+      await repo.restoreBackup(plan.prepared.file);
+      afterDataReplaced((await repo.snapshot())?.transactions ?? []);
+      // Atténuation P18 : la sauvegarde de sécurité reste en mémoire pour une annulation
+      // immédiate, même si le navigateur a ignoré le téléchargement.
+      if (plan.safety.undoable) {
+        let restoredFingerprint = '';
+        try {
+          restoredFingerprint = fingerprintData(await repo.exportBackup());
+        } catch {
+          /* empreinte indisponible : toute annulation sera précédée d'un avertissement */
+        }
+        undoStore.set({ safetyJson: plan.safety.json, safetyName, restoredFingerprint, restoredAt: new Date().toISOString() });
+        toast.success(t('bk.restored', { file: safetyName }), { label: t('bk.undo.action'), onClick: undo });
+      } else {
+        undoStore.clear();
+        toast.success(t('bk.restored', { file: safetyName }));
+        toast.warning(t('bk.undo.unavailable'));
+      }
     } catch (e) {
-      toast.error(e instanceof SyntaxError ? t('set.badJson') : errorMessage(e));
+      if (e instanceof SyntaxError) toast.error(t('set.badJson'));
+      else if (e instanceof ValidationError) toast.error(<span className="whitespace-pre-line">{e.message}</span>);
+      else toast.error(errorMessage(e));
     }
+  }
+
+  /** Après un remplacement des données : filtres et mois mémorisés remis en cohérence. */
+  function afterDataReplaced(transactions: { date: string }[]) {
+    const m = monthAfterRestore(transactions, today);
+    resetUiStateAfterRestore(m);
+    setMonth(m);
   }
 
   async function resetDemo() {
     if (!(await confirm({ title: t('set.resetDemo.title'), message: t('set.resetDemo.message'), confirmLabel: t('set.resetDemo.confirm') }))) return;
-    await repo.replaceWithSnapshot(generateDemoData(repo.userId, today, settings.displayName || 'Sara'));
+    const demo = generateDemoData(repo.userId, today, settings.displayName || 'Sara');
+    await repo.replaceWithSnapshot(demo);
+    undoStore.clear();
+    afterDataReplaced(demo.transactions);
     toast.success(t('set.resetDemo.done'));
   }
 
   async function startEmpty() {
     if (!(await confirm({ title: t('set.empty.title'), message: t('set.empty.message'), confirmLabel: t('set.empty.confirm') }))) return;
     await repo.resetToEmpty({ displayName: settings.displayName, theme: settings.theme, locale: settings.locale, language: settings.language, baseCurrency: settings.baseCurrency, onboarded: true, timeZone: settings.timeZone, dateFormat: settings.dateFormat, currencyDisplay: settings.currencyDisplay });
+    afterDataReplaced([]);
+    undoStore.clear();
     toast.success(t('set.empty.done'));
   }
 
   async function deleteAll() {
     if (!(await confirm({ title: t('set.deleteAll.title'), message: t('set.deleteAll.message'), confirmLabel: t('set.deleteAll.confirm') }))) return;
     await repo.clearUserData();
+    undoStore.clear();
     try {
       localStorage.removeItem('nexora.lastAccount');
       sessionStorage.clear();
@@ -181,7 +235,7 @@ export default function Settings() {
             <div className="flex flex-col gap-2">
               <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={exportBackup}>{t('set.exportBackup')}</Button>
               <Button variant="outline" icon={<Upload className="h-4 w-4" />} onClick={() => fileRef.current?.click()}>{t('set.restoreBackup')}</Button>
-              <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = ''; }} />
+              <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" data-testid="restore-input" onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = ''; }} />
               <p className="text-xs text-muted">{t('set.backupNote')}</p>
             </div>
           </div>
@@ -374,5 +428,48 @@ function RatesManager() {
         </table>
       )}
     </Card>
+  );
+}
+
+/** Aperçu d'une restauration : volumes actuels / fichier, migration, avertissements. */
+function RestorePreview({ plan, intro }: { plan: RestorePlan; intro: string }) {
+  const { prepared, diff } = plan;
+  const { report, warnings } = prepared;
+  return (
+    <div className="space-y-3" data-testid="restore-preview">
+      <p>{intro}</p>
+      <div className="max-h-56 overflow-auto rounded-lg border border-line/15">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-card">
+            <tr className="text-left">
+              <th className="px-2 py-1 font-medium">{t('bk.preview.table')}</th>
+              <th className="px-2 py-1 text-right font-medium">{t('bk.preview.current')}</th>
+              <th className="px-2 py-1 text-right font-medium">{t('bk.preview.incoming')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {diff.map((d) => (
+              <tr key={d.table} className={cn('border-t border-line/10', d.current !== d.incoming && 'text-fg')} data-table={d.table}>
+                <td className="px-2 py-0.5 font-mono">{d.table}</td>
+                <td className="px-2 py-0.5 text-right tabular-nums">{d.current}</td>
+                <td className="px-2 py-0.5 text-right tabular-nums font-semibold">{d.incoming}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {report.fromVersion !== report.toVersion && <p>{t('bk.preview.migrated', { from: report.fromVersion, to: report.toVersion })}</p>}
+      {report.filledSettings.length > 0 && <p>{t('bk.preview.filled', { fields: report.filledSettings.join(', ') })}</p>}
+      {warnings.length > 0 && (
+        <div>
+          <p>{t('bk.preview.warnings', { count: warnings.length })}</p>
+          <ul className="mt-1 max-h-28 list-disc overflow-auto ps-5 text-xs">
+            {warnings.slice(0, 20).map((w, i) => <li key={i}>{formatIssue(w)}</li>)}
+          </ul>
+        </div>
+      )}
+      <p className="font-medium text-fg">{t('bk.preview.safety')}</p>
+      <p data-testid="undo-availability">{plan.safety.undoable ? t('bk.undo.available') : t('bk.undo.unavailable')}</p>
+    </div>
   );
 }

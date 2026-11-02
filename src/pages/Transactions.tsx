@@ -12,6 +12,7 @@ import { TransactionRow } from '@/features/transactions/TransactionRow';
 import { useTransactionForm } from '@/features/transactions/TransactionForm';
 import { download, transactionsCSV } from '@/features/export';
 import { usePersistentState } from '@/lib/usePersistentState';
+import { dropUnknownIds } from '@/app/uiState';
 import { cn } from '@/lib/cn';
 import type { ID, Transaction, TransactionType } from '@/domain/types';
 import { TRANSACTION_TYPE_LABELS } from '@/domain/types';
@@ -40,7 +41,10 @@ export default function Transactions() {
   const openForm = useTransactionForm();
   const confirm = useConfirm();
   const toast = useToast();
-  const [f, setF] = usePersistentState<Filters>('tx-filters', { q: '', period: 'month', from: '', to: '', categoryId: '', accountId: '', type: '', min: null, max: null, sort: 'date_desc' });
+  const [storedF, setF] = usePersistentState<Filters>('tx-filters', { q: '', period: 'month', from: '', to: '', categoryId: '', accountId: '', type: '', min: null, max: null, sort: 'date_desc' });
+  // Un filtre mémorisé visant un compte / une catégorie inexistant(e) (ex. après une
+  // restauration) est ignoré : il ne doit jamais masquer les données.
+  const f = useMemo(() => dropUnknownIds(storedF, ctx), [storedF, ctx]);
   const [showFilters, setShowFilters] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [selected, setSelected] = useState<Set<ID>>(new Set());

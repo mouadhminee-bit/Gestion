@@ -73,3 +73,20 @@ export function defaultSettings(userId: string, overrides: Partial<UserSettings>
     ...overrides,
   };
 }
+
+/**
+ * Paramètres utilisables par l'interface, quel que soit leur état en base : toute valeur
+ * absente ou d'un type inattendu est remplacée (en mémoire uniquement) par la valeur par
+ * défaut. Filet de sécurité de l'affichage — la base n'est jamais modifiée ici ; les
+ * sauvegardes sont, elles, validées strictement avant écriture (`data/backup`).
+ */
+export function normalizeSettings(s: UserSettings): UserSettings {
+  const defaults = defaultSettings(s?.userId ?? '');
+  const out: Record<string, unknown> = { ...defaults, ...s };
+  for (const [key, def] of Object.entries(defaults)) {
+    const v = (s as unknown as Record<string, unknown> | undefined)?.[key];
+    const ok = Array.isArray(def) ? Array.isArray(v) : v !== null && v !== undefined && typeof v === typeof def && !(typeof v === 'string' && key === 'locale' && !v.trim());
+    if (!ok) out[key] = def;
+  }
+  return out as unknown as UserSettings;
+}

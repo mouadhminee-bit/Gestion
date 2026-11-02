@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Dialog } from '@/components/ui/Dialog';
 import { useTransactionForm } from '@/features/transactions/TransactionForm';
+import { RestoreUndoBanner } from '@/features/backup/RestoreUndo';
 import { computeNotifications } from '@/domain/calc/notifications';
 import { addMonthsToKey, monthKey } from '@/domain/dates';
 
@@ -252,6 +253,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="app-content lg:ps-[248px]">
         <TopBar />
         <main id="main" className="print-full mx-auto max-w-[1400px] px-4 pb-28 pt-5 sm:px-6 sm:pt-7 lg:pb-12">
+          <RestoreUndoBanner />
           {children}
         </main>
       </div>

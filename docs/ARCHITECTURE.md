@@ -23,7 +23,8 @@ l’utiliser. Une cible cloud (Supabase + PostgreSQL + Row Level Security) est
   y sont centralisées et testées. Les pages n’effectuent aucun calcul financier
   propre : elles appellent les fonctions du domaine.
 * **data/** : persistance (Dexie/IndexedDB), validation avant écriture, opérations
-  atomiques, jeu de démonstration, sauvegarde/restauration.
+  atomiques, jeu de démonstration, sauvegarde/restauration (`data/backup/` : format,
+  migrations, validation, plan de restauration).
 * **app/** : contexte applicatif (instantané live, formateurs respectant le mode
   confidentialité, mois sélectionné, « aujourd’hui » dans le fuseau de l’utilisateur).
 
@@ -237,9 +238,18 @@ son origine.
   transactions IndexedDB atomiques (transfert = 2 jambes, paiement de dette = paiement
   + transaction, etc.).
 * `localStorage` / `sessionStorage` ne servent qu’à des préférences de confort (thème
-  pour éviter le flash, dernier compte utilisé, filtres) — jamais aux données.
-* Sauvegarde/restauration JSON complète (hors pièces jointes) ; exports CSV
-  (séparateur `;`, BOM UTF-8, neutralisation des formules).
+  pour éviter le flash, dernier compte utilisé, filtres) — jamais aux données. Les
+  états contenant des identifiants (filtres, dernier compte) et le mois affiché sont
+  réinitialisés après une restauration (`app/uiState.ts`) ; un filtre visant un
+  identifiant inexistant est ignoré.
+* Sauvegarde/restauration JSON v2 complète, pièces jointes comprises (`data/backup/`) :
+  - migration des anciens formats, puis validation stricte (tables, types, identifiants,
+    relations) **avant toute écriture** ;
+  - sauvegarde de sécurité vérifiée et aperçu avant confirmation ;
+  - application en une transaction, contrôlée après écriture.
+
+  Détails : `docs/BACKUP_RESTORE.md`. Exports CSV : séparateur `;`, BOM UTF-8,
+  neutralisation des formules.
 
 ## 7. Passage au cloud (préparé)
 
@@ -310,7 +320,9 @@ locuteurs natifs reste à faire.
 * Pas de chiffrement au repos des données locales ; le mode confidentialité masque l’affichage.
 * Taux de change et valorisations : saisie manuelle uniquement (aucune source externe).
 * Notifications in-app uniquement (pas de push / e-mail).
-* Les pièces jointes ne sont pas incluses dans la sauvegarde JSON.
+* Les pièces jointes sont incluses dans la sauvegarde JSON (base64, ≤ 5 Mo chacune,
+  fichier ≤ 100 Mo) ; au-delà, une archive dédiée serait nécessaire (proposée dans
+  `docs/BACKUP_RESTORE.md` § 5, non implémentée).
 * Transactions dans une devise différente de celle de leur compte : non gérées (la
   devise d’une opération est celle du compte ; utiliser un compte par devise).
 * Une opération ne règle qu’une seule échéance : un virement unique couvrant plusieurs

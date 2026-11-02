@@ -11,6 +11,10 @@
  * - Les règles de validation métier sont réappliquées ici avant écriture.
  */
 import type { NexoraRepository, BackupFile, NewEntity } from './contracts';
+import { BACKUP_FORMAT_VERSION, BACKUP_TABLES, type BackupFileV2, type BackupTableName, type SerializedAttachment } from './backup/format';
+import { prepareBackup } from './backup/prepare';
+import { RestoreVerificationError } from './backup/issues';
+import { deserializeAttachment, serializeAttachment } from './backup/attachments';
 import type { StoragePort, Tables } from './storage';
 import type { UserTableName } from './tables';
 import { USER_TABLES, SCHEMA_VERSION } from './tables';
@@ -51,6 +55,24 @@ import { ValidationError } from '@/domain/errors';
  * Règles de validité d'une valorisation (mêmes messages, même ordre : date puis valeur).
  * Fonction de module et non méthode : la surface de l'API reste de 54 méthodes.
  */
+/**
+ * Lignes d'une sauvegarde validée, prêtes à écrire : rattachées à `userId` (paramètres :
+ * `id = userId`), pièces jointes décodées (celles sans contenu ne sont pas écrites).
+ */
+function ownedRows(file: BackupFileV2, userId: ID): Record<BackupTableName, Record<string, unknown>[]> {
+  const out = {} as Record<BackupTableName, Record<string, unknown>[]>;
+  for (const t of BACKUP_TABLES) {
+    if (t === 'attachments') {
+      out.attachments = (file.data.attachments as unknown as SerializedAttachment[])
+        .filter((a) => typeof a.data === 'string')
+        .map((a) => deserializeAttachment(a, userId) as unknown as Record<string, unknown>);
+      continue;
+    }
+    out[t] = file.data[t].map((r) => ({ ...r, userId, ...(t === 'settings' ? { id: userId } : {}) }));
+  }
+  return out;
+}
+
 function checkValuation(date: string, value: number): void {
   if (!isValidISODate(date)) throw new ValidationError(tr('err.invalidDate'), { date: tr('err.invalidDate') });
   if (!Number.isSafeInteger(value) || value < 0) throw new ValidationError(tr('err.invalidValue'), { value: tr('err.invalidValue') });
@@ -937,6 +959,7 @@ export abstract class RepositoryCore implements NexoraRepository {
   // Sauvegarde, restauration, réinitialisation
   // -------------------------------------------------------------------------
 
+  /** Sauvegarde complète au format courant (v2 : 16 tables + pièces jointes encodées). */
   async exportBackup(): Promise<BackupFile> {
     const data: Record<string, unknown[]> = {};
     for (const t of USER_TABLES) {
@@ -945,20 +968,43 @@ export abstract class RepositoryCore implements NexoraRepository {
         .equals(this.userId)
         .toArray();
     }
-    return { app: 'nexora', schemaVersion: SCHEMA_VERSION, exportedAt: nowISO(), data };
+    const attachments = await this.t.attachments.where('userId').equals(this.userId).toArray();
+    data.attachments = await Promise.all(attachments.map(serializeAttachment));
+    return { app: 'nexora', formatVersion: BACKUP_FORMAT_VERSION, schemaVersion: SCHEMA_VERSION, exportedAt: nowISO(), data };
   }
 
-  /** Remplace toutes les données de l'utilisateur par celles de la sauvegarde. */
-  async restoreBackup(file: BackupFile): Promise<void> {
-    if (file?.app !== 'nexora' || typeof file.data !== 'object') throw new ValidationError(tr('err.backupInvalid'));
-    if (file.schemaVersion > SCHEMA_VERSION) throw new ValidationError(tr('err.backupNewer'));
-    if (!Array.isArray(file.data.settings) || !file.data.settings.length) throw new ValidationError(tr('err.backupIncomplete'));
+  /**
+   * Remplace toutes les données de l'utilisateur par celles de la sauvegarde.
+   *
+   * 1. Migration + validation complète (`prepareBackup`) : un fichier refusé ne provoque
+   *    AUCUNE écriture (`BackupValidationError`).
+   * 2. Préparation des lignes (réattribution à l'utilisateur, décodage des pièces jointes)
+   *    hors transaction.
+   * 3. Transaction unique : effacement, écriture, conservation des pièces jointes locales
+   *    référencées mais absentes du fichier, puis contrôle des volumes écrits — tout écart
+   *    annule la transaction (`RestoreVerificationError`), l'état d'origine est intact.
+   */
+  async restoreBackup(raw: unknown): Promise<void> {
+    const { file } = prepareBackup(raw);
+    const rows = ownedRows(file, this.userId);
+    const provided = new Set(rows.attachments.map((a) => a.id));
+    const referenced = new Set(rows.transactions.map((t) => (t as unknown as Transaction).attachmentId).filter((id): id is ID => !!id));
     await this.store.transaction([...USER_TABLES, 'attachments'], async () => {
+      // Pièces jointes référencées par les transactions restaurées mais absentes du fichier
+      // (fichier v1, ou contenu indisponible à l'export) : la copie locale est conservée.
+      const kept = (await this.t.attachments.where('userId').equals(this.userId).toArray()).filter((a) => referenced.has(a.id) && !provided.has(a.id));
       await this.clearUserData();
-      for (const t of USER_TABLES) {
-        const rows = (file.data[t] ?? []) as Record<string, unknown>[];
-        const owned = rows.map((r) => ({ ...r, userId: this.userId, ...(t === 'settings' ? { id: this.userId } : {}) }));
-        if (owned.length) await (this.t[t] as unknown as { bulkPut(r: unknown[]): Promise<unknown> }).bulkPut(owned);
+      for (const t of BACKUP_TABLES) {
+        const list = t === 'attachments' ? [...rows.attachments, ...kept] : rows[t];
+        if (list.length) await (this.t[t] as unknown as { bulkPut(r: unknown[]): Promise<unknown> }).bulkPut(list);
+      }
+      for (const t of BACKUP_TABLES) {
+        const expected = t === 'attachments' ? rows.attachments.length + kept.length : rows[t].length;
+        const actual = await (this.t[t] as unknown as { where(k: string): { equals(v: string): { count(): Promise<number> } } })
+          .where('userId')
+          .equals(this.userId)
+          .count();
+        if (actual !== expected) throw new RestoreVerificationError(t, expected, actual);
       }
     });
   }
@@ -982,8 +1028,9 @@ export abstract class RepositoryCore implements NexoraRepository {
       rates: s.rates,
       notificationStates: s.notificationStates,
       importBatches: [],
+      attachments: [],
     };
-    await this.restoreBackup({ app: 'nexora', schemaVersion: SCHEMA_VERSION, exportedAt: nowISO(), data });
+    await this.restoreBackup({ app: 'nexora', formatVersion: BACKUP_FORMAT_VERSION, schemaVersion: SCHEMA_VERSION, exportedAt: nowISO(), data });
   }
 
   /** Efface tout puis recrée un espace vierge (catégories initiales) en conservant les préférences d'affichage. */

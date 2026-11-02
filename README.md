@@ -79,7 +79,7 @@ Les données sont générées de façon déterministe à partir de la date du jo
 | Prévisions | ✅ | Solde fin de mois en cascade, méthode et hypothèses affichées, risque budgétaire, simulateur de scénarios (sans modification des données) |
 | Assistant | ✅ (règles) | Questions en langage naturel sur 10 intentions, réponses chiffrées avec source ; données insuffisantes signalées |
 | Import CSV | ✅ | Assistant : fichier → aperçu → colonnes → dates/montants → catégories → vérification (corrections, erreurs, doublons) → rapport |
-| Export | ✅ | CSV transactions / comptes / budgets, sauvegarde & restauration JSON |
+| Export | ✅ | CSV transactions / comptes / budgets, sauvegarde & restauration JSON v2 (pièces jointes incluses, validation avant écriture, sauvegarde de sécurité — `docs/BACKUP_RESTORE.md`) |
 | Paramètres | ✅ | Profil, devise, formats, fuseau, thème, symbole DH/MAD, confidentialité, notifications, seuils, taux de change, données |
 | Notifications | ✅ in-app | Budgets, échéances, dettes, objectifs ; sans répétition (état lu/masqué persisté) |
 | Mode cloud (Supabase, auth, RLS) | 🟡 Préparé | `supabase/schema.sql` + interface du repository ; **non activé** (aucun identifiant) |
@@ -105,10 +105,22 @@ Les données sont générées de façon déterministe à partir de la date du jo
 | `i18n/i18n.test.ts` | 79 | 24 dictionnaires complets (mêmes clés que le français, aucun texte vide, variables `{…}` identiques), pluriels (polonais, arabe, anglais, repli), chaque question suggérée de l’assistant retrouvée en saisie libre dans les 24 langues, réponses et insights dans la langue active, noms des catégories initiales, calendrier grégorien imposé (fa-IR), pourcentages formatés une seule fois, à une décimale fixe pour les charges récurrentes (24 langues) |
 | `data/repository.test.ts` | 31 | CRUD, validation, transferts (création, modification, conversion, suppression, multidevise), **persistance après réouverture**, sauvegarde/restauration, **isolation entre utilisateurs**, archivage, budgets, récurrences (rapprochement manuel multi-opérations, refus des doubles associations, reliquat, clôture et réouverture, ancienne donnée jamais réécrite, dissociation sans suppression), dettes, objectifs, import, export, cohérence du jeu de démo et des totaux du dashboard |
 
+| `data/backup/backup.test.ts` | 51 | sauvegarde / restauration v2 sur LocalRepository **et** CloudRepository (25 scénarios × 2 + codec) : aller-retour complet (données, soldes, KPI), pièces jointes, fichier incomplet, table absente / mal nommée / mauvais type, identifiant manquant / dupliqué, montant / date invalides, relations orphelines (bloquantes et historiques), transfert incomplet, paramètres sans locale / onboarded, ancien format v1, version future, panne pendant l’écriture, contrôle après écriture, sauvegarde de sécurité vérifiée — état intégralement conservé à chaque refus |
+| `data/backup/historicalV1.test.ts` | 12 | sauvegarde V1 historique du 31/10/2026 (fixture **fictive** produite par le code de l’époque) : empreinte, format exact, migration tracée, couverture des cas historiques, conservation intégrale champ par champ et KPI, pièces jointes locales conservées, Local ↔ Cloud |
+| `data/backup/undo.test.ts` | 11 | annulation immédiate d’une restauration : retour exact (pièces jointes comprises), modification intercurrente détectée, quota dépassé puis nouvel essai, panne sur chaque table, indisponibilité si l’état précédent est incohérent |
+| `app/restoreUi.test.ts` | 7 | pages réelles (jsdom) : filtre mémorisé obsolète ignoré, KPI recalculés, paramètres incomplets sans écran blanc, parcours Paramètres (aperçu, sauvegarde de sécurité, réinitialisation des filtres et du mois, fichier refusé), bandeau d’annulation (téléchargement ignoré, avertissement, échec puis nouvel essai) |
+| `app/uiState.test.ts` | 3 | mois après restauration, filtres sur identifiants inconnus, effacement des états mémorisés |
+
 `npm run test:e2e` — parcours réel dans Chromium (exécuté, 11/11) : onboarding,
 saisie d’une dépense et mise à jour du solde et des KPI, persistance après
 rechargement, import CSV (erreur et doublon détectés), transfert sans effet sur le
 solde total ni sur les dépenses, mode confidentialité.
+
+`BASE_URL=… node e2e/backup.cjs` — sauvegarde / restauration dans un profil Chromium
+temporaire (22 contrôles) : export v2, fichier invalide refusé sans écriture ni
+téléchargement, aperçu, sauvegarde de sécurité téléchargée et lisible, filtres et mois
+réinitialisés, données et KPI restaurés, annulation immédiate, persistance après
+rechargement, sauvegarde V1 historique du 31/10 (fictive).
 
 Vérifications manuelles effectuées : captures de tous les écrans en desktop (1440 px)
 et mobile (390 px, aucun débordement horizontal), thèmes sombre et clair, impression du

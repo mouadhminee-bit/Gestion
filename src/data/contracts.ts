@@ -25,17 +25,13 @@ import type {
 } from '@/domain/types';
 import type { TransactionDraft } from '@/domain/validation';
 import type { MonthKey } from '@/domain/dates';
+import type { BackupFile } from './backup/format';
 
 /** Données d'une nouvelle entité : le repository fixe `id` (sauf s'il est fourni), `userId` et les horodatages. */
 export type NewEntity<T> = Omit<T, 'id' | 'userId' | 'createdAt' | 'updatedAt'> & { id?: ID };
 
-/** Fichier de sauvegarde JSON (format v1, commun à tous les modes de stockage). */
-export interface BackupFile {
-  app: 'nexora';
-  schemaVersion: number;
-  exportedAt: string;
-  data: Record<string, unknown[]>;
-}
+/** Fichier de sauvegarde JSON (commun à tous les modes de stockage ; voir `backup/format.ts`). */
+export type { BackupFile };
 
 export interface NexoraRepository {
   readonly userId: ID;
@@ -111,7 +107,12 @@ export interface NexoraRepository {
 
   // Sauvegarde, restauration, réinitialisation (5)
   exportBackup(): Promise<BackupFile>;
-  restoreBackup(file: BackupFile): Promise<void>;
+  /**
+   * Remplace toutes les données de l'utilisateur par celles du fichier (tout format pris
+   * en charge). Le fichier est migré et validé intégralement AVANT toute écriture ;
+   * l'application est atomique et vérifiée. Lève `BackupValidationError` si refusé.
+   */
+  restoreBackup(file: unknown): Promise<void>;
   replaceWithSnapshot(s: DataSnapshot): Promise<void>;
   resetToEmpty(keep?: Partial<UserSettings>): Promise<void>;
   clearUserData(): Promise<void>;

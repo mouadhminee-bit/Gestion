@@ -11,6 +11,7 @@ import { InfoTip } from '@/components/ui/Tooltip';
 import { ChartTooltip, LegendDot, NoData, SERIES, useChart } from '@/components/charts/ChartKit';
 import { download, transactionsCSV } from '@/features/export';
 import { usePersistentState } from '@/lib/usePersistentState';
+import { dropUnknownIds } from '@/app/uiState';
 import { cn } from '@/lib/cn';
 import type { Period } from '@/domain/dates';
 import { addMonthsToKey, formatMonthShort, inPeriod, minDate, monthEnd, monthKey, monthRange, monthStart, previousPeriod, quarterPeriod, yearPeriod, parseISO } from '@/domain/dates';
@@ -38,7 +39,10 @@ interface F {
 export default function Analytics() {
   const { data, ctx, fmt, today, month, settings, uiLocale } = useApp();
   const chart = useChart();
-  const [f, setF] = usePersistentState<F>('analytics', { preset: 'month', from: '', to: '', categoryId: '', accountId: '', type: '', tag: '' });
+  const [storedF, setF] = usePersistentState<F>('analytics', { preset: 'month', from: '', to: '', categoryId: '', accountId: '', type: '', tag: '' });
+  // Un filtre mémorisé visant un compte / une catégorie inexistant(e) (ex. après une
+  // restauration) est ignoré : il ne doit jamais masquer les données.
+  const f = useMemo(() => dropUnknownIds(storedF, ctx), [storedF, ctx]);
   const set = <K extends keyof F>(k: K, v: F[K]) => setF((p) => ({ ...p, [k]: v }));
 
   const period: Period = useMemo(() => {

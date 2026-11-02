@@ -10,7 +10,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { getDB } from '@/data/db';
 import { LocalRepository } from '@/data/repository';
 import type { NexoraRepository } from '@/data/contracts';
-import { LOCAL_USER_ID } from '@/domain/settings';
+import { LOCAL_USER_ID, normalizeSettings } from '@/domain/settings';
 import type { DataSnapshot, UserSettings } from '@/domain/types';
 import type { LedgerContext } from '@/domain/calc/ledger';
 import { buildContext } from '@/domain/calc/ledger';
@@ -90,7 +90,8 @@ function useToday(timeZone: string): ISODate {
 
 export function AppProvider({ repo, data: rawData, children }: { repo: NexoraRepository; data: DataSnapshot; children: ReactNode }) {
   // Catégories initiales affichées dans la langue active (sauf si renommées).
-  const data = useMemo(() => ({ ...rawData, categories: rawData.categories.map((c) => ({ ...c, name: displayCategoryName(c) })) }), [rawData]);
+  // Paramètres normalisés en mémoire : un champ absent ou invalide ne peut pas bloquer l'affichage.
+  const data = useMemo(() => ({ ...rawData, settings: normalizeSettings(rawData.settings), categories: rawData.categories.map((c) => ({ ...c, name: displayCategoryName(c) })) }), [rawData]);
   const settings = data.settings;
   const today = useToday(settings.timeZone);
   const [month, setMonthState] = useState<MonthKey>(() => {
