@@ -19,6 +19,12 @@
  *     budgets n'est jamais projeté comme une dépense certaine.
  * Le dernier jour du mois, il ne reste rien à projeter : la projection est complète.
  *
+ * Statut 'no-data' : aucune donnée de dépense (aucune dépense ni remboursement ce mois-ci ou
+ * dans la fenêtre historique, aucune échéance de dépense attendue). Il n'y a alors ni minimum
+ * engagé ni rythme à projeter : la projection n'est ni complète ni minimum. Ce statut repose
+ * sur l'existence des opérations, jamais sur le montant (une dépense compensée par un
+ * remboursement reste une donnée). Les montants projetés ne changent pas.
+ *
  * Les échéances déjà payées sont des transactions réelles : elles sont dans le solde
  * actuel et ne sont pas recomptées (voir recurring.listOccurrences / matching).
  */
@@ -27,7 +33,7 @@ import { addDays, diffDays, monthEnd, monthKey, monthPeriod, maxDate } from '../
 import { formatMoney, roundHalfAwayFromZero } from '../money';
 import type { DataSnapshot, ID } from '../types';
 import type { LedgerContext, PeriodSummary } from './ledger';
-import { accountsInScope, summarizePeriod, topCategoryId, totalBalance } from './ledger';
+import { accountsInScope, flowOf, summarizePeriod, topCategoryId, totalBalance } from './ledger';
 import type { OccurrenceView } from './recurring';
 import { listOccurrences, pendingOccurrences } from './recurring';
 import type { BudgetScope } from './budgets';
@@ -35,6 +41,12 @@ import { budgetScope, MIN_PACE_DAYS, monthBudgetOverview } from './budgets';
 import { t } from '@/i18n/core';
 
 export type VariableMethod = 'history' | 'month' | 'insufficient';
+/**
+ * 'complete' : rien ne manque (rythme exploitable, ou plus aucun jour à projeter).
+ * 'minimum'  : des dépenses existent mais le rythme n'est pas exploitable — réalisé + échéances connues.
+ * 'no-data'  : aucune donnée de dépense — aucune projection de dépenses possible.
+ */
+export type ProjectionStatus = 'complete' | 'minimum' | 'no-data';
 
 export interface MonthForecast {
   month: MonthKey;
@@ -59,8 +71,11 @@ export interface MonthForecast {
   monthAtypical: AtypicalExpense[];
   /** Montant atypique du mois par catégorie (1er niveau et sous-catégorie), pour les lignes de budget. */
   atypicalByCategory: Map<ID | null, number>;
-  /** 'minimum' : dépenses variables non projetées faute de données (réalisé + échéances connues). */
-  projectionStatus: 'complete' | 'minimum';
+  /**
+   * 'minimum' : dépenses variables non projetées faute de données (réalisé + échéances connues).
+   * 'no-data' : aucune donnée de dépense (voir `ProjectionStatus`).
+   */
+  projectionStatus: ProjectionStatus;
   projectedIncome: number;
   projectedExpenses: number;
   projectedSavings: number;
@@ -77,8 +92,8 @@ export interface MonthForecast {
   /** Périmètre budgétaire du mois (même règle que Budgets), pour le simulateur. */
   budgetScope: BudgetScope | null;
   projectedBudgetOverrun: number | null;
-  /** Statut de `budgetProjectedSpent` (même base que le budget). */
-  budgetProjectionStatus: 'complete' | 'minimum' | null;
+  /** Statut de `budgetProjectedSpent` (même base que le budget ; 'no-data' suit `projectionStatus`). */
+  budgetProjectionStatus: ProjectionStatus | null;
   /** Dépenses hors budget enregistrées ce mois-ci (exclues de la base « catégories »). */
   unbudgetedRecorded: number;
   /** Dépenses récurrentes attendues par catégorie de 1er niveau. */
@@ -195,6 +210,29 @@ export function variableDailyAverage(ctx: LedgerContext, data: Pick<DataSnapshot
   return variablePace(ctx, data.transactions, recurringIds, windowStart, windowEnd, MIN_HISTORY_DAYS, MIN_HISTORY_TRANSACTIONS);
 }
 
+/**
+ * Existe-t-il au moins une donnée de dépense exploitable par la projection ?
+ *  - une dépense ou un remboursement (y compris intérêts de dette) dans le mois, ou dans la
+ *    fenêtre historique [historyStart, today] ;
+ *  - une échéance de dépense attendue (non payée) ce mois-ci.
+ * Fondé sur l'existence des opérations, pas sur leur montant : une dépense compensée par un
+ * remboursement (net nul) reste une donnée.
+ */
+export function hasExpenseData(
+  transactions: DataSnapshot['transactions'],
+  period: { start: ISODate; end: ISODate },
+  historyStart: ISODate,
+  today: ISODate,
+  pending: OccurrenceView[],
+): boolean {
+  if (pending.some((o) => o.rule.kind === 'expense')) return true;
+  return transactions.some((t) => {
+    const kind = flowOf(t).kind;
+    if (kind !== 'expense' && kind !== 'refund') return false;
+    return (t.date >= period.start && t.date <= period.end) || (t.date >= historyStart && t.date <= today);
+  });
+}
+
 export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISODate): MonthForecast {
   const month = monthKey(today);
   const period = monthPeriod(month);
@@ -283,9 +321,12 @@ export function forecastMonth(ctx: LedgerContext, data: DataSnapshot, today: ISO
   const budgetBasis = overview.referenceSource === 'none' ? null : overview.referenceSource;
   const budgetReference = budgetBasis ? overview.reference : null;
   const budgetProjectedSpent = budgetBasis === 'global' ? projectedExpenses : budgetBasis === 'categories' ? overview.categories!.projected : null;
-  // Rien à projeter le dernier jour ; sinon, sans méthode exploitable, la projection est un minimum.
-  const projectionStatus: MonthForecast['projectionStatus'] = remainingDays === 0 || variableMethod !== 'insufficient' ? 'complete' : 'minimum';
-  const budgetProjectionStatus = budgetBasis === 'global' ? projectionStatus : budgetBasis === 'categories' ? (overview.categories!.projectionComplete ? 'complete' : 'minimum') : null;
+  // Aucune donnée de dépense : ni minimum engagé ni rythme, quel que soit le jour.
+  // Sinon : rien à projeter le dernier jour ; sans méthode exploitable, la projection est un minimum.
+  const noData = !hasExpenseData(data.transactions, period, addDays(today, -HISTORY_WINDOW_DAYS), today, pending);
+  const projectionStatus: ProjectionStatus = noData ? 'no-data' : remainingDays === 0 || variableMethod !== 'insufficient' ? 'complete' : 'minimum';
+  const budgetProjectionStatus: ProjectionStatus | null =
+    budgetBasis == null ? null : noData ? 'no-data' : budgetBasis === 'global' ? projectionStatus : overview.categories!.projectionComplete ? 'complete' : 'minimum';
 
   return {
     month,

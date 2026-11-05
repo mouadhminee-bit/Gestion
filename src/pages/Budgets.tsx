@@ -96,9 +96,12 @@ export default function Budgets() {
   // Disponible, référence et projection de la carte suivent la même base que la jauge ;
   // le budget global (enveloppe de toutes les dépenses) est suivi dans son propre encadré.
   const cats = overview.categories;
+  // Statut de complétude de la projection : jamais exposé ici (voir features/forecast/projectionNotice).
+  // Il sert seulement à n'afficher projection et verdict que lorsqu'ils sont complets.
+  const noData = fc?.projectionStatus === 'no-data';
   const card = cats
-    ? { available: cats.remaining, reference: cats.planned, source: t('budget.sumCategories'), projected: timing.isCurrent ? cats.projected : null, over: cats.projected != null ? cats.projected - cats.planned : 0, complete: cats.projectionComplete }
-    : { available: overview.available ?? 0, reference: overview.reference, source: t('budget.global'), projected: fc?.budgetBasis === 'global' ? fc.budgetProjectedSpent : null, over: fc?.projectedBudgetOverrun ?? 0, complete: fc?.budgetProjectionStatus !== 'minimum' };
+    ? { available: cats.remaining, reference: cats.planned, source: t('budget.sumCategories'), projected: timing.isCurrent ? cats.projected : null, over: cats.projected != null ? cats.projected - cats.planned : 0, status: noData ? 'no-data' as const : cats.projectionComplete ? 'complete' as const : 'minimum' as const }
+    : { available: overview.available ?? 0, reference: overview.reference, source: t('budget.global'), projected: fc?.budgetBasis === 'global' ? fc.budgetProjectedSpent : null, over: fc?.projectedBudgetOverrun ?? 0, status: fc?.budgetProjectionStatus ?? ('complete' as const) };
 
   return (
     <div>
@@ -170,13 +173,8 @@ export default function Budgets() {
               {timing.isCurrent && fc && fc.monthAtypical.length > 0 && (
                 <p className="mt-2 text-start text-[11px] text-muted">{t('budget.atypicalNote', { count: fc.monthAtypical.length, amount: fmt.money(fc.monthAtypical.reduce((a, x) => a + x.amount, 0)) })}</p>
               )}
-              {card.projected != null && !card.complete && (
-                <p className="mt-3 text-start text-xs text-muted">
-                  {t('budget.projectionMinimum', { amount: fmt.money(card.projected) })}{' '}
-                  {card.over > 0 && <span className="text-negative">{t('budget.overrunEstimated', { amount: fmt.money(card.over) })}</span>}
-                </p>
-              )}
-              {card.projected != null && card.complete && (
+              {/* Projection minimum ou sans donnée : rien n'est affiché (ni statut, ni verdict « dans le budget »). */}
+              {card.projected != null && card.status === 'complete' && (
                 <p className="mt-3 text-start text-xs text-muted">
                   {t(cats ? 'budget.projectionCategories' : 'budget.projection')} <b className="num text-fg">{fmt.money(card.projected)}</b>{' '}
                   {card.over > 0 ? <span className="text-negative">{t('budget.overrunEstimated', { amount: fmt.money(card.over) })}</span> : <span className="text-positive">{t('budget.withinBudget')}</span>} {t(cats ? 'budget.projectionCategoriesNote' : 'budget.estimateNote')}

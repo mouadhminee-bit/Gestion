@@ -14,6 +14,8 @@ import { computeBaseline, EMPTY_SCENARIO, simulateScenario, type ScenarioInput }
 import { computeGoalProgress } from '@/domain/calc/goals';
 import { isLate } from '@/domain/calc/recurring';
 import { occurrenceBadge } from '@/features/recurring/status';
+import { projectionNotice } from '@/features/forecast/projectionNotice';
+import { ProjectionNote } from '@/features/forecast/ProjectionNote';
 import { daysInMonth, formatMonth, monthKey, parseISO } from '@/domain/dates';
 import { cn } from '@/lib/cn';
 import { t } from '@/i18n/core';
@@ -78,9 +80,10 @@ export default function Forecast() {
               <div className={cn('display text-4xl font-semibold num', f.projectedEndBalance < 0 && 'text-negative')}>{fmt.money(f.projectedEndBalance)}</div>
               <div className="mt-1 text-xs text-muted">{t('fc.vsToday', { current: fmt.money(f.currentBalance), delta: fmt.money(f.projectedEndBalance - f.currentBalance, undefined, { sign: true }) })}</div>
             </div>
-            <Badge tone={f.variableMethod === 'history' ? 'cyan' : f.variableMethod === 'month' ? 'warning' : 'negative'}>{t('fc.method', { method: methodLabel })}</Badge>
+            {/* Sans aucune donnée de dépense, « données insuffisantes » est un état, pas une alerte. */}
+            <Badge tone={f.variableMethod === 'history' ? 'cyan' : f.variableMethod === 'month' ? 'warning' : f.projectionStatus === 'no-data' ? 'neutral' : 'negative'}>{t('fc.method', { method: methodLabel })}</Badge>
           </div>
-          {f.projectionStatus === 'minimum' && <p className="mt-2 rounded-lg bg-warning/10 p-2 text-xs text-warning">{t('fc.minimumNote')}</p>}
+          <ProjectionNote className="mt-2" kind={projectionNotice('projection', f.projectionStatus)} minimum={t('fc.minimumNote')} noData={t('fc.noDataNote')} />
           <p className="mt-2 text-[11px] text-muted">{t('fc.axisNote')}</p>
           <div className="mt-3 h-56">
             <ResponsiveContainer>
@@ -117,13 +120,19 @@ export default function Forecast() {
             ))}
           </dl>
           {f.variableDailyAverage != null && <p className="mt-3 text-xs text-muted">{t('fc.dailyAverage', { amount: fmt.money(Math.round(f.variableDailyAverage)), days: f.variableHistoryDays, max: HISTORY_WINDOW_DAYS })}</p>}
-          {f.budgetReference != null && (
+          {f.budgetReference != null && (f.budgetProjectionStatus === 'no-data' ? (
+            // Aucune donnée de dépense : pas d'écart projeté ni de verdict, état neutre.
+            <div className="mt-4 rounded-xl border border-line/20 bg-surface-2/60 p-3 text-xs">
+              <div className="font-semibold">{t('fc.budgetNoData')}</div>
+              <div className="mt-1 text-muted">{t('fc.noDataNote')}</div>
+            </div>
+          ) : (
             <div className={cn('mt-4 rounded-xl border p-3 text-xs', (f.projectedBudgetOverrun ?? 0) > 0 ? 'border-warning/30 bg-warning/10' : f.budgetProjectionStatus === 'minimum' ? 'border-line/20 bg-surface-2/60' : 'border-positive/25 bg-positive/10')}>
               <div className="flex items-center gap-1.5 font-semibold">{(f.projectedBudgetOverrun ?? 0) > 0 ? <><TriangleAlert className="h-3.5 w-3.5 text-warning" /> {t(f.budgetProjectionStatus === 'minimum' ? 'fc.overrunMinimum' : 'fc.overrunRisk')}</> : t(f.budgetProjectionStatus === 'minimum' ? 'fc.budgetNotAssessable' : 'fc.budgetOk')}</div>
               <div className="mt-1 text-muted">{t(f.budgetBasis === 'categories' ? 'fc.budgetDetailCategories' : 'fc.budgetDetail', { reference: fmt.money(f.budgetReference), gap: fmt.money(f.projectedBudgetOverrun ?? 0, undefined, { sign: true }) })}</div>
               {f.budgetProjectionStatus === 'minimum' && <div className="mt-1 text-warning">{t('fc.minimumNote')}</div>}
             </div>
-          )}
+          ))}
         </Card>
       </div>
 
@@ -197,6 +206,8 @@ export default function Forecast() {
                 </tbody>
               </table>
               </div>
+              {/* Le solde fin de mois du scénario part de la projection actuelle : ses limites s'y appliquent. */}
+              <ProjectionNote className="mt-3" kind={projectionNotice('simulation', f.projectionStatus)} minimum={t('fc.sim.minimumNote')} noData={t('fc.sim.noDataNote')} />
               {result.goals.length > 0 && (
                 <div className="mt-5">
                   <div className="label mb-2 flex items-center gap-1">{t('fc.goalDelay')} <InfoTip>{t('fc.goalDelay.info')}</InfoTip></div>

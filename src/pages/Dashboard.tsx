@@ -197,14 +197,8 @@ export default function Dashboard() {
           {overview.available == null ? <span className="text-base text-muted">{t('dash.kpi.noBudget')}</span> : <span className={overview.available < 0 ? 'text-negative' : ''}><AnimatedAmount value={overview.available} /></span>}
         </Kpi>
       </section>
-      {/* Projection incomplète : seulement le minimum déjà engagé, le détail reste dans Prévisions. */}
-      {md.forecast?.projectionStatus === 'minimum' && (
-        <Link to="/forecast" className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-xs text-warning transition hover:bg-warning/15">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1">{t('dash.minimum', { amount: fmt.money(md.forecast.projectedExpenses) })}</span>
-          <span className="inline-flex items-center gap-0.5 font-medium">{t('dash.minimumLink')}<ChevronRight className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden /></span>
-        </Link>
-      )}
+      {/* Pas d'avertissement de statut de projection sur le Dashboard (voir features/forecast/projectionNotice) :
+          les limites de la projection sont expliquées dans Prévisions et dans le simulateur. */}
 
       <div className="grid items-start gap-5 xl:grid-cols-3">
         {/* Revenus vs dépenses */}

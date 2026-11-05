@@ -125,6 +125,8 @@ export function generateInsights(
     // Un minimum (réalisé + échéances connues) qui dépasse déjà le budget est un signal fiable ;
     // en revanche, « sous contrôle » n'est affirmé que sur une projection complète.
     const minimum = forecast.budgetProjectionStatus === 'minimum';
+    // 'no-data' : aucune donnée de dépense, rien à affirmer (ni dépassement ni « sous contrôle »).
+    const complete = forecast.budgetProjectionStatus === 'complete';
     if (forecast.projectedBudgetOverrun > 0) {
       out.push({
         id: `pace:${month}`,
@@ -136,7 +138,7 @@ export function generateInsights(
         source: t(minimum ? 'ins.pace.sourceMinimum' : cats ? 'ins.pace.sourceCategories' : 'ins.pace.source'),
         href: '/forecast',
       });
-    } else if (!minimum && (cats || forecast.variableMethod !== 'insufficient')) {
+    } else if (complete && (cats || forecast.variableMethod !== 'insufficient')) {
       out.push({
         id: `pace-ok:${month}`,
         kind: 'pace',
