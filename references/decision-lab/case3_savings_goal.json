@@ -1,0 +1,1950 @@
+{
+  "meta": {
+    "generateur": "references/decision-lab/generate_references.py",
+    "etape": "E2 (clôturée ; H11–H12 validées à l'ouverture de E3 ; H15 ajoutée à la finalisation E3)",
+    "precision_decimal": 80,
+    "tolerance_accord_methodes_centimes": "1E-60",
+    "hypotheses": {
+      "H1": {
+        "texte": "Taux annuel effectif → taux mensuel équivalent i = (1 + R)^(1/12) − 1 (capitalisation mensuelle).",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "Usage standard ; l'énoncé dit « effectif annuel » mais ne fixe pas la capitalisation infra-annuelle."
+      },
+      "H2": {
+        "texte": "Versements périodiques en fin de mois.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 2 et 3)"
+      },
+      "H3": {
+        "texte": "Capital initial placé à t = 0 et capitalisé dès le premier mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "Lecture naturelle de « capital initial », non formulée explicitement."
+      },
+      "H4": {
+        "texte": "Intérêts de chaque mois arrondis au centime le plus proche, demi vers l'extérieur (règle roundHalfAwayFromZero) ; placement, objectif et crédit.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "La variante sans arrondi intermédiaire est fournie à chaque fois."
+      },
+      "H5": {
+        "texte": "Crédit : taux nominal annuel proportionnel, i = taux / 12 ; échéances constantes.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 1 : « taux nominal annuel »), confirmée par la décision de clôture E2 du responsable du projet"
+      },
+      "H6": {
+        "texte": "Crédit : mensualité arrondie au centime le plus proche ; la dernière échéance est ajustée pour solder le crédit.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 1), confirmée par la décision de clôture E2 du responsable du projet",
+        "note": "« Au centime » lu comme « au plus proche » (demi vers l'extérieur)."
+      },
+      "H7": {
+        "texte": "Objectif : effort mensuel arrondi au centime supérieur (l'objectif doit être atteint dans l'horizon) ; même règle que goals.ts (Math.ceil).",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H8": {
+        "texte": "Objectif : épargne initiale nulle.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H9": {
+        "texte": "Objectif : taux de 3 % annuel effectif.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H10": {
+        "texte": "Rythme constant : durée = premier mois où le solde atteint la cible, plafonnée à 480 mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H11": {
+        "texte": "Cas 1 : apport et frais payés au mois 0 ; crédit versé directement au vendeur ; véhicule inscrit à l'actif au mois 0 ; échéances et assurance en fin de mois 1 à 48 (convention de fin de mois, H2).",
+        "etat": "validee",
+        "source": "décision d'ouverture E3 du responsable du projet"
+      },
+      "H12": {
+        "texte": "Référence sans décision : trésorerie non dépensée non rémunérée ; résultats exprimés en écart à cette référence.",
+        "etat": "validee",
+        "source": "décision d'ouverture E3 du responsable du projet"
+      },
+      "H13": {
+        "texte": "Cas 3, mode « versement constant » : scénario de référence 2 500 DH/mois ; variantes 2 000 et 3 000 DH/mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H14": {
+        "texte": "Dernier versement plafonné au montant nécessaire : versement du mois = min(versement prévu, cible − (solde + intérêts du mois)).",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H15": {
+        "texte": "Objectif : après l'atteinte, versements arrêtés ; le capital reste sur le compte dédié et continue de produire le rendement prévu (intérêts arrondis, H4). Le mois d'atteinte et le solde final sont distincts.",
+        "etat": "validee",
+        "source": "décision de finalisation E3 du responsable du projet"
+      }
+    },
+    "statuts": {
+      "verifie_math": "vérifié mathématiquement : vrai quelle que soit la convention métier, ≥ 2 méthodes concordantes",
+      "valide_conventions": "validé selon les conventions : calcul vérifié et toutes les hypothèses utilisées sont validées",
+      "candidat": "candidat : calcul vérifié, au moins une hypothèse à valider (voir hypotheses_a_valider)",
+      "manquant": "manquant : aucune valeur produite",
+      "synthetique": "synthétique : paramètres de contrôle, hors cas de référence",
+      "informatif": "informatif : variante écartée par une convention validée"
+    },
+    "controles_externes": "aucun contrôle externe certifié disponible : « vérifié » ≠ « certifié métier »"
+  },
+  "cas": "3 — constitution d'une épargne de 60 000 DH, rendement 0 % vs 3 %",
+  "source_parametres": "consigne de correction E2 du responsable du projet",
+  "parametres": {
+    "devise": "MAD",
+    "unite_montants": "centimes",
+    "cible_centimes": 6000000,
+    "epargne_initiale_centimes": 0,
+    "horizon_mois": 24,
+    "taux_compares_effectifs_bps": [
+      0,
+      300
+    ],
+    "versements": "fin de mois, dernier plafonné"
+  },
+  "resultats_verifies_math": {
+    "statut": "verifie_math",
+    "note": "Rendement nul : effort = cible / horizon et durée = ⌈cible / versement⌉ sont exacts sans convention de taux ni d'arrondi d'intérêts.",
+    "effort_0_pct_24_mois_centimes": 250000,
+    "reste_division": 0
+  },
+  "resultats": {
+    "rendement_0_pct": {
+      "taux_annuel_effectif_bps": 0,
+      "taux_mensuel": "0E-30",
+      "effort_constant": {
+        "effort_exact_centimes": {
+          "statut": "valide_conventions",
+          "hypotheses": [
+            "H2",
+            "H8",
+            "H14"
+          ],
+          "hypotheses_a_valider": [],
+          "valeur": "250000.000000000000"
+        },
+        "avec_arrondis": {
+          "statut": "valide_conventions",
+          "hypotheses": [
+            "H2",
+            "H8",
+            "H14"
+          ],
+          "hypotheses_a_valider": [],
+          "effort_mensuel_centimes": 250000,
+          "dernier_versement_centimes": 250000,
+          "mois_atteinte": 24,
+          "total_verse_centimes": 6000000,
+          "interets_totaux_centimes": 0,
+          "echeancier": [
+            {
+              "mois": 1,
+              "solde_ouverture": 0,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 250000
+            },
+            {
+              "mois": 2,
+              "solde_ouverture": 250000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 500000
+            },
+            {
+              "mois": 3,
+              "solde_ouverture": 500000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 750000
+            },
+            {
+              "mois": 4,
+              "solde_ouverture": 750000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 1000000
+            },
+            {
+              "mois": 5,
+              "solde_ouverture": 1000000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 1250000
+            },
+            {
+              "mois": 6,
+              "solde_ouverture": 1250000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 1500000
+            },
+            {
+              "mois": 7,
+              "solde_ouverture": 1500000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 1750000
+            },
+            {
+              "mois": 8,
+              "solde_ouverture": 1750000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 2000000
+            },
+            {
+              "mois": 9,
+              "solde_ouverture": 2000000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 2250000
+            },
+            {
+              "mois": 10,
+              "solde_ouverture": 2250000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 2500000
+            },
+            {
+              "mois": 11,
+              "solde_ouverture": 2500000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 2750000
+            },
+            {
+              "mois": 12,
+              "solde_ouverture": 2750000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 3000000
+            },
+            {
+              "mois": 13,
+              "solde_ouverture": 3000000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 3250000
+            },
+            {
+              "mois": 14,
+              "solde_ouverture": 3250000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 3500000
+            },
+            {
+              "mois": 15,
+              "solde_ouverture": 3500000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 3750000
+            },
+            {
+              "mois": 16,
+              "solde_ouverture": 3750000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 4000000
+            },
+            {
+              "mois": 17,
+              "solde_ouverture": 4000000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 4250000
+            },
+            {
+              "mois": 18,
+              "solde_ouverture": 4250000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 4500000
+            },
+            {
+              "mois": 19,
+              "solde_ouverture": 4500000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 4750000
+            },
+            {
+              "mois": 20,
+              "solde_ouverture": 4750000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 5000000
+            },
+            {
+              "mois": 21,
+              "solde_ouverture": 5000000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 5250000
+            },
+            {
+              "mois": 22,
+              "solde_ouverture": 5250000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 5500000
+            },
+            {
+              "mois": 23,
+              "solde_ouverture": 5500000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 5750000
+            },
+            {
+              "mois": 24,
+              "solde_ouverture": 5750000,
+              "interets": 0,
+              "versement": 250000,
+              "solde_cloture": 6000000
+            }
+          ]
+        }
+      },
+      "versement_constant": {
+        "scenario_reference_centimes": 250000,
+        "scenarios": [
+          {
+            "statut": "valide_conventions",
+            "hypotheses": [
+              "H2",
+              "H8",
+              "H10",
+              "H13",
+              "H14",
+              "H15"
+            ],
+            "hypotheses_a_valider": [],
+            "role": "reference",
+            "versement_mensuel_centimes": 250000,
+            "mois_atteinte": 24,
+            "mois_atteinte_sans_arrondi": 24,
+            "atteint_dans_horizon_24_mois": true,
+            "solde_a_l_atteinte_centimes": 6000000,
+            "solde_au_mois_24_centimes": 6000000,
+            "interets_apres_atteinte_jusqu_au_mois_24_centimes": 0,
+            "manque_au_mois_24_centimes": 0,
+            "dernier_versement_centimes": 250000,
+            "total_verse_centimes": 6000000,
+            "interets_totaux_centimes": 0,
+            "echeancier": [
+              {
+                "mois": 1,
+                "solde_ouverture": 0,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 250000
+              },
+              {
+                "mois": 2,
+                "solde_ouverture": 250000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 500000
+              },
+              {
+                "mois": 3,
+                "solde_ouverture": 500000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 750000
+              },
+              {
+                "mois": 4,
+                "solde_ouverture": 750000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 1000000
+              },
+              {
+                "mois": 5,
+                "solde_ouverture": 1000000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 1250000
+              },
+              {
+                "mois": 6,
+                "solde_ouverture": 1250000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 1500000
+              },
+              {
+                "mois": 7,
+                "solde_ouverture": 1500000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 1750000
+              },
+              {
+                "mois": 8,
+                "solde_ouverture": 1750000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 2000000
+              },
+              {
+                "mois": 9,
+                "solde_ouverture": 2000000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 2250000
+              },
+              {
+                "mois": 10,
+                "solde_ouverture": 2250000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 2500000
+              },
+              {
+                "mois": 11,
+                "solde_ouverture": 2500000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 2750000
+              },
+              {
+                "mois": 12,
+                "solde_ouverture": 2750000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 3000000
+              },
+              {
+                "mois": 13,
+                "solde_ouverture": 3000000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 3250000
+              },
+              {
+                "mois": 14,
+                "solde_ouverture": 3250000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 3500000
+              },
+              {
+                "mois": 15,
+                "solde_ouverture": 3500000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 3750000
+              },
+              {
+                "mois": 16,
+                "solde_ouverture": 3750000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 4000000
+              },
+              {
+                "mois": 17,
+                "solde_ouverture": 4000000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 4250000
+              },
+              {
+                "mois": 18,
+                "solde_ouverture": 4250000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 4500000
+              },
+              {
+                "mois": 19,
+                "solde_ouverture": 4500000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 4750000
+              },
+              {
+                "mois": 20,
+                "solde_ouverture": 4750000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 5000000
+              },
+              {
+                "mois": 21,
+                "solde_ouverture": 5000000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 5250000
+              },
+              {
+                "mois": 22,
+                "solde_ouverture": 5250000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 5500000
+              },
+              {
+                "mois": 23,
+                "solde_ouverture": 5500000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 5750000
+              },
+              {
+                "mois": 24,
+                "solde_ouverture": 5750000,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 6000000
+              }
+            ]
+          },
+          {
+            "statut": "valide_conventions",
+            "hypotheses": [
+              "H2",
+              "H8",
+              "H10",
+              "H13",
+              "H14",
+              "H15"
+            ],
+            "hypotheses_a_valider": [],
+            "role": "variante",
+            "versement_mensuel_centimes": 200000,
+            "mois_atteinte": 30,
+            "mois_atteinte_sans_arrondi": 30,
+            "atteint_dans_horizon_24_mois": false,
+            "solde_a_l_atteinte_centimes": 6000000,
+            "solde_au_mois_24_centimes": 4800000,
+            "interets_apres_atteinte_jusqu_au_mois_24_centimes": 0,
+            "manque_au_mois_24_centimes": 1200000,
+            "dernier_versement_centimes": 200000,
+            "total_verse_centimes": 6000000,
+            "interets_totaux_centimes": 0,
+            "echeancier": [
+              {
+                "mois": 1,
+                "solde_ouverture": 0,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 200000
+              },
+              {
+                "mois": 2,
+                "solde_ouverture": 200000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 400000
+              },
+              {
+                "mois": 3,
+                "solde_ouverture": 400000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 600000
+              },
+              {
+                "mois": 4,
+                "solde_ouverture": 600000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 800000
+              },
+              {
+                "mois": 5,
+                "solde_ouverture": 800000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 1000000
+              },
+              {
+                "mois": 6,
+                "solde_ouverture": 1000000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 1200000
+              },
+              {
+                "mois": 7,
+                "solde_ouverture": 1200000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 1400000
+              },
+              {
+                "mois": 8,
+                "solde_ouverture": 1400000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 1600000
+              },
+              {
+                "mois": 9,
+                "solde_ouverture": 1600000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 1800000
+              },
+              {
+                "mois": 10,
+                "solde_ouverture": 1800000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 2000000
+              },
+              {
+                "mois": 11,
+                "solde_ouverture": 2000000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 2200000
+              },
+              {
+                "mois": 12,
+                "solde_ouverture": 2200000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 2400000
+              },
+              {
+                "mois": 13,
+                "solde_ouverture": 2400000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 2600000
+              },
+              {
+                "mois": 14,
+                "solde_ouverture": 2600000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 2800000
+              },
+              {
+                "mois": 15,
+                "solde_ouverture": 2800000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 3000000
+              },
+              {
+                "mois": 16,
+                "solde_ouverture": 3000000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 3200000
+              },
+              {
+                "mois": 17,
+                "solde_ouverture": 3200000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 3400000
+              },
+              {
+                "mois": 18,
+                "solde_ouverture": 3400000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 3600000
+              },
+              {
+                "mois": 19,
+                "solde_ouverture": 3600000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 3800000
+              },
+              {
+                "mois": 20,
+                "solde_ouverture": 3800000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 4000000
+              },
+              {
+                "mois": 21,
+                "solde_ouverture": 4000000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 4200000
+              },
+              {
+                "mois": 22,
+                "solde_ouverture": 4200000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 4400000
+              },
+              {
+                "mois": 23,
+                "solde_ouverture": 4400000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 4600000
+              },
+              {
+                "mois": 24,
+                "solde_ouverture": 4600000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 4800000
+              },
+              {
+                "mois": 25,
+                "solde_ouverture": 4800000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 5000000
+              },
+              {
+                "mois": 26,
+                "solde_ouverture": 5000000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 5200000
+              },
+              {
+                "mois": 27,
+                "solde_ouverture": 5200000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 5400000
+              },
+              {
+                "mois": 28,
+                "solde_ouverture": 5400000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 5600000
+              },
+              {
+                "mois": 29,
+                "solde_ouverture": 5600000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 5800000
+              },
+              {
+                "mois": 30,
+                "solde_ouverture": 5800000,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 6000000
+              }
+            ]
+          },
+          {
+            "statut": "valide_conventions",
+            "hypotheses": [
+              "H2",
+              "H8",
+              "H10",
+              "H13",
+              "H14",
+              "H15"
+            ],
+            "hypotheses_a_valider": [],
+            "role": "variante",
+            "versement_mensuel_centimes": 300000,
+            "mois_atteinte": 20,
+            "mois_atteinte_sans_arrondi": 20,
+            "atteint_dans_horizon_24_mois": true,
+            "solde_a_l_atteinte_centimes": 6000000,
+            "solde_au_mois_24_centimes": 6000000,
+            "interets_apres_atteinte_jusqu_au_mois_24_centimes": 0,
+            "manque_au_mois_24_centimes": 0,
+            "dernier_versement_centimes": 300000,
+            "total_verse_centimes": 6000000,
+            "interets_totaux_centimes": 0,
+            "echeancier": [
+              {
+                "mois": 1,
+                "solde_ouverture": 0,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 300000
+              },
+              {
+                "mois": 2,
+                "solde_ouverture": 300000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 600000
+              },
+              {
+                "mois": 3,
+                "solde_ouverture": 600000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 900000
+              },
+              {
+                "mois": 4,
+                "solde_ouverture": 900000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 1200000
+              },
+              {
+                "mois": 5,
+                "solde_ouverture": 1200000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 1500000
+              },
+              {
+                "mois": 6,
+                "solde_ouverture": 1500000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 1800000
+              },
+              {
+                "mois": 7,
+                "solde_ouverture": 1800000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 2100000
+              },
+              {
+                "mois": 8,
+                "solde_ouverture": 2100000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 2400000
+              },
+              {
+                "mois": 9,
+                "solde_ouverture": 2400000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 2700000
+              },
+              {
+                "mois": 10,
+                "solde_ouverture": 2700000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 3000000
+              },
+              {
+                "mois": 11,
+                "solde_ouverture": 3000000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 3300000
+              },
+              {
+                "mois": 12,
+                "solde_ouverture": 3300000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 3600000
+              },
+              {
+                "mois": 13,
+                "solde_ouverture": 3600000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 3900000
+              },
+              {
+                "mois": 14,
+                "solde_ouverture": 3900000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 4200000
+              },
+              {
+                "mois": 15,
+                "solde_ouverture": 4200000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 4500000
+              },
+              {
+                "mois": 16,
+                "solde_ouverture": 4500000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 4800000
+              },
+              {
+                "mois": 17,
+                "solde_ouverture": 4800000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 5100000
+              },
+              {
+                "mois": 18,
+                "solde_ouverture": 5100000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 5400000
+              },
+              {
+                "mois": 19,
+                "solde_ouverture": 5400000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 5700000
+              },
+              {
+                "mois": 20,
+                "solde_ouverture": 5700000,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 6000000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "rendement_3_pct_effectif": {
+      "taux_annuel_effectif_bps": 300,
+      "taux_mensuel": "0.002466269772303599979971653064",
+      "effort_constant": {
+        "effort_exact_centimes": {
+          "statut": "valide_conventions",
+          "hypotheses": [
+            "H1",
+            "H2",
+            "H8",
+            "H9",
+            "H14"
+          ],
+          "hypotheses_a_valider": [],
+          "valeur": "242982.243576709358"
+        },
+        "avec_arrondis": {
+          "statut": "valide_conventions",
+          "hypotheses": [
+            "H1",
+            "H2",
+            "H4",
+            "H7",
+            "H8",
+            "H9",
+            "H14"
+          ],
+          "hypotheses_a_valider": [],
+          "effort_mensuel_centimes": 242983,
+          "dernier_versement_centimes": 242964,
+          "mois_atteinte": 24,
+          "total_verse_centimes": 5831573,
+          "interets_totaux_centimes": 168427,
+          "echeancier": [
+            {
+              "mois": 1,
+              "solde_ouverture": 0,
+              "interets": 0,
+              "versement": 242983,
+              "solde_cloture": 242983
+            },
+            {
+              "mois": 2,
+              "solde_ouverture": 242983,
+              "interets": 599,
+              "versement": 242983,
+              "solde_cloture": 486565
+            },
+            {
+              "mois": 3,
+              "solde_ouverture": 486565,
+              "interets": 1200,
+              "versement": 242983,
+              "solde_cloture": 730748
+            },
+            {
+              "mois": 4,
+              "solde_ouverture": 730748,
+              "interets": 1802,
+              "versement": 242983,
+              "solde_cloture": 975533
+            },
+            {
+              "mois": 5,
+              "solde_ouverture": 975533,
+              "interets": 2406,
+              "versement": 242983,
+              "solde_cloture": 1220922
+            },
+            {
+              "mois": 6,
+              "solde_ouverture": 1220922,
+              "interets": 3011,
+              "versement": 242983,
+              "solde_cloture": 1466916
+            },
+            {
+              "mois": 7,
+              "solde_ouverture": 1466916,
+              "interets": 3618,
+              "versement": 242983,
+              "solde_cloture": 1713517
+            },
+            {
+              "mois": 8,
+              "solde_ouverture": 1713517,
+              "interets": 4226,
+              "versement": 242983,
+              "solde_cloture": 1960726
+            },
+            {
+              "mois": 9,
+              "solde_ouverture": 1960726,
+              "interets": 4836,
+              "versement": 242983,
+              "solde_cloture": 2208545
+            },
+            {
+              "mois": 10,
+              "solde_ouverture": 2208545,
+              "interets": 5447,
+              "versement": 242983,
+              "solde_cloture": 2456975
+            },
+            {
+              "mois": 11,
+              "solde_ouverture": 2456975,
+              "interets": 6060,
+              "versement": 242983,
+              "solde_cloture": 2706018
+            },
+            {
+              "mois": 12,
+              "solde_ouverture": 2706018,
+              "interets": 6674,
+              "versement": 242983,
+              "solde_cloture": 2955675
+            },
+            {
+              "mois": 13,
+              "solde_ouverture": 2955675,
+              "interets": 7289,
+              "versement": 242983,
+              "solde_cloture": 3205947
+            },
+            {
+              "mois": 14,
+              "solde_ouverture": 3205947,
+              "interets": 7907,
+              "versement": 242983,
+              "solde_cloture": 3456837
+            },
+            {
+              "mois": 15,
+              "solde_ouverture": 3456837,
+              "interets": 8525,
+              "versement": 242983,
+              "solde_cloture": 3708345
+            },
+            {
+              "mois": 16,
+              "solde_ouverture": 3708345,
+              "interets": 9146,
+              "versement": 242983,
+              "solde_cloture": 3960474
+            },
+            {
+              "mois": 17,
+              "solde_ouverture": 3960474,
+              "interets": 9768,
+              "versement": 242983,
+              "solde_cloture": 4213225
+            },
+            {
+              "mois": 18,
+              "solde_ouverture": 4213225,
+              "interets": 10391,
+              "versement": 242983,
+              "solde_cloture": 4466599
+            },
+            {
+              "mois": 19,
+              "solde_ouverture": 4466599,
+              "interets": 11016,
+              "versement": 242983,
+              "solde_cloture": 4720598
+            },
+            {
+              "mois": 20,
+              "solde_ouverture": 4720598,
+              "interets": 11642,
+              "versement": 242983,
+              "solde_cloture": 4975223
+            },
+            {
+              "mois": 21,
+              "solde_ouverture": 4975223,
+              "interets": 12270,
+              "versement": 242983,
+              "solde_cloture": 5230476
+            },
+            {
+              "mois": 22,
+              "solde_ouverture": 5230476,
+              "interets": 12900,
+              "versement": 242983,
+              "solde_cloture": 5486359
+            },
+            {
+              "mois": 23,
+              "solde_ouverture": 5486359,
+              "interets": 13531,
+              "versement": 242983,
+              "solde_cloture": 5742873
+            },
+            {
+              "mois": 24,
+              "solde_ouverture": 5742873,
+              "interets": 14163,
+              "versement": 242964,
+              "solde_cloture": 6000000
+            }
+          ]
+        }
+      },
+      "versement_constant": {
+        "scenario_reference_centimes": 250000,
+        "scenarios": [
+          {
+            "statut": "valide_conventions",
+            "hypotheses": [
+              "H1",
+              "H2",
+              "H4",
+              "H8",
+              "H9",
+              "H10",
+              "H13",
+              "H14",
+              "H15"
+            ],
+            "hypotheses_a_valider": [],
+            "role": "reference",
+            "versement_mensuel_centimes": 250000,
+            "mois_atteinte": 24,
+            "mois_atteinte_sans_arrondi": 24,
+            "atteint_dans_horizon_24_mois": true,
+            "solde_a_l_atteinte_centimes": 6000000,
+            "solde_au_mois_24_centimes": 6000000,
+            "interets_apres_atteinte_jusqu_au_mois_24_centimes": 0,
+            "manque_au_mois_24_centimes": 0,
+            "dernier_versement_centimes": 76710,
+            "total_verse_centimes": 5826710,
+            "interets_totaux_centimes": 173290,
+            "echeancier": [
+              {
+                "mois": 1,
+                "solde_ouverture": 0,
+                "interets": 0,
+                "versement": 250000,
+                "solde_cloture": 250000
+              },
+              {
+                "mois": 2,
+                "solde_ouverture": 250000,
+                "interets": 617,
+                "versement": 250000,
+                "solde_cloture": 500617
+              },
+              {
+                "mois": 3,
+                "solde_ouverture": 500617,
+                "interets": 1235,
+                "versement": 250000,
+                "solde_cloture": 751852
+              },
+              {
+                "mois": 4,
+                "solde_ouverture": 751852,
+                "interets": 1854,
+                "versement": 250000,
+                "solde_cloture": 1003706
+              },
+              {
+                "mois": 5,
+                "solde_ouverture": 1003706,
+                "interets": 2475,
+                "versement": 250000,
+                "solde_cloture": 1256181
+              },
+              {
+                "mois": 6,
+                "solde_ouverture": 1256181,
+                "interets": 3098,
+                "versement": 250000,
+                "solde_cloture": 1509279
+              },
+              {
+                "mois": 7,
+                "solde_ouverture": 1509279,
+                "interets": 3722,
+                "versement": 250000,
+                "solde_cloture": 1763001
+              },
+              {
+                "mois": 8,
+                "solde_ouverture": 1763001,
+                "interets": 4348,
+                "versement": 250000,
+                "solde_cloture": 2017349
+              },
+              {
+                "mois": 9,
+                "solde_ouverture": 2017349,
+                "interets": 4975,
+                "versement": 250000,
+                "solde_cloture": 2272324
+              },
+              {
+                "mois": 10,
+                "solde_ouverture": 2272324,
+                "interets": 5604,
+                "versement": 250000,
+                "solde_cloture": 2527928
+              },
+              {
+                "mois": 11,
+                "solde_ouverture": 2527928,
+                "interets": 6235,
+                "versement": 250000,
+                "solde_cloture": 2784163
+              },
+              {
+                "mois": 12,
+                "solde_ouverture": 2784163,
+                "interets": 6866,
+                "versement": 250000,
+                "solde_cloture": 3041029
+              },
+              {
+                "mois": 13,
+                "solde_ouverture": 3041029,
+                "interets": 7500,
+                "versement": 250000,
+                "solde_cloture": 3298529
+              },
+              {
+                "mois": 14,
+                "solde_ouverture": 3298529,
+                "interets": 8135,
+                "versement": 250000,
+                "solde_cloture": 3556664
+              },
+              {
+                "mois": 15,
+                "solde_ouverture": 3556664,
+                "interets": 8772,
+                "versement": 250000,
+                "solde_cloture": 3815436
+              },
+              {
+                "mois": 16,
+                "solde_ouverture": 3815436,
+                "interets": 9410,
+                "versement": 250000,
+                "solde_cloture": 4074846
+              },
+              {
+                "mois": 17,
+                "solde_ouverture": 4074846,
+                "interets": 10050,
+                "versement": 250000,
+                "solde_cloture": 4334896
+              },
+              {
+                "mois": 18,
+                "solde_ouverture": 4334896,
+                "interets": 10691,
+                "versement": 250000,
+                "solde_cloture": 4595587
+              },
+              {
+                "mois": 19,
+                "solde_ouverture": 4595587,
+                "interets": 11334,
+                "versement": 250000,
+                "solde_cloture": 4856921
+              },
+              {
+                "mois": 20,
+                "solde_ouverture": 4856921,
+                "interets": 11978,
+                "versement": 250000,
+                "solde_cloture": 5118899
+              },
+              {
+                "mois": 21,
+                "solde_ouverture": 5118899,
+                "interets": 12625,
+                "versement": 250000,
+                "solde_cloture": 5381524
+              },
+              {
+                "mois": 22,
+                "solde_ouverture": 5381524,
+                "interets": 13272,
+                "versement": 250000,
+                "solde_cloture": 5644796
+              },
+              {
+                "mois": 23,
+                "solde_ouverture": 5644796,
+                "interets": 13922,
+                "versement": 250000,
+                "solde_cloture": 5908718
+              },
+              {
+                "mois": 24,
+                "solde_ouverture": 5908718,
+                "interets": 14572,
+                "versement": 76710,
+                "solde_cloture": 6000000
+              }
+            ]
+          },
+          {
+            "statut": "valide_conventions",
+            "hypotheses": [
+              "H1",
+              "H2",
+              "H4",
+              "H8",
+              "H9",
+              "H10",
+              "H13",
+              "H14",
+              "H15"
+            ],
+            "hypotheses_a_valider": [],
+            "role": "variante",
+            "versement_mensuel_centimes": 200000,
+            "mois_atteinte": 29,
+            "mois_atteinte_sans_arrondi": 29,
+            "atteint_dans_horizon_24_mois": false,
+            "solde_a_l_atteinte_centimes": 6000000,
+            "solde_au_mois_24_centimes": 4938631,
+            "interets_apres_atteinte_jusqu_au_mois_24_centimes": 0,
+            "manque_au_mois_24_centimes": 1061369,
+            "dernier_versement_centimes": 195223,
+            "total_verse_centimes": 5795223,
+            "interets_totaux_centimes": 204777,
+            "echeancier": [
+              {
+                "mois": 1,
+                "solde_ouverture": 0,
+                "interets": 0,
+                "versement": 200000,
+                "solde_cloture": 200000
+              },
+              {
+                "mois": 2,
+                "solde_ouverture": 200000,
+                "interets": 493,
+                "versement": 200000,
+                "solde_cloture": 400493
+              },
+              {
+                "mois": 3,
+                "solde_ouverture": 400493,
+                "interets": 988,
+                "versement": 200000,
+                "solde_cloture": 601481
+              },
+              {
+                "mois": 4,
+                "solde_ouverture": 601481,
+                "interets": 1483,
+                "versement": 200000,
+                "solde_cloture": 802964
+              },
+              {
+                "mois": 5,
+                "solde_ouverture": 802964,
+                "interets": 1980,
+                "versement": 200000,
+                "solde_cloture": 1004944
+              },
+              {
+                "mois": 6,
+                "solde_ouverture": 1004944,
+                "interets": 2478,
+                "versement": 200000,
+                "solde_cloture": 1207422
+              },
+              {
+                "mois": 7,
+                "solde_ouverture": 1207422,
+                "interets": 2978,
+                "versement": 200000,
+                "solde_cloture": 1410400
+              },
+              {
+                "mois": 8,
+                "solde_ouverture": 1410400,
+                "interets": 3478,
+                "versement": 200000,
+                "solde_cloture": 1613878
+              },
+              {
+                "mois": 9,
+                "solde_ouverture": 1613878,
+                "interets": 3980,
+                "versement": 200000,
+                "solde_cloture": 1817858
+              },
+              {
+                "mois": 10,
+                "solde_ouverture": 1817858,
+                "interets": 4483,
+                "versement": 200000,
+                "solde_cloture": 2022341
+              },
+              {
+                "mois": 11,
+                "solde_ouverture": 2022341,
+                "interets": 4988,
+                "versement": 200000,
+                "solde_cloture": 2227329
+              },
+              {
+                "mois": 12,
+                "solde_ouverture": 2227329,
+                "interets": 5493,
+                "versement": 200000,
+                "solde_cloture": 2432822
+              },
+              {
+                "mois": 13,
+                "solde_ouverture": 2432822,
+                "interets": 6000,
+                "versement": 200000,
+                "solde_cloture": 2638822
+              },
+              {
+                "mois": 14,
+                "solde_ouverture": 2638822,
+                "interets": 6508,
+                "versement": 200000,
+                "solde_cloture": 2845330
+              },
+              {
+                "mois": 15,
+                "solde_ouverture": 2845330,
+                "interets": 7017,
+                "versement": 200000,
+                "solde_cloture": 3052347
+              },
+              {
+                "mois": 16,
+                "solde_ouverture": 3052347,
+                "interets": 7528,
+                "versement": 200000,
+                "solde_cloture": 3259875
+              },
+              {
+                "mois": 17,
+                "solde_ouverture": 3259875,
+                "interets": 8040,
+                "versement": 200000,
+                "solde_cloture": 3467915
+              },
+              {
+                "mois": 18,
+                "solde_ouverture": 3467915,
+                "interets": 8553,
+                "versement": 200000,
+                "solde_cloture": 3676468
+              },
+              {
+                "mois": 19,
+                "solde_ouverture": 3676468,
+                "interets": 9067,
+                "versement": 200000,
+                "solde_cloture": 3885535
+              },
+              {
+                "mois": 20,
+                "solde_ouverture": 3885535,
+                "interets": 9583,
+                "versement": 200000,
+                "solde_cloture": 4095118
+              },
+              {
+                "mois": 21,
+                "solde_ouverture": 4095118,
+                "interets": 10100,
+                "versement": 200000,
+                "solde_cloture": 4305218
+              },
+              {
+                "mois": 22,
+                "solde_ouverture": 4305218,
+                "interets": 10618,
+                "versement": 200000,
+                "solde_cloture": 4515836
+              },
+              {
+                "mois": 23,
+                "solde_ouverture": 4515836,
+                "interets": 11137,
+                "versement": 200000,
+                "solde_cloture": 4726973
+              },
+              {
+                "mois": 24,
+                "solde_ouverture": 4726973,
+                "interets": 11658,
+                "versement": 200000,
+                "solde_cloture": 4938631
+              },
+              {
+                "mois": 25,
+                "solde_ouverture": 4938631,
+                "interets": 12180,
+                "versement": 200000,
+                "solde_cloture": 5150811
+              },
+              {
+                "mois": 26,
+                "solde_ouverture": 5150811,
+                "interets": 12703,
+                "versement": 200000,
+                "solde_cloture": 5363514
+              },
+              {
+                "mois": 27,
+                "solde_ouverture": 5363514,
+                "interets": 13228,
+                "versement": 200000,
+                "solde_cloture": 5576742
+              },
+              {
+                "mois": 28,
+                "solde_ouverture": 5576742,
+                "interets": 13754,
+                "versement": 200000,
+                "solde_cloture": 5790496
+              },
+              {
+                "mois": 29,
+                "solde_ouverture": 5790496,
+                "interets": 14281,
+                "versement": 195223,
+                "solde_cloture": 6000000
+              }
+            ]
+          },
+          {
+            "statut": "valide_conventions",
+            "hypotheses": [
+              "H1",
+              "H2",
+              "H4",
+              "H8",
+              "H9",
+              "H10",
+              "H13",
+              "H14",
+              "H15"
+            ],
+            "hypotheses_a_valider": [],
+            "role": "variante",
+            "versement_mensuel_centimes": 300000,
+            "mois_atteinte": 20,
+            "mois_atteinte_sans_arrondi": 20,
+            "atteint_dans_horizon_24_mois": true,
+            "solde_a_l_atteinte_centimes": 6000000,
+            "solde_au_mois_24_centimes": 6059410,
+            "interets_apres_atteinte_jusqu_au_mois_24_centimes": 59410,
+            "manque_au_mois_24_centimes": 0,
+            "dernier_versement_centimes": 157320,
+            "total_verse_centimes": 5857320,
+            "interets_totaux_centimes": 142680,
+            "echeancier": [
+              {
+                "mois": 1,
+                "solde_ouverture": 0,
+                "interets": 0,
+                "versement": 300000,
+                "solde_cloture": 300000
+              },
+              {
+                "mois": 2,
+                "solde_ouverture": 300000,
+                "interets": 740,
+                "versement": 300000,
+                "solde_cloture": 600740
+              },
+              {
+                "mois": 3,
+                "solde_ouverture": 600740,
+                "interets": 1482,
+                "versement": 300000,
+                "solde_cloture": 902222
+              },
+              {
+                "mois": 4,
+                "solde_ouverture": 902222,
+                "interets": 2225,
+                "versement": 300000,
+                "solde_cloture": 1204447
+              },
+              {
+                "mois": 5,
+                "solde_ouverture": 1204447,
+                "interets": 2970,
+                "versement": 300000,
+                "solde_cloture": 1507417
+              },
+              {
+                "mois": 6,
+                "solde_ouverture": 1507417,
+                "interets": 3718,
+                "versement": 300000,
+                "solde_cloture": 1811135
+              },
+              {
+                "mois": 7,
+                "solde_ouverture": 1811135,
+                "interets": 4467,
+                "versement": 300000,
+                "solde_cloture": 2115602
+              },
+              {
+                "mois": 8,
+                "solde_ouverture": 2115602,
+                "interets": 5218,
+                "versement": 300000,
+                "solde_cloture": 2420820
+              },
+              {
+                "mois": 9,
+                "solde_ouverture": 2420820,
+                "interets": 5970,
+                "versement": 300000,
+                "solde_cloture": 2726790
+              },
+              {
+                "mois": 10,
+                "solde_ouverture": 2726790,
+                "interets": 6725,
+                "versement": 300000,
+                "solde_cloture": 3033515
+              },
+              {
+                "mois": 11,
+                "solde_ouverture": 3033515,
+                "interets": 7481,
+                "versement": 300000,
+                "solde_cloture": 3340996
+              },
+              {
+                "mois": 12,
+                "solde_ouverture": 3340996,
+                "interets": 8240,
+                "versement": 300000,
+                "solde_cloture": 3649236
+              },
+              {
+                "mois": 13,
+                "solde_ouverture": 3649236,
+                "interets": 9000,
+                "versement": 300000,
+                "solde_cloture": 3958236
+              },
+              {
+                "mois": 14,
+                "solde_ouverture": 3958236,
+                "interets": 9762,
+                "versement": 300000,
+                "solde_cloture": 4267998
+              },
+              {
+                "mois": 15,
+                "solde_ouverture": 4267998,
+                "interets": 10526,
+                "versement": 300000,
+                "solde_cloture": 4578524
+              },
+              {
+                "mois": 16,
+                "solde_ouverture": 4578524,
+                "interets": 11292,
+                "versement": 300000,
+                "solde_cloture": 4889816
+              },
+              {
+                "mois": 17,
+                "solde_ouverture": 4889816,
+                "interets": 12060,
+                "versement": 300000,
+                "solde_cloture": 5201876
+              },
+              {
+                "mois": 18,
+                "solde_ouverture": 5201876,
+                "interets": 12829,
+                "versement": 300000,
+                "solde_cloture": 5514705
+              },
+              {
+                "mois": 19,
+                "solde_ouverture": 5514705,
+                "interets": 13601,
+                "versement": 300000,
+                "solde_cloture": 5828306
+              },
+              {
+                "mois": 20,
+                "solde_ouverture": 5828306,
+                "interets": 14374,
+                "versement": 157320,
+                "solde_cloture": 6000000
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "grilles_synthetiques": {
+    "0_pct": {
+      "taux": "0 %",
+      "statut": "synthetique",
+      "hypotheses": [
+        "H2",
+        "H4",
+        "H7",
+        "H8",
+        "H10"
+      ],
+      "taux_mensuel": "0E-30",
+      "effort_constant": [
+        {
+          "duree_mois": 12,
+          "effort_exact_centimes": "500000.000000000000",
+          "effort_arrondi_superieur_centimes": 500000,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 500000
+        },
+        {
+          "duree_mois": 24,
+          "effort_exact_centimes": "250000.000000000000",
+          "effort_arrondi_superieur_centimes": 250000,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 250000
+        },
+        {
+          "duree_mois": 36,
+          "effort_exact_centimes": "166666.666666666667",
+          "effort_arrondi_superieur_centimes": 166667,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 166667
+        },
+        {
+          "duree_mois": 48,
+          "effort_exact_centimes": "125000.000000000000",
+          "effort_arrondi_superieur_centimes": 125000,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 125000
+        },
+        {
+          "duree_mois": 60,
+          "effort_exact_centimes": "100000.000000000000",
+          "effort_arrondi_superieur_centimes": 100000,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 100000
+        },
+        {
+          "duree_mois": 120,
+          "effort_exact_centimes": "50000.000000000000",
+          "effort_arrondi_superieur_centimes": 50000,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 50000
+        }
+      ],
+      "rythme_constant": [
+        {
+          "versement_mensuel_centimes": 50000,
+          "duree_mois_exacte": 120,
+          "duree_mois_arrondi_mensuel": 120
+        },
+        {
+          "versement_mensuel_centimes": 100000,
+          "duree_mois_exacte": 60,
+          "duree_mois_arrondi_mensuel": 60
+        },
+        {
+          "versement_mensuel_centimes": 150000,
+          "duree_mois_exacte": 40,
+          "duree_mois_arrondi_mensuel": 40
+        },
+        {
+          "versement_mensuel_centimes": 200000,
+          "duree_mois_exacte": 30,
+          "duree_mois_arrondi_mensuel": 30
+        }
+      ]
+    },
+    "3_pct_effectif": {
+      "taux": "3 % effectif annuel",
+      "statut": "synthetique",
+      "hypotheses": [
+        "H1",
+        "H2",
+        "H4",
+        "H7",
+        "H8",
+        "H9",
+        "H10"
+      ],
+      "taux_mensuel": "0.002466269772303599979971653064",
+      "effort_constant": [
+        {
+          "duree_mois": 12,
+          "effort_exact_centimes": "493253.954460719996",
+          "effort_arrondi_superieur_centimes": 493254,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 493254
+        },
+        {
+          "duree_mois": 24,
+          "effort_exact_centimes": "242982.243576709358",
+          "effort_arrondi_superieur_centimes": 242983,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 242983
+        },
+        {
+          "duree_mois": 36,
+          "effort_exact_centimes": "159582.631097971463",
+          "effort_arrondi_superieur_centimes": 159583,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 159583
+        },
+        {
+          "duree_mois": 48,
+          "effort_exact_centimes": "117901.035264549157",
+          "effort_arrondi_superieur_centimes": 117902,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 117902
+        },
+        {
+          "duree_mois": 60,
+          "effort_exact_centimes": "92906.637184088157",
+          "effort_arrondi_superieur_centimes": 92907,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 92907
+        },
+        {
+          "duree_mois": 120,
+          "effort_exact_centimes": "43026.792332606926",
+          "effort_arrondi_superieur_centimes": 43027,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 43027
+        }
+      ],
+      "rythme_constant": [
+        {
+          "versement_mensuel_centimes": 50000,
+          "duree_mois_exacte": 106,
+          "duree_mois_arrondi_mensuel": 106
+        },
+        {
+          "versement_mensuel_centimes": 100000,
+          "duree_mois_exacte": 57,
+          "duree_mois_arrondi_mensuel": 57
+        },
+        {
+          "versement_mensuel_centimes": 150000,
+          "duree_mois_exacte": 39,
+          "duree_mois_arrondi_mensuel": 39
+        },
+        {
+          "versement_mensuel_centimes": 200000,
+          "duree_mois_exacte": 29,
+          "duree_mois_arrondi_mensuel": 29
+        }
+      ]
+    },
+    "3_pct_nominal": {
+      "taux": "3 % nominal annuel (variante écartée par H9)",
+      "statut": "synthetique",
+      "hypotheses": [
+        "H2",
+        "H4",
+        "H7",
+        "H8",
+        "H10"
+      ],
+      "taux_mensuel": "0.002500000000000000000000000000",
+      "effort_constant": [
+        {
+          "duree_mois": 12,
+          "effort_exact_centimes": "493162.192550933698",
+          "effort_arrondi_superieur_centimes": 493163,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 493163
+        },
+        {
+          "duree_mois": 24,
+          "effort_exact_centimes": "242887.271877336644",
+          "effort_arrondi_superieur_centimes": 242888,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 242888
+        },
+        {
+          "duree_mois": 36,
+          "effort_exact_centimes": "159487.257783913970",
+          "effort_arrondi_superieur_centimes": 159488,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 159488
+        },
+        {
+          "duree_mois": 48,
+          "effort_exact_centimes": "117805.961935869083",
+          "effort_arrondi_superieur_centimes": 117806,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 117806
+        },
+        {
+          "duree_mois": 60,
+          "effort_exact_centimes": "92812.143984378836",
+          "effort_arrondi_superieur_centimes": 92813,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 92813
+        },
+        {
+          "duree_mois": 120,
+          "effort_exact_centimes": "42936.446819033711",
+          "effort_arrondi_superieur_centimes": 42937,
+          "effort_minimal_avec_arrondi_mensuel_centimes": 42937
+        }
+      ],
+      "rythme_constant": [
+        {
+          "versement_mensuel_centimes": 50000,
+          "duree_mois_exacte": 106,
+          "duree_mois_arrondi_mensuel": 106
+        },
+        {
+          "versement_mensuel_centimes": 100000,
+          "duree_mois_exacte": 56,
+          "duree_mois_arrondi_mensuel": 56
+        },
+        {
+          "versement_mensuel_centimes": 150000,
+          "duree_mois_exacte": 39,
+          "duree_mois_arrondi_mensuel": 39
+        },
+        {
+          "versement_mensuel_centimes": 200000,
+          "duree_mois_exacte": 29,
+          "duree_mois_arrondi_mensuel": 29
+        }
+      ]
+    }
+  }
+}

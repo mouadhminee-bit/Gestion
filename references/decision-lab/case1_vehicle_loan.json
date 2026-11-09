@@ -1,0 +1,2402 @@
+{
+  "meta": {
+    "generateur": "references/decision-lab/generate_references.py",
+    "etape": "E2 (clôturée ; H11–H12 validées à l'ouverture de E3 ; H15 ajoutée à la finalisation E3)",
+    "precision_decimal": 80,
+    "tolerance_accord_methodes_centimes": "1E-60",
+    "hypotheses": {
+      "H1": {
+        "texte": "Taux annuel effectif → taux mensuel équivalent i = (1 + R)^(1/12) − 1 (capitalisation mensuelle).",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "Usage standard ; l'énoncé dit « effectif annuel » mais ne fixe pas la capitalisation infra-annuelle."
+      },
+      "H2": {
+        "texte": "Versements périodiques en fin de mois.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 2 et 3)"
+      },
+      "H3": {
+        "texte": "Capital initial placé à t = 0 et capitalisé dès le premier mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "Lecture naturelle de « capital initial », non formulée explicitement."
+      },
+      "H4": {
+        "texte": "Intérêts de chaque mois arrondis au centime le plus proche, demi vers l'extérieur (règle roundHalfAwayFromZero) ; placement, objectif et crédit.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "La variante sans arrondi intermédiaire est fournie à chaque fois."
+      },
+      "H5": {
+        "texte": "Crédit : taux nominal annuel proportionnel, i = taux / 12 ; échéances constantes.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 1 : « taux nominal annuel »), confirmée par la décision de clôture E2 du responsable du projet"
+      },
+      "H6": {
+        "texte": "Crédit : mensualité arrondie au centime le plus proche ; la dernière échéance est ajustée pour solder le crédit.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 1), confirmée par la décision de clôture E2 du responsable du projet",
+        "note": "« Au centime » lu comme « au plus proche » (demi vers l'extérieur)."
+      },
+      "H7": {
+        "texte": "Objectif : effort mensuel arrondi au centime supérieur (l'objectif doit être atteint dans l'horizon) ; même règle que goals.ts (Math.ceil).",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H8": {
+        "texte": "Objectif : épargne initiale nulle.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H9": {
+        "texte": "Objectif : taux de 3 % annuel effectif.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H10": {
+        "texte": "Rythme constant : durée = premier mois où le solde atteint la cible, plafonnée à 480 mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H11": {
+        "texte": "Cas 1 : apport et frais payés au mois 0 ; crédit versé directement au vendeur ; véhicule inscrit à l'actif au mois 0 ; échéances et assurance en fin de mois 1 à 48 (convention de fin de mois, H2).",
+        "etat": "validee",
+        "source": "décision d'ouverture E3 du responsable du projet"
+      },
+      "H12": {
+        "texte": "Référence sans décision : trésorerie non dépensée non rémunérée ; résultats exprimés en écart à cette référence.",
+        "etat": "validee",
+        "source": "décision d'ouverture E3 du responsable du projet"
+      },
+      "H13": {
+        "texte": "Cas 3, mode « versement constant » : scénario de référence 2 500 DH/mois ; variantes 2 000 et 3 000 DH/mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H14": {
+        "texte": "Dernier versement plafonné au montant nécessaire : versement du mois = min(versement prévu, cible − (solde + intérêts du mois)).",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H15": {
+        "texte": "Objectif : après l'atteinte, versements arrêtés ; le capital reste sur le compte dédié et continue de produire le rendement prévu (intérêts arrondis, H4). Le mois d'atteinte et le solde final sont distincts.",
+        "etat": "validee",
+        "source": "décision de finalisation E3 du responsable du projet"
+      }
+    },
+    "statuts": {
+      "verifie_math": "vérifié mathématiquement : vrai quelle que soit la convention métier, ≥ 2 méthodes concordantes",
+      "valide_conventions": "validé selon les conventions : calcul vérifié et toutes les hypothèses utilisées sont validées",
+      "candidat": "candidat : calcul vérifié, au moins une hypothèse à valider (voir hypotheses_a_valider)",
+      "manquant": "manquant : aucune valeur produite",
+      "synthetique": "synthétique : paramètres de contrôle, hors cas de référence",
+      "informatif": "informatif : variante écartée par une convention validée"
+    },
+    "controles_externes": "aucun contrôle externe certifié disponible : « vérifié » ≠ « certifié métier »"
+  },
+  "cas": "1 — achat d'un véhicule financé par crédit",
+  "source_parametres": "consigne de correction E2 du responsable du projet",
+  "parametres": {
+    "devise": "MAD",
+    "unite_montants": "centimes",
+    "prix_vehicule": 18000000,
+    "apport": 3000000,
+    "montant_finance": 15000000,
+    "taux_nominal_annuel_bps": 700,
+    "duree_credit_mois": 48,
+    "frais_initiaux": 150000,
+    "assurance_mensuelle": 12000,
+    "duree_assurance_mois": 48,
+    "horizon_simulation_mois": 60,
+    "valeur_comptable_vehicule": 18000000,
+    "depreciation": "aucune (V1)"
+  },
+  "resultats_verifies_math": {
+    "statut": "verifie_math",
+    "note": "Valeurs exactes en fractions, sans arrondi.",
+    "taux_mensuel": "7/1200",
+    "mensualite_exacte_centimes": "359193.669936643618",
+    "total_interets_exact_sans_arrondi_centimes": "2241296.156958893642",
+    "assurance_totale_centimes": 576000,
+    "methodes": [
+      "formule fermée",
+      "somme géométrique (égalité rationnelle stricte)"
+    ]
+  },
+  "credit": {
+    "statut": "valide_conventions",
+    "hypotheses": [
+      "H4",
+      "H5",
+      "H6"
+    ],
+    "hypotheses_a_valider": [],
+    "resultats": {
+      "taux_mensuel_exact": "7/1200",
+      "mensualite_exacte_centimes": "359193.669936643618",
+      "mensualite_arrondie_centimes": 359194,
+      "derniere_echeance_centimes": 359178,
+      "ecart_derniere_echeance_centimes": -16,
+      "total_interets_centimes": 2241296,
+      "total_interets_exact_sans_arrondi_centimes": "2241296.156958893642",
+      "total_rembourse_centimes": 17241296
+    },
+    "echeancier": [
+      {
+        "mois": 1,
+        "capital_restant_debut": 15000000,
+        "echeance": 359194,
+        "interets": 87500,
+        "capital_amorti": 271694,
+        "capital_restant_fin": 14728306
+      },
+      {
+        "mois": 2,
+        "capital_restant_debut": 14728306,
+        "echeance": 359194,
+        "interets": 85915,
+        "capital_amorti": 273279,
+        "capital_restant_fin": 14455027
+      },
+      {
+        "mois": 3,
+        "capital_restant_debut": 14455027,
+        "echeance": 359194,
+        "interets": 84321,
+        "capital_amorti": 274873,
+        "capital_restant_fin": 14180154
+      },
+      {
+        "mois": 4,
+        "capital_restant_debut": 14180154,
+        "echeance": 359194,
+        "interets": 82718,
+        "capital_amorti": 276476,
+        "capital_restant_fin": 13903678
+      },
+      {
+        "mois": 5,
+        "capital_restant_debut": 13903678,
+        "echeance": 359194,
+        "interets": 81105,
+        "capital_amorti": 278089,
+        "capital_restant_fin": 13625589
+      },
+      {
+        "mois": 6,
+        "capital_restant_debut": 13625589,
+        "echeance": 359194,
+        "interets": 79483,
+        "capital_amorti": 279711,
+        "capital_restant_fin": 13345878
+      },
+      {
+        "mois": 7,
+        "capital_restant_debut": 13345878,
+        "echeance": 359194,
+        "interets": 77851,
+        "capital_amorti": 281343,
+        "capital_restant_fin": 13064535
+      },
+      {
+        "mois": 8,
+        "capital_restant_debut": 13064535,
+        "echeance": 359194,
+        "interets": 76210,
+        "capital_amorti": 282984,
+        "capital_restant_fin": 12781551
+      },
+      {
+        "mois": 9,
+        "capital_restant_debut": 12781551,
+        "echeance": 359194,
+        "interets": 74559,
+        "capital_amorti": 284635,
+        "capital_restant_fin": 12496916
+      },
+      {
+        "mois": 10,
+        "capital_restant_debut": 12496916,
+        "echeance": 359194,
+        "interets": 72899,
+        "capital_amorti": 286295,
+        "capital_restant_fin": 12210621
+      },
+      {
+        "mois": 11,
+        "capital_restant_debut": 12210621,
+        "echeance": 359194,
+        "interets": 71229,
+        "capital_amorti": 287965,
+        "capital_restant_fin": 11922656
+      },
+      {
+        "mois": 12,
+        "capital_restant_debut": 11922656,
+        "echeance": 359194,
+        "interets": 69549,
+        "capital_amorti": 289645,
+        "capital_restant_fin": 11633011
+      },
+      {
+        "mois": 13,
+        "capital_restant_debut": 11633011,
+        "echeance": 359194,
+        "interets": 67859,
+        "capital_amorti": 291335,
+        "capital_restant_fin": 11341676
+      },
+      {
+        "mois": 14,
+        "capital_restant_debut": 11341676,
+        "echeance": 359194,
+        "interets": 66160,
+        "capital_amorti": 293034,
+        "capital_restant_fin": 11048642
+      },
+      {
+        "mois": 15,
+        "capital_restant_debut": 11048642,
+        "echeance": 359194,
+        "interets": 64450,
+        "capital_amorti": 294744,
+        "capital_restant_fin": 10753898
+      },
+      {
+        "mois": 16,
+        "capital_restant_debut": 10753898,
+        "echeance": 359194,
+        "interets": 62731,
+        "capital_amorti": 296463,
+        "capital_restant_fin": 10457435
+      },
+      {
+        "mois": 17,
+        "capital_restant_debut": 10457435,
+        "echeance": 359194,
+        "interets": 61002,
+        "capital_amorti": 298192,
+        "capital_restant_fin": 10159243
+      },
+      {
+        "mois": 18,
+        "capital_restant_debut": 10159243,
+        "echeance": 359194,
+        "interets": 59262,
+        "capital_amorti": 299932,
+        "capital_restant_fin": 9859311
+      },
+      {
+        "mois": 19,
+        "capital_restant_debut": 9859311,
+        "echeance": 359194,
+        "interets": 57513,
+        "capital_amorti": 301681,
+        "capital_restant_fin": 9557630
+      },
+      {
+        "mois": 20,
+        "capital_restant_debut": 9557630,
+        "echeance": 359194,
+        "interets": 55753,
+        "capital_amorti": 303441,
+        "capital_restant_fin": 9254189
+      },
+      {
+        "mois": 21,
+        "capital_restant_debut": 9254189,
+        "echeance": 359194,
+        "interets": 53983,
+        "capital_amorti": 305211,
+        "capital_restant_fin": 8948978
+      },
+      {
+        "mois": 22,
+        "capital_restant_debut": 8948978,
+        "echeance": 359194,
+        "interets": 52202,
+        "capital_amorti": 306992,
+        "capital_restant_fin": 8641986
+      },
+      {
+        "mois": 23,
+        "capital_restant_debut": 8641986,
+        "echeance": 359194,
+        "interets": 50412,
+        "capital_amorti": 308782,
+        "capital_restant_fin": 8333204
+      },
+      {
+        "mois": 24,
+        "capital_restant_debut": 8333204,
+        "echeance": 359194,
+        "interets": 48610,
+        "capital_amorti": 310584,
+        "capital_restant_fin": 8022620
+      },
+      {
+        "mois": 25,
+        "capital_restant_debut": 8022620,
+        "echeance": 359194,
+        "interets": 46799,
+        "capital_amorti": 312395,
+        "capital_restant_fin": 7710225
+      },
+      {
+        "mois": 26,
+        "capital_restant_debut": 7710225,
+        "echeance": 359194,
+        "interets": 44976,
+        "capital_amorti": 314218,
+        "capital_restant_fin": 7396007
+      },
+      {
+        "mois": 27,
+        "capital_restant_debut": 7396007,
+        "echeance": 359194,
+        "interets": 43143,
+        "capital_amorti": 316051,
+        "capital_restant_fin": 7079956
+      },
+      {
+        "mois": 28,
+        "capital_restant_debut": 7079956,
+        "echeance": 359194,
+        "interets": 41300,
+        "capital_amorti": 317894,
+        "capital_restant_fin": 6762062
+      },
+      {
+        "mois": 29,
+        "capital_restant_debut": 6762062,
+        "echeance": 359194,
+        "interets": 39445,
+        "capital_amorti": 319749,
+        "capital_restant_fin": 6442313
+      },
+      {
+        "mois": 30,
+        "capital_restant_debut": 6442313,
+        "echeance": 359194,
+        "interets": 37580,
+        "capital_amorti": 321614,
+        "capital_restant_fin": 6120699
+      },
+      {
+        "mois": 31,
+        "capital_restant_debut": 6120699,
+        "echeance": 359194,
+        "interets": 35704,
+        "capital_amorti": 323490,
+        "capital_restant_fin": 5797209
+      },
+      {
+        "mois": 32,
+        "capital_restant_debut": 5797209,
+        "echeance": 359194,
+        "interets": 33817,
+        "capital_amorti": 325377,
+        "capital_restant_fin": 5471832
+      },
+      {
+        "mois": 33,
+        "capital_restant_debut": 5471832,
+        "echeance": 359194,
+        "interets": 31919,
+        "capital_amorti": 327275,
+        "capital_restant_fin": 5144557
+      },
+      {
+        "mois": 34,
+        "capital_restant_debut": 5144557,
+        "echeance": 359194,
+        "interets": 30010,
+        "capital_amorti": 329184,
+        "capital_restant_fin": 4815373
+      },
+      {
+        "mois": 35,
+        "capital_restant_debut": 4815373,
+        "echeance": 359194,
+        "interets": 28090,
+        "capital_amorti": 331104,
+        "capital_restant_fin": 4484269
+      },
+      {
+        "mois": 36,
+        "capital_restant_debut": 4484269,
+        "echeance": 359194,
+        "interets": 26158,
+        "capital_amorti": 333036,
+        "capital_restant_fin": 4151233
+      },
+      {
+        "mois": 37,
+        "capital_restant_debut": 4151233,
+        "echeance": 359194,
+        "interets": 24216,
+        "capital_amorti": 334978,
+        "capital_restant_fin": 3816255
+      },
+      {
+        "mois": 38,
+        "capital_restant_debut": 3816255,
+        "echeance": 359194,
+        "interets": 22261,
+        "capital_amorti": 336933,
+        "capital_restant_fin": 3479322
+      },
+      {
+        "mois": 39,
+        "capital_restant_debut": 3479322,
+        "echeance": 359194,
+        "interets": 20296,
+        "capital_amorti": 338898,
+        "capital_restant_fin": 3140424
+      },
+      {
+        "mois": 40,
+        "capital_restant_debut": 3140424,
+        "echeance": 359194,
+        "interets": 18319,
+        "capital_amorti": 340875,
+        "capital_restant_fin": 2799549
+      },
+      {
+        "mois": 41,
+        "capital_restant_debut": 2799549,
+        "echeance": 359194,
+        "interets": 16331,
+        "capital_amorti": 342863,
+        "capital_restant_fin": 2456686
+      },
+      {
+        "mois": 42,
+        "capital_restant_debut": 2456686,
+        "echeance": 359194,
+        "interets": 14331,
+        "capital_amorti": 344863,
+        "capital_restant_fin": 2111823
+      },
+      {
+        "mois": 43,
+        "capital_restant_debut": 2111823,
+        "echeance": 359194,
+        "interets": 12319,
+        "capital_amorti": 346875,
+        "capital_restant_fin": 1764948
+      },
+      {
+        "mois": 44,
+        "capital_restant_debut": 1764948,
+        "echeance": 359194,
+        "interets": 10296,
+        "capital_amorti": 348898,
+        "capital_restant_fin": 1416050
+      },
+      {
+        "mois": 45,
+        "capital_restant_debut": 1416050,
+        "echeance": 359194,
+        "interets": 8260,
+        "capital_amorti": 350934,
+        "capital_restant_fin": 1065116
+      },
+      {
+        "mois": 46,
+        "capital_restant_debut": 1065116,
+        "echeance": 359194,
+        "interets": 6213,
+        "capital_amorti": 352981,
+        "capital_restant_fin": 712135
+      },
+      {
+        "mois": 47,
+        "capital_restant_debut": 712135,
+        "echeance": 359194,
+        "interets": 4154,
+        "capital_amorti": 355040,
+        "capital_restant_fin": 357095
+      },
+      {
+        "mois": 48,
+        "capital_restant_debut": 357095,
+        "echeance": 359178,
+        "interets": 2083,
+        "capital_amorti": 357095,
+        "capital_restant_fin": 0
+      }
+    ]
+  },
+  "trajectoire_ecart_vs_reference": {
+    "statut": "valide_conventions",
+    "hypotheses": [
+      "H4",
+      "H5",
+      "H6",
+      "H11",
+      "H12"
+    ],
+    "hypotheses_a_valider": [],
+    "perimetre": "IMPACT INCRÉMENTAL de la décision uniquement : chaque valeur est un écart par rapport à la référence sans décision (H12). Patrimoine net TOTAL de l'utilisateur = patrimoine net de la référence + impact_patrimoine_net ; la référence (données de l'utilisateur) n'est pas modélisée dans ce référentiel.",
+    "conventions_de_signe": "flux négatif = décaissement ; ecart_tresorerie_cumule = Σ flux depuis le mois 0 ; actif_vehicule et dette_restante sont des positions (positives) ; impact_patrimoine_net = actif_vehicule − dette_restante + ecart_tresorerie_cumule.",
+    "lecture": "Le crédit n'est pas un flux de trésorerie (versé au vendeur, H11) : au mois 0, l'actif (+180 000) est financé par la dette (150 000) et l'apport (−30 000) ; seuls les frais (−1 500) réduisent le patrimoine. Ensuite, chaque mois : patrimoine −(intérêts + assurance) ; le capital amorti réduit d'autant la trésorerie et la dette, sans effet sur le patrimoine.",
+    "synthese": {
+      "ecart_tresorerie_cumule_fin_horizon": -20967296,
+      "impact_patrimoine_net_fin_horizon": -2967296,
+      "cout_total_decision": 2967296,
+      "dont_interets": 2241296,
+      "dont_frais": 150000,
+      "dont_assurance": 576000,
+      "total_decaisse": 20967296
+    },
+    "points_de_controle": {
+      "methode": "recalcul indépendant en arithmétique entière pure (échéancier refait sans loan_schedule), comparé à la trajectoire",
+      "invariant": "impact = actif − dette + écart de trésorerie = −(frais + intérêts cumulés + assurance cumulée)",
+      "mois": [
+        {
+          "mois": 0,
+          "flux_du_mois_DH": "-31500.00",
+          "ecart_tresorerie_cumule_DH": "-31500.00",
+          "actif_vehicule_DH": "180000.00",
+          "dette_restante_DH": "150000.00",
+          "impact_patrimoine_net_DH": "-1500.00"
+        },
+        {
+          "mois": 1,
+          "flux_du_mois_DH": "-3711.94",
+          "ecart_tresorerie_cumule_DH": "-35211.94",
+          "actif_vehicule_DH": "180000.00",
+          "dette_restante_DH": "147283.06",
+          "impact_patrimoine_net_DH": "-2495.00"
+        },
+        {
+          "mois": 48,
+          "flux_du_mois_DH": "-3711.78",
+          "ecart_tresorerie_cumule_DH": "-209672.96",
+          "actif_vehicule_DH": "180000.00",
+          "dette_restante_DH": "0.00",
+          "impact_patrimoine_net_DH": "-29672.96"
+        },
+        {
+          "mois": 49,
+          "flux_du_mois_DH": "0.00",
+          "ecart_tresorerie_cumule_DH": "-209672.96",
+          "actif_vehicule_DH": "180000.00",
+          "dette_restante_DH": "0.00",
+          "impact_patrimoine_net_DH": "-29672.96"
+        },
+        {
+          "mois": 60,
+          "flux_du_mois_DH": "0.00",
+          "ecart_tresorerie_cumule_DH": "-209672.96",
+          "actif_vehicule_DH": "180000.00",
+          "dette_restante_DH": "0.00",
+          "impact_patrimoine_net_DH": "-29672.96"
+        }
+      ]
+    },
+    "mois": [
+      {
+        "mois": 0,
+        "flux": {
+          "apport": -3000000,
+          "frais_initiaux": -150000,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": -3150000
+        },
+        "ecart_tresorerie_cumule": -3150000,
+        "actif_vehicule": 18000000,
+        "dette_restante": 15000000,
+        "impact_patrimoine_net": -150000,
+        "variation_impact_patrimoine_du_mois": -150000
+      },
+      {
+        "mois": 1,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -87500,
+          "dont_capital": -271694,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -3521194,
+        "actif_vehicule": 18000000,
+        "dette_restante": 14728306,
+        "impact_patrimoine_net": -249500,
+        "variation_impact_patrimoine_du_mois": -99500
+      },
+      {
+        "mois": 2,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -85915,
+          "dont_capital": -273279,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -3892388,
+        "actif_vehicule": 18000000,
+        "dette_restante": 14455027,
+        "impact_patrimoine_net": -347415,
+        "variation_impact_patrimoine_du_mois": -97915
+      },
+      {
+        "mois": 3,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -84321,
+          "dont_capital": -274873,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -4263582,
+        "actif_vehicule": 18000000,
+        "dette_restante": 14180154,
+        "impact_patrimoine_net": -443736,
+        "variation_impact_patrimoine_du_mois": -96321
+      },
+      {
+        "mois": 4,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -82718,
+          "dont_capital": -276476,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -4634776,
+        "actif_vehicule": 18000000,
+        "dette_restante": 13903678,
+        "impact_patrimoine_net": -538454,
+        "variation_impact_patrimoine_du_mois": -94718
+      },
+      {
+        "mois": 5,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -81105,
+          "dont_capital": -278089,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -5005970,
+        "actif_vehicule": 18000000,
+        "dette_restante": 13625589,
+        "impact_patrimoine_net": -631559,
+        "variation_impact_patrimoine_du_mois": -93105
+      },
+      {
+        "mois": 6,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -79483,
+          "dont_capital": -279711,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -5377164,
+        "actif_vehicule": 18000000,
+        "dette_restante": 13345878,
+        "impact_patrimoine_net": -723042,
+        "variation_impact_patrimoine_du_mois": -91483
+      },
+      {
+        "mois": 7,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -77851,
+          "dont_capital": -281343,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -5748358,
+        "actif_vehicule": 18000000,
+        "dette_restante": 13064535,
+        "impact_patrimoine_net": -812893,
+        "variation_impact_patrimoine_du_mois": -89851
+      },
+      {
+        "mois": 8,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -76210,
+          "dont_capital": -282984,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -6119552,
+        "actif_vehicule": 18000000,
+        "dette_restante": 12781551,
+        "impact_patrimoine_net": -901103,
+        "variation_impact_patrimoine_du_mois": -88210
+      },
+      {
+        "mois": 9,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -74559,
+          "dont_capital": -284635,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -6490746,
+        "actif_vehicule": 18000000,
+        "dette_restante": 12496916,
+        "impact_patrimoine_net": -987662,
+        "variation_impact_patrimoine_du_mois": -86559
+      },
+      {
+        "mois": 10,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -72899,
+          "dont_capital": -286295,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -6861940,
+        "actif_vehicule": 18000000,
+        "dette_restante": 12210621,
+        "impact_patrimoine_net": -1072561,
+        "variation_impact_patrimoine_du_mois": -84899
+      },
+      {
+        "mois": 11,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -71229,
+          "dont_capital": -287965,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -7233134,
+        "actif_vehicule": 18000000,
+        "dette_restante": 11922656,
+        "impact_patrimoine_net": -1155790,
+        "variation_impact_patrimoine_du_mois": -83229
+      },
+      {
+        "mois": 12,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -69549,
+          "dont_capital": -289645,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -7604328,
+        "actif_vehicule": 18000000,
+        "dette_restante": 11633011,
+        "impact_patrimoine_net": -1237339,
+        "variation_impact_patrimoine_du_mois": -81549
+      },
+      {
+        "mois": 13,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -67859,
+          "dont_capital": -291335,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -7975522,
+        "actif_vehicule": 18000000,
+        "dette_restante": 11341676,
+        "impact_patrimoine_net": -1317198,
+        "variation_impact_patrimoine_du_mois": -79859
+      },
+      {
+        "mois": 14,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -66160,
+          "dont_capital": -293034,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -8346716,
+        "actif_vehicule": 18000000,
+        "dette_restante": 11048642,
+        "impact_patrimoine_net": -1395358,
+        "variation_impact_patrimoine_du_mois": -78160
+      },
+      {
+        "mois": 15,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -64450,
+          "dont_capital": -294744,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -8717910,
+        "actif_vehicule": 18000000,
+        "dette_restante": 10753898,
+        "impact_patrimoine_net": -1471808,
+        "variation_impact_patrimoine_du_mois": -76450
+      },
+      {
+        "mois": 16,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -62731,
+          "dont_capital": -296463,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -9089104,
+        "actif_vehicule": 18000000,
+        "dette_restante": 10457435,
+        "impact_patrimoine_net": -1546539,
+        "variation_impact_patrimoine_du_mois": -74731
+      },
+      {
+        "mois": 17,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -61002,
+          "dont_capital": -298192,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -9460298,
+        "actif_vehicule": 18000000,
+        "dette_restante": 10159243,
+        "impact_patrimoine_net": -1619541,
+        "variation_impact_patrimoine_du_mois": -73002
+      },
+      {
+        "mois": 18,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -59262,
+          "dont_capital": -299932,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -9831492,
+        "actif_vehicule": 18000000,
+        "dette_restante": 9859311,
+        "impact_patrimoine_net": -1690803,
+        "variation_impact_patrimoine_du_mois": -71262
+      },
+      {
+        "mois": 19,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -57513,
+          "dont_capital": -301681,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -10202686,
+        "actif_vehicule": 18000000,
+        "dette_restante": 9557630,
+        "impact_patrimoine_net": -1760316,
+        "variation_impact_patrimoine_du_mois": -69513
+      },
+      {
+        "mois": 20,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -55753,
+          "dont_capital": -303441,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -10573880,
+        "actif_vehicule": 18000000,
+        "dette_restante": 9254189,
+        "impact_patrimoine_net": -1828069,
+        "variation_impact_patrimoine_du_mois": -67753
+      },
+      {
+        "mois": 21,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -53983,
+          "dont_capital": -305211,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -10945074,
+        "actif_vehicule": 18000000,
+        "dette_restante": 8948978,
+        "impact_patrimoine_net": -1894052,
+        "variation_impact_patrimoine_du_mois": -65983
+      },
+      {
+        "mois": 22,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -52202,
+          "dont_capital": -306992,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -11316268,
+        "actif_vehicule": 18000000,
+        "dette_restante": 8641986,
+        "impact_patrimoine_net": -1958254,
+        "variation_impact_patrimoine_du_mois": -64202
+      },
+      {
+        "mois": 23,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -50412,
+          "dont_capital": -308782,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -11687462,
+        "actif_vehicule": 18000000,
+        "dette_restante": 8333204,
+        "impact_patrimoine_net": -2020666,
+        "variation_impact_patrimoine_du_mois": -62412
+      },
+      {
+        "mois": 24,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -48610,
+          "dont_capital": -310584,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -12058656,
+        "actif_vehicule": 18000000,
+        "dette_restante": 8022620,
+        "impact_patrimoine_net": -2081276,
+        "variation_impact_patrimoine_du_mois": -60610
+      },
+      {
+        "mois": 25,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -46799,
+          "dont_capital": -312395,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -12429850,
+        "actif_vehicule": 18000000,
+        "dette_restante": 7710225,
+        "impact_patrimoine_net": -2140075,
+        "variation_impact_patrimoine_du_mois": -58799
+      },
+      {
+        "mois": 26,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -44976,
+          "dont_capital": -314218,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -12801044,
+        "actif_vehicule": 18000000,
+        "dette_restante": 7396007,
+        "impact_patrimoine_net": -2197051,
+        "variation_impact_patrimoine_du_mois": -56976
+      },
+      {
+        "mois": 27,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -43143,
+          "dont_capital": -316051,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -13172238,
+        "actif_vehicule": 18000000,
+        "dette_restante": 7079956,
+        "impact_patrimoine_net": -2252194,
+        "variation_impact_patrimoine_du_mois": -55143
+      },
+      {
+        "mois": 28,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -41300,
+          "dont_capital": -317894,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -13543432,
+        "actif_vehicule": 18000000,
+        "dette_restante": 6762062,
+        "impact_patrimoine_net": -2305494,
+        "variation_impact_patrimoine_du_mois": -53300
+      },
+      {
+        "mois": 29,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -39445,
+          "dont_capital": -319749,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -13914626,
+        "actif_vehicule": 18000000,
+        "dette_restante": 6442313,
+        "impact_patrimoine_net": -2356939,
+        "variation_impact_patrimoine_du_mois": -51445
+      },
+      {
+        "mois": 30,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -37580,
+          "dont_capital": -321614,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -14285820,
+        "actif_vehicule": 18000000,
+        "dette_restante": 6120699,
+        "impact_patrimoine_net": -2406519,
+        "variation_impact_patrimoine_du_mois": -49580
+      },
+      {
+        "mois": 31,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -35704,
+          "dont_capital": -323490,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -14657014,
+        "actif_vehicule": 18000000,
+        "dette_restante": 5797209,
+        "impact_patrimoine_net": -2454223,
+        "variation_impact_patrimoine_du_mois": -47704
+      },
+      {
+        "mois": 32,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -33817,
+          "dont_capital": -325377,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -15028208,
+        "actif_vehicule": 18000000,
+        "dette_restante": 5471832,
+        "impact_patrimoine_net": -2500040,
+        "variation_impact_patrimoine_du_mois": -45817
+      },
+      {
+        "mois": 33,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -31919,
+          "dont_capital": -327275,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -15399402,
+        "actif_vehicule": 18000000,
+        "dette_restante": 5144557,
+        "impact_patrimoine_net": -2543959,
+        "variation_impact_patrimoine_du_mois": -43919
+      },
+      {
+        "mois": 34,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -30010,
+          "dont_capital": -329184,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -15770596,
+        "actif_vehicule": 18000000,
+        "dette_restante": 4815373,
+        "impact_patrimoine_net": -2585969,
+        "variation_impact_patrimoine_du_mois": -42010
+      },
+      {
+        "mois": 35,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -28090,
+          "dont_capital": -331104,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -16141790,
+        "actif_vehicule": 18000000,
+        "dette_restante": 4484269,
+        "impact_patrimoine_net": -2626059,
+        "variation_impact_patrimoine_du_mois": -40090
+      },
+      {
+        "mois": 36,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -26158,
+          "dont_capital": -333036,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -16512984,
+        "actif_vehicule": 18000000,
+        "dette_restante": 4151233,
+        "impact_patrimoine_net": -2664217,
+        "variation_impact_patrimoine_du_mois": -38158
+      },
+      {
+        "mois": 37,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -24216,
+          "dont_capital": -334978,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -16884178,
+        "actif_vehicule": 18000000,
+        "dette_restante": 3816255,
+        "impact_patrimoine_net": -2700433,
+        "variation_impact_patrimoine_du_mois": -36216
+      },
+      {
+        "mois": 38,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -22261,
+          "dont_capital": -336933,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -17255372,
+        "actif_vehicule": 18000000,
+        "dette_restante": 3479322,
+        "impact_patrimoine_net": -2734694,
+        "variation_impact_patrimoine_du_mois": -34261
+      },
+      {
+        "mois": 39,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -20296,
+          "dont_capital": -338898,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -17626566,
+        "actif_vehicule": 18000000,
+        "dette_restante": 3140424,
+        "impact_patrimoine_net": -2766990,
+        "variation_impact_patrimoine_du_mois": -32296
+      },
+      {
+        "mois": 40,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -18319,
+          "dont_capital": -340875,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -17997760,
+        "actif_vehicule": 18000000,
+        "dette_restante": 2799549,
+        "impact_patrimoine_net": -2797309,
+        "variation_impact_patrimoine_du_mois": -30319
+      },
+      {
+        "mois": 41,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -16331,
+          "dont_capital": -342863,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -18368954,
+        "actif_vehicule": 18000000,
+        "dette_restante": 2456686,
+        "impact_patrimoine_net": -2825640,
+        "variation_impact_patrimoine_du_mois": -28331
+      },
+      {
+        "mois": 42,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -14331,
+          "dont_capital": -344863,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -18740148,
+        "actif_vehicule": 18000000,
+        "dette_restante": 2111823,
+        "impact_patrimoine_net": -2851971,
+        "variation_impact_patrimoine_du_mois": -26331
+      },
+      {
+        "mois": 43,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -12319,
+          "dont_capital": -346875,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -19111342,
+        "actif_vehicule": 18000000,
+        "dette_restante": 1764948,
+        "impact_patrimoine_net": -2876290,
+        "variation_impact_patrimoine_du_mois": -24319
+      },
+      {
+        "mois": 44,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -10296,
+          "dont_capital": -348898,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -19482536,
+        "actif_vehicule": 18000000,
+        "dette_restante": 1416050,
+        "impact_patrimoine_net": -2898586,
+        "variation_impact_patrimoine_du_mois": -22296
+      },
+      {
+        "mois": 45,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -8260,
+          "dont_capital": -350934,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -19853730,
+        "actif_vehicule": 18000000,
+        "dette_restante": 1065116,
+        "impact_patrimoine_net": -2918846,
+        "variation_impact_patrimoine_du_mois": -20260
+      },
+      {
+        "mois": 46,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -6213,
+          "dont_capital": -352981,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -20224924,
+        "actif_vehicule": 18000000,
+        "dette_restante": 712135,
+        "impact_patrimoine_net": -2937059,
+        "variation_impact_patrimoine_du_mois": -18213
+      },
+      {
+        "mois": 47,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359194,
+          "dont_interets": -4154,
+          "dont_capital": -355040,
+          "assurance": -12000,
+          "total": -371194
+        },
+        "ecart_tresorerie_cumule": -20596118,
+        "actif_vehicule": 18000000,
+        "dette_restante": 357095,
+        "impact_patrimoine_net": -2953213,
+        "variation_impact_patrimoine_du_mois": -16154
+      },
+      {
+        "mois": 48,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": -359178,
+          "dont_interets": -2083,
+          "dont_capital": -357095,
+          "assurance": -12000,
+          "total": -371178
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": -14083
+      },
+      {
+        "mois": 49,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 50,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 51,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 52,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 53,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 54,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 55,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 56,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 57,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 58,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 59,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      },
+      {
+        "mois": 60,
+        "flux": {
+          "apport": 0,
+          "frais_initiaux": 0,
+          "echeance": 0,
+          "dont_interets": 0,
+          "dont_capital": 0,
+          "assurance": 0,
+          "total": 0
+        },
+        "ecart_tresorerie_cumule": -20967296,
+        "actif_vehicule": 18000000,
+        "dette_restante": 0,
+        "impact_patrimoine_net": -2967296,
+        "variation_impact_patrimoine_du_mois": 0
+      }
+    ]
+  },
+  "analyse_ecart_derniere_echeance": {
+    "mensualite_exacte_centimes": "359193.669936643618",
+    "mensualite_arrondie_centimes": 359194,
+    "delta_arrondi_mensualite_centimes": "0.330063356382",
+    "facteur_amplification_S_n": "55.209236",
+    "definitions": {
+      "B": "effet de l'arrondi de la mensualité seul (intérêts exacts) = −δ · S_n",
+      "C": "effet de l'arrondi mensuel des intérêts seul (mensualité exacte) = Σ ε_m^C (1+i)^(n−m)",
+      "I": "interaction = D − B − C = Σ (ε_m^D − ε_m^C)(1+i)^(n−m) : l'erreur d'arrondi des intérêts dépend du solde, qui diffère selon que la mensualité est arrondie ou non",
+      "D": "écart total avec les conventions H4 + H6 = B + C + I"
+    },
+    "reconciliation_centimes": {
+      "B": "-18.222546",
+      "C": "0.843041",
+      "I": "1.379505",
+      "D": "-16.000000",
+      "controle": "B + C + I = D (égalité rationnelle exacte)"
+    },
+    "reconciliation_DH": {
+      "B": "-0.18",
+      "C": "0.01",
+      "I": "0.01",
+      "D": "-0.16",
+      "somme_des_composantes_affichees": "-0.16"
+    },
+    "mois_ou_les_erreurs_C_et_D_different": 47,
+    "methodes_independantes": [
+      "1 — simulation directe du solde en fractions exactes (variantes A à D)",
+      "2 — propagation linéaire des erreurs Σ ε_m (1+i)^(n−m) − δ · S_n, sans simulation du solde",
+      "3 — variante D recalculée en arithmétique entière pure",
+      "4 — B égal à la forme fermée −δ · S_n (contre-vérifiée par bc à 40 décimales)"
+    ],
+    "decomposition_ecart_derniere_echeance_centimes": {
+      "A_mensualite_exacte_interets_exacts": "0.000000",
+      "B_mensualite_arrondie_interets_exacts": "-18.222546",
+      "C_mensualite_exacte_interets_arrondis": "0.843041",
+      "D_mensualite_arrondie_interets_arrondis_convention": "-16.000000"
+    },
+    "alternatives_informatives_non_retenues": {
+      "plancher": {
+        "mensualite_centimes": 359193,
+        "ecart_derniere_echeance_centimes": "36.000000"
+      },
+      "plafond": {
+        "mensualite_centimes": 359194,
+        "ecart_derniere_echeance_centimes": "-16.000000"
+      }
+    }
+  },
+  "verification_du_generateur": {
+    "methodes": [
+      "mensualité par formule fermée L·i / (1 − (1+i)^−n), en fractions exactes",
+      "mensualité par somme géométrique (égalité rationnelle stricte)",
+      "invariants : Σ capital amorti = montant financé, capital restant final = 0, Σ échéances = capital + intérêts, aucun amortissement négatif",
+      "écart de dernière échéance : identité exacte −δ · S_n vérifiée pour la composante « arrondi de la mensualité »"
+    ],
+    "jeux_synthetiques": [
+      {
+        "libelle": "G1 — contrôle arithmétique classique : 100 000 DH, 12 %, 12 mois",
+        "statut": "synthetique",
+        "hypotheses": [
+          "H4",
+          "H5",
+          "H6"
+        ],
+        "parametres": {
+          "montant_finance_centimes": 10000000,
+          "taux_annuel_nominal_bps": 1200,
+          "duree_mois": 12
+        },
+        "resultats": {
+          "taux_mensuel_exact": "1/100",
+          "mensualite_exacte_centimes": "888487.886783417073",
+          "mensualite_arrondie_centimes": 888488,
+          "derniere_echeance_centimes": 888485,
+          "ecart_derniere_echeance_centimes": -3,
+          "total_interets_centimes": 661853,
+          "total_interets_exact_sans_arrondi_centimes": "661854.641401004881",
+          "total_rembourse_centimes": 10661853
+        },
+        "analyse_ecart_derniere_echeance": {
+          "mensualite_exacte_centimes": "888487.886783417073",
+          "mensualite_arrondie_centimes": 888488,
+          "delta_arrondi_mensualite_centimes": "0.113216582927",
+          "facteur_amplification_S_n": "12.682503",
+          "definitions": {
+            "B": "effet de l'arrondi de la mensualité seul (intérêts exacts) = −δ · S_n",
+            "C": "effet de l'arrondi mensuel des intérêts seul (mensualité exacte) = Σ ε_m^C (1+i)^(n−m)",
+            "I": "interaction = D − B − C = Σ (ε_m^D − ε_m^C)(1+i)^(n−m) : l'erreur d'arrondi des intérêts dépend du solde, qui diffère selon que la mensualité est arrondie ou non",
+            "D": "écart total avec les conventions H4 + H6 = B + C + I"
+          },
+          "reconciliation_centimes": {
+            "B": "-1.435870",
+            "C": "-1.641401",
+            "I": "0.077271",
+            "D": "-3.000000",
+            "controle": "B + C + I = D (égalité rationnelle exacte)"
+          },
+          "reconciliation_DH": {
+            "B": "-0.01",
+            "C": "-0.02",
+            "I": "0.00",
+            "D": "-0.03",
+            "somme_des_composantes_affichees": "-0.03"
+          },
+          "mois_ou_les_erreurs_C_et_D_different": 11,
+          "methodes_independantes": [
+            "1 — simulation directe du solde en fractions exactes (variantes A à D)",
+            "2 — propagation linéaire des erreurs Σ ε_m (1+i)^(n−m) − δ · S_n, sans simulation du solde",
+            "3 — variante D recalculée en arithmétique entière pure",
+            "4 — B égal à la forme fermée −δ · S_n (contre-vérifiée par bc à 40 décimales)"
+          ],
+          "decomposition_ecart_derniere_echeance_centimes": {
+            "A_mensualite_exacte_interets_exacts": "0.000000",
+            "B_mensualite_arrondie_interets_exacts": "-1.435870",
+            "C_mensualite_exacte_interets_arrondis": "-1.641401",
+            "D_mensualite_arrondie_interets_arrondis_convention": "-3.000000"
+          },
+          "alternatives_informatives_non_retenues": {
+            "plancher": {
+              "mensualite_centimes": 888487,
+              "ecart_derniere_echeance_centimes": "10.000000"
+            },
+            "plafond": {
+              "mensualite_centimes": 888488,
+              "ecart_derniere_echeance_centimes": "-3.000000"
+            }
+          }
+        },
+        "echeancier": [
+          {
+            "mois": 1,
+            "capital_restant_debut": 10000000,
+            "echeance": 888488,
+            "interets": 100000,
+            "capital_amorti": 788488,
+            "capital_restant_fin": 9211512
+          },
+          {
+            "mois": 2,
+            "capital_restant_debut": 9211512,
+            "echeance": 888488,
+            "interets": 92115,
+            "capital_amorti": 796373,
+            "capital_restant_fin": 8415139
+          },
+          {
+            "mois": 3,
+            "capital_restant_debut": 8415139,
+            "echeance": 888488,
+            "interets": 84151,
+            "capital_amorti": 804337,
+            "capital_restant_fin": 7610802
+          },
+          {
+            "mois": 4,
+            "capital_restant_debut": 7610802,
+            "echeance": 888488,
+            "interets": 76108,
+            "capital_amorti": 812380,
+            "capital_restant_fin": 6798422
+          },
+          {
+            "mois": 5,
+            "capital_restant_debut": 6798422,
+            "echeance": 888488,
+            "interets": 67984,
+            "capital_amorti": 820504,
+            "capital_restant_fin": 5977918
+          },
+          {
+            "mois": 6,
+            "capital_restant_debut": 5977918,
+            "echeance": 888488,
+            "interets": 59779,
+            "capital_amorti": 828709,
+            "capital_restant_fin": 5149209
+          },
+          {
+            "mois": 7,
+            "capital_restant_debut": 5149209,
+            "echeance": 888488,
+            "interets": 51492,
+            "capital_amorti": 836996,
+            "capital_restant_fin": 4312213
+          },
+          {
+            "mois": 8,
+            "capital_restant_debut": 4312213,
+            "echeance": 888488,
+            "interets": 43122,
+            "capital_amorti": 845366,
+            "capital_restant_fin": 3466847
+          },
+          {
+            "mois": 9,
+            "capital_restant_debut": 3466847,
+            "echeance": 888488,
+            "interets": 34668,
+            "capital_amorti": 853820,
+            "capital_restant_fin": 2613027
+          },
+          {
+            "mois": 10,
+            "capital_restant_debut": 2613027,
+            "echeance": 888488,
+            "interets": 26130,
+            "capital_amorti": 862358,
+            "capital_restant_fin": 1750669
+          },
+          {
+            "mois": 11,
+            "capital_restant_debut": 1750669,
+            "echeance": 888488,
+            "interets": 17507,
+            "capital_amorti": 870981,
+            "capital_restant_fin": 879688
+          },
+          {
+            "mois": 12,
+            "capital_restant_debut": 879688,
+            "echeance": 888485,
+            "interets": 8797,
+            "capital_amorti": 879688,
+            "capital_restant_fin": 0
+          }
+        ]
+      },
+      {
+        "libelle": "G2 — taux nul : 120 000 DH, 0 %, 48 mois",
+        "statut": "synthetique",
+        "hypotheses": [
+          "H4",
+          "H5",
+          "H6"
+        ],
+        "parametres": {
+          "montant_finance_centimes": 12000000,
+          "taux_annuel_nominal_bps": 0,
+          "duree_mois": 48
+        },
+        "resultats": {
+          "taux_mensuel_exact": "0/1",
+          "mensualite_exacte_centimes": "250000.000000000000",
+          "mensualite_arrondie_centimes": 250000,
+          "derniere_echeance_centimes": 250000,
+          "ecart_derniere_echeance_centimes": 0,
+          "total_interets_centimes": 0,
+          "total_interets_exact_sans_arrondi_centimes": "0E-12",
+          "total_rembourse_centimes": 12000000
+        },
+        "analyse_ecart_derniere_echeance": {
+          "mensualite_exacte_centimes": "250000.000000000000",
+          "mensualite_arrondie_centimes": 250000,
+          "delta_arrondi_mensualite_centimes": "0E-12",
+          "facteur_amplification_S_n": "48.000000",
+          "definitions": {
+            "B": "effet de l'arrondi de la mensualité seul (intérêts exacts) = −δ · S_n",
+            "C": "effet de l'arrondi mensuel des intérêts seul (mensualité exacte) = Σ ε_m^C (1+i)^(n−m)",
+            "I": "interaction = D − B − C = Σ (ε_m^D − ε_m^C)(1+i)^(n−m) : l'erreur d'arrondi des intérêts dépend du solde, qui diffère selon que la mensualité est arrondie ou non",
+            "D": "écart total avec les conventions H4 + H6 = B + C + I"
+          },
+          "reconciliation_centimes": {
+            "B": "0.000000",
+            "C": "0.000000",
+            "I": "0.000000",
+            "D": "0.000000",
+            "controle": "B + C + I = D (égalité rationnelle exacte)"
+          },
+          "reconciliation_DH": {
+            "B": "0.00",
+            "C": "0.00",
+            "I": "0.00",
+            "D": "0.00",
+            "somme_des_composantes_affichees": "0.00"
+          },
+          "mois_ou_les_erreurs_C_et_D_different": 0,
+          "methodes_independantes": [
+            "1 — simulation directe du solde en fractions exactes (variantes A à D)",
+            "2 — propagation linéaire des erreurs Σ ε_m (1+i)^(n−m) − δ · S_n, sans simulation du solde",
+            "3 — variante D recalculée en arithmétique entière pure",
+            "4 — B égal à la forme fermée −δ · S_n (contre-vérifiée par bc à 40 décimales)"
+          ],
+          "decomposition_ecart_derniere_echeance_centimes": {
+            "A_mensualite_exacte_interets_exacts": "0.000000",
+            "B_mensualite_arrondie_interets_exacts": "0.000000",
+            "C_mensualite_exacte_interets_arrondis": "0.000000",
+            "D_mensualite_arrondie_interets_arrondis_convention": "0.000000"
+          },
+          "alternatives_informatives_non_retenues": {
+            "plancher": {
+              "mensualite_centimes": 250000,
+              "ecart_derniere_echeance_centimes": "0.000000"
+            },
+            "plafond": {
+              "mensualite_centimes": 250000,
+              "ecart_derniere_echeance_centimes": "0.000000"
+            }
+          }
+        },
+        "echeancier": [
+          {
+            "mois": 1,
+            "capital_restant_debut": 12000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 11750000
+          },
+          {
+            "mois": 2,
+            "capital_restant_debut": 11750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 11500000
+          },
+          {
+            "mois": 3,
+            "capital_restant_debut": 11500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 11250000
+          },
+          {
+            "mois": 4,
+            "capital_restant_debut": 11250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 11000000
+          },
+          {
+            "mois": 5,
+            "capital_restant_debut": 11000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 10750000
+          },
+          {
+            "mois": 6,
+            "capital_restant_debut": 10750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 10500000
+          },
+          {
+            "mois": 7,
+            "capital_restant_debut": 10500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 10250000
+          },
+          {
+            "mois": 8,
+            "capital_restant_debut": 10250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 10000000
+          },
+          {
+            "mois": 9,
+            "capital_restant_debut": 10000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 9750000
+          },
+          {
+            "mois": 10,
+            "capital_restant_debut": 9750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 9500000
+          },
+          {
+            "mois": 11,
+            "capital_restant_debut": 9500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 9250000
+          },
+          {
+            "mois": 12,
+            "capital_restant_debut": 9250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 9000000
+          },
+          {
+            "mois": 13,
+            "capital_restant_debut": 9000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 8750000
+          },
+          {
+            "mois": 14,
+            "capital_restant_debut": 8750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 8500000
+          },
+          {
+            "mois": 15,
+            "capital_restant_debut": 8500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 8250000
+          },
+          {
+            "mois": 16,
+            "capital_restant_debut": 8250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 8000000
+          },
+          {
+            "mois": 17,
+            "capital_restant_debut": 8000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 7750000
+          },
+          {
+            "mois": 18,
+            "capital_restant_debut": 7750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 7500000
+          },
+          {
+            "mois": 19,
+            "capital_restant_debut": 7500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 7250000
+          },
+          {
+            "mois": 20,
+            "capital_restant_debut": 7250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 7000000
+          },
+          {
+            "mois": 21,
+            "capital_restant_debut": 7000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 6750000
+          },
+          {
+            "mois": 22,
+            "capital_restant_debut": 6750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 6500000
+          },
+          {
+            "mois": 23,
+            "capital_restant_debut": 6500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 6250000
+          },
+          {
+            "mois": 24,
+            "capital_restant_debut": 6250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 6000000
+          },
+          {
+            "mois": 25,
+            "capital_restant_debut": 6000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 5750000
+          },
+          {
+            "mois": 26,
+            "capital_restant_debut": 5750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 5500000
+          },
+          {
+            "mois": 27,
+            "capital_restant_debut": 5500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 5250000
+          },
+          {
+            "mois": 28,
+            "capital_restant_debut": 5250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 5000000
+          },
+          {
+            "mois": 29,
+            "capital_restant_debut": 5000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 4750000
+          },
+          {
+            "mois": 30,
+            "capital_restant_debut": 4750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 4500000
+          },
+          {
+            "mois": 31,
+            "capital_restant_debut": 4500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 4250000
+          },
+          {
+            "mois": 32,
+            "capital_restant_debut": 4250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 4000000
+          },
+          {
+            "mois": 33,
+            "capital_restant_debut": 4000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 3750000
+          },
+          {
+            "mois": 34,
+            "capital_restant_debut": 3750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 3500000
+          },
+          {
+            "mois": 35,
+            "capital_restant_debut": 3500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 3250000
+          },
+          {
+            "mois": 36,
+            "capital_restant_debut": 3250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 3000000
+          },
+          {
+            "mois": 37,
+            "capital_restant_debut": 3000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 2750000
+          },
+          {
+            "mois": 38,
+            "capital_restant_debut": 2750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 2500000
+          },
+          {
+            "mois": 39,
+            "capital_restant_debut": 2500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 2250000
+          },
+          {
+            "mois": 40,
+            "capital_restant_debut": 2250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 2000000
+          },
+          {
+            "mois": 41,
+            "capital_restant_debut": 2000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 1750000
+          },
+          {
+            "mois": 42,
+            "capital_restant_debut": 1750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 1500000
+          },
+          {
+            "mois": 43,
+            "capital_restant_debut": 1500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 1250000
+          },
+          {
+            "mois": 44,
+            "capital_restant_debut": 1250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 1000000
+          },
+          {
+            "mois": 45,
+            "capital_restant_debut": 1000000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 750000
+          },
+          {
+            "mois": 46,
+            "capital_restant_debut": 750000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 500000
+          },
+          {
+            "mois": 47,
+            "capital_restant_debut": 500000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 250000
+          },
+          {
+            "mois": 48,
+            "capital_restant_debut": 250000,
+            "echeance": 250000,
+            "interets": 0,
+            "capital_amorti": 250000,
+            "capital_restant_fin": 0
+          }
+        ]
+      },
+      {
+        "libelle": "G3 — bornes V1 : 1 000 000 DH, 30 %, 480 mois",
+        "statut": "synthetique",
+        "hypotheses": [
+          "H4",
+          "H5",
+          "H6"
+        ],
+        "parametres": {
+          "montant_finance_centimes": 100000000,
+          "taux_annuel_nominal_bps": 3000,
+          "duree_mois": 480
+        },
+        "resultats": {
+          "taux_mensuel_exact": "1/40",
+          "mensualite_exacte_centimes": "2500017.802775418747",
+          "mensualite_arrondie_centimes": 2500018,
+          "derniere_echeance_centimes": 1522989,
+          "ecart_derniere_echeance_centimes": -977029,
+          "total_interets_centimes": 1099031611,
+          "total_interets_exact_sans_arrondi_centimes": "1100008545.332200998552",
+          "total_rembourse_centimes": 1199031611
+        },
+        "analyse_ecart_derniere_echeance": {
+          "mensualite_exacte_centimes": "2500017.802775418747",
+          "mensualite_arrondie_centimes": 2500018,
+          "delta_arrondi_mensualite_centimes": "0.197224581253",
+          "facteur_amplification_S_n": "5617101.696104",
+          "definitions": {
+            "B": "effet de l'arrondi de la mensualité seul (intérêts exacts) = −δ · S_n",
+            "C": "effet de l'arrondi mensuel des intérêts seul (mensualité exacte) = Σ ε_m^C (1+i)^(n−m)",
+            "I": "interaction = D − B − C = Σ (ε_m^D − ε_m^C)(1+i)^(n−m) : l'erreur d'arrondi des intérêts dépend du solde, qui diffère selon que la mensualité est arrondie ou non",
+            "D": "écart total avec les conventions H4 + H6 = B + C + I"
+          },
+          "reconciliation_centimes": {
+            "B": "-1107830.529870",
+            "C": "147042.667799",
+            "I": "-16241.137929",
+            "D": "-977029.000000",
+            "controle": "B + C + I = D (égalité rationnelle exacte)"
+          },
+          "reconciliation_DH": {
+            "B": "-11078.31",
+            "C": "1470.43",
+            "I": "-162.41",
+            "D": "-9770.29",
+            "somme_des_composantes_affichees": "-9770.29"
+          },
+          "mois_ou_les_erreurs_C_et_D_different": 479,
+          "methodes_independantes": [
+            "1 — simulation directe du solde en fractions exactes (variantes A à D)",
+            "2 — propagation linéaire des erreurs Σ ε_m (1+i)^(n−m) − δ · S_n, sans simulation du solde",
+            "3 — variante D recalculée en arithmétique entière pure",
+            "4 — B égal à la forme fermée −δ · S_n (contre-vérifiée par bc à 40 décimales)"
+          ],
+          "decomposition_ecart_derniere_echeance_centimes": {
+            "A_mensualite_exacte_interets_exacts": "0.000000",
+            "B_mensualite_arrondie_interets_exacts": "-1107830.529870",
+            "C_mensualite_exacte_interets_arrondis": "147042.667799",
+            "D_mensualite_arrondie_interets_arrondis_convention": "-977029.000000"
+          },
+          "alternatives_informatives_non_retenues": {
+            "plancher": {
+              "mensualite_centimes": 2500017,
+              "ecart_derniere_echeance_centimes": "4703858.000000"
+            },
+            "plafond": {
+              "mensualite_centimes": 2500018,
+              "ecart_derniere_echeance_centimes": "-977029.000000"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,2366 @@
+{
+  "meta": {
+    "generateur": "references/decision-lab/generate_references.py",
+    "etape": "E2 (clôturée ; H11–H12 validées à l'ouverture de E3 ; H15 ajoutée à la finalisation E3)",
+    "precision_decimal": 80,
+    "tolerance_accord_methodes_centimes": "1E-60",
+    "hypotheses": {
+      "H1": {
+        "texte": "Taux annuel effectif → taux mensuel équivalent i = (1 + R)^(1/12) − 1 (capitalisation mensuelle).",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "Usage standard ; l'énoncé dit « effectif annuel » mais ne fixe pas la capitalisation infra-annuelle."
+      },
+      "H2": {
+        "texte": "Versements périodiques en fin de mois.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 2 et 3)"
+      },
+      "H3": {
+        "texte": "Capital initial placé à t = 0 et capitalisé dès le premier mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "Lecture naturelle de « capital initial », non formulée explicitement."
+      },
+      "H4": {
+        "texte": "Intérêts de chaque mois arrondis au centime le plus proche, demi vers l'extérieur (règle roundHalfAwayFromZero) ; placement, objectif et crédit.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet",
+        "note": "La variante sans arrondi intermédiaire est fournie à chaque fois."
+      },
+      "H5": {
+        "texte": "Crédit : taux nominal annuel proportionnel, i = taux / 12 ; échéances constantes.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 1 : « taux nominal annuel »), confirmée par la décision de clôture E2 du responsable du projet"
+      },
+      "H6": {
+        "texte": "Crédit : mensualité arrondie au centime le plus proche ; la dernière échéance est ajustée pour solder le crédit.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 1), confirmée par la décision de clôture E2 du responsable du projet",
+        "note": "« Au centime » lu comme « au plus proche » (demi vers l'extérieur)."
+      },
+      "H7": {
+        "texte": "Objectif : effort mensuel arrondi au centime supérieur (l'objectif doit être atteint dans l'horizon) ; même règle que goals.ts (Math.ceil).",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H8": {
+        "texte": "Objectif : épargne initiale nulle.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H9": {
+        "texte": "Objectif : taux de 3 % annuel effectif.",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H10": {
+        "texte": "Rythme constant : durée = premier mois où le solde atteint la cible, plafonnée à 480 mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H11": {
+        "texte": "Cas 1 : apport et frais payés au mois 0 ; crédit versé directement au vendeur ; véhicule inscrit à l'actif au mois 0 ; échéances et assurance en fin de mois 1 à 48 (convention de fin de mois, H2).",
+        "etat": "validee",
+        "source": "décision d'ouverture E3 du responsable du projet"
+      },
+      "H12": {
+        "texte": "Référence sans décision : trésorerie non dépensée non rémunérée ; résultats exprimés en écart à cette référence.",
+        "etat": "validee",
+        "source": "décision d'ouverture E3 du responsable du projet"
+      },
+      "H13": {
+        "texte": "Cas 3, mode « versement constant » : scénario de référence 2 500 DH/mois ; variantes 2 000 et 3 000 DH/mois.",
+        "etat": "validee",
+        "source": "décision de clôture E2 du responsable du projet"
+      },
+      "H14": {
+        "texte": "Dernier versement plafonné au montant nécessaire : versement du mois = min(versement prévu, cible − (solde + intérêts du mois)).",
+        "etat": "validee",
+        "source": "consigne de correction E2 du responsable du projet (cas 3)"
+      },
+      "H15": {
+        "texte": "Objectif : après l'atteinte, versements arrêtés ; le capital reste sur le compte dédié et continue de produire le rendement prévu (intérêts arrondis, H4). Le mois d'atteinte et le solde final sont distincts.",
+        "etat": "validee",
+        "source": "décision de finalisation E3 du responsable du projet"
+      }
+    },
+    "statuts": {
+      "verifie_math": "vérifié mathématiquement : vrai quelle que soit la convention métier, ≥ 2 méthodes concordantes",
+      "valide_conventions": "validé selon les conventions : calcul vérifié et toutes les hypothèses utilisées sont validées",
+      "candidat": "candidat : calcul vérifié, au moins une hypothèse à valider (voir hypotheses_a_valider)",
+      "manquant": "manquant : aucune valeur produite",
+      "synthetique": "synthétique : paramètres de contrôle, hors cas de référence",
+      "informatif": "informatif : variante écartée par une convention validée"
+    },
+    "controles_externes": "aucun contrôle externe certifié disponible : « vérifié » ≠ « certifié métier »"
+  },
+  "cas": "2 — placement avec capital initial et versements mensuels",
+  "source_parametres": "Paramètres communiqués par le responsable du projet ; confirmés par la consigne de correction E2 du responsable du projet.",
+  "parametres": {
+    "devise": "MAD",
+    "unite_montants": "centimes",
+    "capital_initial_centimes": 2000000,
+    "versement_mensuel_centimes": 150000,
+    "taux_annuel_effectif_bps": 600,
+    "duree_mois": 120,
+    "versements": "fin de mois"
+  },
+  "resultats_verifies_math": {
+    "statut": "verifie_math",
+    "note": "Vrais quelle que soit la convention de capitalisation infra-annuelle ; calculs exacts.",
+    "facteur_croissance_120_mois": {
+      "valeur_exacte": "1.79084769654285362176",
+      "fraction": "106^10 / 100^10"
+    },
+    "total_apporte_centimes": 20000000,
+    "capital_initial_capitalise_120_mois_centimes": {
+      "valeur_exacte": "3581695.39308570724352000000",
+      "arrondi": 3581695
+    }
+  },
+  "taux_mensuel_equivalent": {
+    "statut": "valide_conventions",
+    "hypotheses": [
+      "H1"
+    ],
+    "hypotheses_a_valider": [],
+    "valeur": "0.004867550565343037541198945588",
+    "methodes": [
+      "logarithme / exponentielle",
+      "Newton sur y^12 = 1,06"
+    ]
+  },
+  "resultats_candidats": {
+    "fin": {
+      "role": "convention validée (H2)",
+      "exact_sans_arrondi_intermediaire": {
+        "statut": "valide_conventions",
+        "hypotheses": [
+          "H1",
+          "H2",
+          "H3"
+        ],
+        "hypotheses_a_valider": [],
+        "valeur_finale_centimes": "27952711.757261447395",
+        "valeur_finale_arrondie_centimes": 27952712,
+        "dont_capital_initial_capitalise_centimes": "3581695.393085707244",
+        "dont_versements_capitalises_centimes": "24371016.364175740152",
+        "interets_totaux_centimes": "7952711.757261447395"
+      },
+      "arrondi_mensuel": {
+        "statut": "valide_conventions",
+        "hypotheses": [
+          "H1",
+          "H2",
+          "H3",
+          "H4"
+        ],
+        "hypotheses_a_valider": [],
+        "valeur_finale_centimes": 27952712,
+        "apports_cumules_capital_initial_inclus_centimes": 20000000,
+        "interets_cumules_centimes": 7952712,
+        "ecart_vs_exact_centimes": "0.242738552605",
+        "echeancier": [
+          {
+            "mois": 1,
+            "solde_ouverture": 2000000,
+            "versement": 150000,
+            "interets": 9735,
+            "solde_cloture": 2159735,
+            "apports_cumules_capital_initial_inclus": 2150000,
+            "interets_cumules": 9735
+          },
+          {
+            "mois": 2,
+            "solde_ouverture": 2159735,
+            "versement": 150000,
+            "interets": 10513,
+            "solde_cloture": 2320248,
+            "apports_cumules_capital_initial_inclus": 2300000,
+            "interets_cumules": 20248
+          },
+          {
+            "mois": 3,
+            "solde_ouverture": 2320248,
+            "versement": 150000,
+            "interets": 11294,
+            "solde_cloture": 2481542,
+            "apports_cumules_capital_initial_inclus": 2450000,
+            "interets_cumules": 31542
+          },
+          {
+            "mois": 4,
+            "solde_ouverture": 2481542,
+            "versement": 150000,
+            "interets": 12079,
+            "solde_cloture": 2643621,
+            "apports_cumules_capital_initial_inclus": 2600000,
+            "interets_cumules": 43621
+          },
+          {
+            "mois": 5,
+            "solde_ouverture": 2643621,
+            "versement": 150000,
+            "interets": 12868,
+            "solde_cloture": 2806489,
+            "apports_cumules_capital_initial_inclus": 2750000,
+            "interets_cumules": 56489
+          },
+          {
+            "mois": 6,
+            "solde_ouverture": 2806489,
+            "versement": 150000,
+            "interets": 13661,
+            "solde_cloture": 2970150,
+            "apports_cumules_capital_initial_inclus": 2900000,
+            "interets_cumules": 70150
+          },
+          {
+            "mois": 7,
+            "solde_ouverture": 2970150,
+            "versement": 150000,
+            "interets": 14457,
+            "solde_cloture": 3134607,
+            "apports_cumules_capital_initial_inclus": 3050000,
+            "interets_cumules": 84607
+          },
+          {
+            "mois": 8,
+            "solde_ouverture": 3134607,
+            "versement": 150000,
+            "interets": 15258,
+            "solde_cloture": 3299865,
+            "apports_cumules_capital_initial_inclus": 3200000,
+            "interets_cumules": 99865
+          },
+          {
+            "mois": 9,
+            "solde_ouverture": 3299865,
+            "versement": 150000,
+            "interets": 16062,
+            "solde_cloture": 3465927,
+            "apports_cumules_capital_initial_inclus": 3350000,
+            "interets_cumules": 115927
+          },
+          {
+            "mois": 10,
+            "solde_ouverture": 3465927,
+            "versement": 150000,
+            "interets": 16871,
+            "solde_cloture": 3632798,
+            "apports_cumules_capital_initial_inclus": 3500000,
+            "interets_cumules": 132798
+          },
+          {
+            "mois": 11,
+            "solde_ouverture": 3632798,
+            "versement": 150000,
+            "interets": 17683,
+            "solde_cloture": 3800481,
+            "apports_cumules_capital_initial_inclus": 3650000,
+            "interets_cumules": 150481
+          },
+          {
+            "mois": 12,
+            "solde_ouverture": 3800481,
+            "versement": 150000,
+            "interets": 18499,
+            "solde_cloture": 3968980,
+            "apports_cumules_capital_initial_inclus": 3800000,
+            "interets_cumules": 168980
+          },
+          {
+            "mois": 13,
+            "solde_ouverture": 3968980,
+            "versement": 150000,
+            "interets": 19319,
+            "solde_cloture": 4138299,
+            "apports_cumules_capital_initial_inclus": 3950000,
+            "interets_cumules": 188299
+          },
+          {
+            "mois": 14,
+            "solde_ouverture": 4138299,
+            "versement": 150000,
+            "interets": 20143,
+            "solde_cloture": 4308442,
+            "apports_cumules_capital_initial_inclus": 4100000,
+            "interets_cumules": 208442
+          },
+          {
+            "mois": 15,
+            "solde_ouverture": 4308442,
+            "versement": 150000,
+            "interets": 20972,
+            "solde_cloture": 4479414,
+            "apports_cumules_capital_initial_inclus": 4250000,
+            "interets_cumules": 229414
+          },
+          {
+            "mois": 16,
+            "solde_ouverture": 4479414,
+            "versement": 150000,
+            "interets": 21804,
+            "solde_cloture": 4651218,
+            "apports_cumules_capital_initial_inclus": 4400000,
+            "interets_cumules": 251218
+          },
+          {
+            "mois": 17,
+            "solde_ouverture": 4651218,
+            "versement": 150000,
+            "interets": 22640,
+            "solde_cloture": 4823858,
+            "apports_cumules_capital_initial_inclus": 4550000,
+            "interets_cumules": 273858
+          },
+          {
+            "mois": 18,
+            "solde_ouverture": 4823858,
+            "versement": 150000,
+            "interets": 23480,
+            "solde_cloture": 4997338,
+            "apports_cumules_capital_initial_inclus": 4700000,
+            "interets_cumules": 297338
+          },
+          {
+            "mois": 19,
+            "solde_ouverture": 4997338,
+            "versement": 150000,
+            "interets": 24325,
+            "solde_cloture": 5171663,
+            "apports_cumules_capital_initial_inclus": 4850000,
+            "interets_cumules": 321663
+          },
+          {
+            "mois": 20,
+            "solde_ouverture": 5171663,
+            "versement": 150000,
+            "interets": 25173,
+            "solde_cloture": 5346836,
+            "apports_cumules_capital_initial_inclus": 5000000,
+            "interets_cumules": 346836
+          },
+          {
+            "mois": 21,
+            "solde_ouverture": 5346836,
+            "versement": 150000,
+            "interets": 26026,
+            "solde_cloture": 5522862,
+            "apports_cumules_capital_initial_inclus": 5150000,
+            "interets_cumules": 372862
+          },
+          {
+            "mois": 22,
+            "solde_ouverture": 5522862,
+            "versement": 150000,
+            "interets": 26883,
+            "solde_cloture": 5699745,
+            "apports_cumules_capital_initial_inclus": 5300000,
+            "interets_cumules": 399745
+          },
+          {
+            "mois": 23,
+            "solde_ouverture": 5699745,
+            "versement": 150000,
+            "interets": 27744,
+            "solde_cloture": 5877489,
+            "apports_cumules_capital_initial_inclus": 5450000,
+            "interets_cumules": 427489
+          },
+          {
+            "mois": 24,
+            "solde_ouverture": 5877489,
+            "versement": 150000,
+            "interets": 28609,
+            "solde_cloture": 6056098,
+            "apports_cumules_capital_initial_inclus": 5600000,
+            "interets_cumules": 456098
+          },
+          {
+            "mois": 25,
+            "solde_ouverture": 6056098,
+            "versement": 150000,
+            "interets": 29478,
+            "solde_cloture": 6235576,
+            "apports_cumules_capital_initial_inclus": 5750000,
+            "interets_cumules": 485576
+          },
+          {
+            "mois": 26,
+            "solde_ouverture": 6235576,
+            "versement": 150000,
+            "interets": 30352,
+            "solde_cloture": 6415928,
+            "apports_cumules_capital_initial_inclus": 5900000,
+            "interets_cumules": 515928
+          },
+          {
+            "mois": 27,
+            "solde_ouverture": 6415928,
+            "versement": 150000,
+            "interets": 31230,
+            "solde_cloture": 6597158,
+            "apports_cumules_capital_initial_inclus": 6050000,
+            "interets_cumules": 547158
+          },
+          {
+            "mois": 28,
+            "solde_ouverture": 6597158,
+            "versement": 150000,
+            "interets": 32112,
+            "solde_cloture": 6779270,
+            "apports_cumules_capital_initial_inclus": 6200000,
+            "interets_cumules": 579270
+          },
+          {
+            "mois": 29,
+            "solde_ouverture": 6779270,
+            "versement": 150000,
+            "interets": 32998,
+            "solde_cloture": 6962268,
+            "apports_cumules_capital_initial_inclus": 6350000,
+            "interets_cumules": 612268
+          },
+          {
+            "mois": 30,
+            "solde_ouverture": 6962268,
+            "versement": 150000,
+            "interets": 33889,
+            "solde_cloture": 7146157,
+            "apports_cumules_capital_initial_inclus": 6500000,
+            "interets_cumules": 646157
+          },
+          {
+            "mois": 31,
+            "solde_ouverture": 7146157,
+            "versement": 150000,
+            "interets": 34784,
+            "solde_cloture": 7330941,
+            "apports_cumules_capital_initial_inclus": 6650000,
+            "interets_cumules": 680941
+          },
+          {
+            "mois": 32,
+            "solde_ouverture": 7330941,
+            "versement": 150000,
+            "interets": 35684,
+            "solde_cloture": 7516625,
+            "apports_cumules_capital_initial_inclus": 6800000,
+            "interets_cumules": 716625
+          },
+          {
+            "mois": 33,
+            "solde_ouverture": 7516625,
+            "versement": 150000,
+            "interets": 36588,
+            "solde_cloture": 7703213,
+            "apports_cumules_capital_initial_inclus": 6950000,
+            "interets_cumules": 753213
+          },
+          {
+            "mois": 34,
+            "solde_ouverture": 7703213,
+            "versement": 150000,
+            "interets": 37496,
+            "solde_cloture": 7890709,
+            "apports_cumules_capital_initial_inclus": 7100000,
+            "interets_cumules": 790709
+          },
+          {
+            "mois": 35,
+            "solde_ouverture": 7890709,
+            "versement": 150000,
+            "interets": 38408,
+            "solde_cloture": 8079117,
+            "apports_cumules_capital_initial_inclus": 7250000,
+            "interets_cumules": 829117
+          },
+          {
+            "mois": 36,
+            "solde_ouverture": 8079117,
+            "versement": 150000,
+            "interets": 39326,
+            "solde_cloture": 8268443,
+            "apports_cumules_capital_initial_inclus": 7400000,
+            "interets_cumules": 868443
+          },
+          {
+            "mois": 37,
+            "solde_ouverture": 8268443,
+            "versement": 150000,
+            "interets": 40247,
+            "solde_cloture": 8458690,
+            "apports_cumules_capital_initial_inclus": 7550000,
+            "interets_cumules": 908690
+          },
+          {
+            "mois": 38,
+            "solde_ouverture": 8458690,
+            "versement": 150000,
+            "interets": 41173,
+            "solde_cloture": 8649863,
+            "apports_cumules_capital_initial_inclus": 7700000,
+            "interets_cumules": 949863
+          },
+          {
+            "mois": 39,
+            "solde_ouverture": 8649863,
+            "versement": 150000,
+            "interets": 42104,
+            "solde_cloture": 8841967,
+            "apports_cumules_capital_initial_inclus": 7850000,
+            "interets_cumules": 991967
+          },
+          {
+            "mois": 40,
+            "solde_ouverture": 8841967,
+            "versement": 150000,
+            "interets": 43039,
+            "solde_cloture": 9035006,
+            "apports_cumules_capital_initial_inclus": 8000000,
+            "interets_cumules": 1035006
+          },
+          {
+            "mois": 41,
+            "solde_ouverture": 9035006,
+            "versement": 150000,
+            "interets": 43978,
+            "solde_cloture": 9228984,
+            "apports_cumules_capital_initial_inclus": 8150000,
+            "interets_cumules": 1078984
+          },
+          {
+            "mois": 42,
+            "solde_ouverture": 9228984,
+            "versement": 150000,
+            "interets": 44923,
+            "solde_cloture": 9423907,
+            "apports_cumules_capital_initial_inclus": 8300000,
+            "interets_cumules": 1123907
+          },
+          {
+            "mois": 43,
+            "solde_ouverture": 9423907,
+            "versement": 150000,
+            "interets": 45871,
+            "solde_cloture": 9619778,
+            "apports_cumules_capital_initial_inclus": 8450000,
+            "interets_cumules": 1169778
+          },
+          {
+            "mois": 44,
+            "solde_ouverture": 9619778,
+            "versement": 150000,
+            "interets": 46825,
+            "solde_cloture": 9816603,
+            "apports_cumules_capital_initial_inclus": 8600000,
+            "interets_cumules": 1216603
+          },
+          {
+            "mois": 45,
+            "solde_ouverture": 9816603,
+            "versement": 150000,
+            "interets": 47783,
+            "solde_cloture": 10014386,
+            "apports_cumules_capital_initial_inclus": 8750000,
+            "interets_cumules": 1264386
+          },
+          {
+            "mois": 46,
+            "solde_ouverture": 10014386,
+            "versement": 150000,
+            "interets": 48746,
+            "solde_cloture": 10213132,
+            "apports_cumules_capital_initial_inclus": 8900000,
+            "interets_cumules": 1313132
+          },
+          {
+            "mois": 47,
+            "solde_ouverture": 10213132,
+            "versement": 150000,
+            "interets": 49713,
+            "solde_cloture": 10412845,
+            "apports_cumules_capital_initial_inclus": 9050000,
+            "interets_cumules": 1362845
+          },
+          {
+            "mois": 48,
+            "solde_ouverture": 10412845,
+            "versement": 150000,
+            "interets": 50685,
+            "solde_cloture": 10613530,
+            "apports_cumules_capital_initial_inclus": 9200000,
+            "interets_cumules": 1413530
+          },
+          {
+            "mois": 49,
+            "solde_ouverture": 10613530,
+            "versement": 150000,
+            "interets": 51662,
+            "solde_cloture": 10815192,
+            "apports_cumules_capital_initial_inclus": 9350000,
+            "interets_cumules": 1465192
+          },
+          {
+            "mois": 50,
+            "solde_ouverture": 10815192,
+            "versement": 150000,
+            "interets": 52643,
+            "solde_cloture": 11017835,
+            "apports_cumules_capital_initial_inclus": 9500000,
+            "interets_cumules": 1517835
+          },
+          {
+            "mois": 51,
+            "solde_ouverture": 11017835,
+            "versement": 150000,
+            "interets": 53630,
+            "solde_cloture": 11221465,
+            "apports_cumules_capital_initial_inclus": 9650000,
+            "interets_cumules": 1571465
+          },
+          {
+            "mois": 52,
+            "solde_ouverture": 11221465,
+            "versement": 150000,
+            "interets": 54621,
+            "solde_cloture": 11426086,
+            "apports_cumules_capital_initial_inclus": 9800000,
+            "interets_cumules": 1626086
+          },
+          {
+            "mois": 53,
+            "solde_ouverture": 11426086,
+            "versement": 150000,
+            "interets": 55617,
+            "solde_cloture": 11631703,
+            "apports_cumules_capital_initial_inclus": 9950000,
+            "interets_cumules": 1681703
+          },
+          {
+            "mois": 54,
+            "solde_ouverture": 11631703,
+            "versement": 150000,
+            "interets": 56618,
+            "solde_cloture": 11838321,
+            "apports_cumules_capital_initial_inclus": 10100000,
+            "interets_cumules": 1738321
+          },
+          {
+            "mois": 55,
+            "solde_ouverture": 11838321,
+            "versement": 150000,
+            "interets": 57624,
+            "solde_cloture": 12045945,
+            "apports_cumules_capital_initial_inclus": 10250000,
+            "interets_cumules": 1795945
+          },
+          {
+            "mois": 56,
+            "solde_ouverture": 12045945,
+            "versement": 150000,
+            "interets": 58634,
+            "solde_cloture": 12254579,
+            "apports_cumules_capital_initial_inclus": 10400000,
+            "interets_cumules": 1854579
+          },
+          {
+            "mois": 57,
+            "solde_ouverture": 12254579,
+            "versement": 150000,
+            "interets": 59650,
+            "solde_cloture": 12464229,
+            "apports_cumules_capital_initial_inclus": 10550000,
+            "interets_cumules": 1914229
+          },
+          {
+            "mois": 58,
+            "solde_ouverture": 12464229,
+            "versement": 150000,
+            "interets": 60670,
+            "solde_cloture": 12674899,
+            "apports_cumules_capital_initial_inclus": 10700000,
+            "interets_cumules": 1974899
+          },
+          {
+            "mois": 59,
+            "solde_ouverture": 12674899,
+            "versement": 150000,
+            "interets": 61696,
+            "solde_cloture": 12886595,
+            "apports_cumules_capital_initial_inclus": 10850000,
+            "interets_cumules": 2036595
+          },
+          {
+            "mois": 60,
+            "solde_ouverture": 12886595,
+            "versement": 150000,
+            "interets": 62726,
+            "solde_cloture": 13099321,
+            "apports_cumules_capital_initial_inclus": 11000000,
+            "interets_cumules": 2099321
+          },
+          {
+            "mois": 61,
+            "solde_ouverture": 13099321,
+            "versement": 150000,
+            "interets": 63762,
+            "solde_cloture": 13313083,
+            "apports_cumules_capital_initial_inclus": 11150000,
+            "interets_cumules": 2163083
+          },
+          {
+            "mois": 62,
+            "solde_ouverture": 13313083,
+            "versement": 150000,
+            "interets": 64802,
+            "solde_cloture": 13527885,
+            "apports_cumules_capital_initial_inclus": 11300000,
+            "interets_cumules": 2227885
+          },
+          {
+            "mois": 63,
+            "solde_ouverture": 13527885,
+            "versement": 150000,
+            "interets": 65848,
+            "solde_cloture": 13743733,
+            "apports_cumules_capital_initial_inclus": 11450000,
+            "interets_cumules": 2293733
+          },
+          {
+            "mois": 64,
+            "solde_ouverture": 13743733,
+            "versement": 150000,
+            "interets": 66898,
+            "solde_cloture": 13960631,
+            "apports_cumules_capital_initial_inclus": 11600000,
+            "interets_cumules": 2360631
+          },
+          {
+            "mois": 65,
+            "solde_ouverture": 13960631,
+            "versement": 150000,
+            "interets": 67954,
+            "solde_cloture": 14178585,
+            "apports_cumules_capital_initial_inclus": 11750000,
+            "interets_cumules": 2428585
+          },
+          {
+            "mois": 66,
+            "solde_ouverture": 14178585,
+            "versement": 150000,
+            "interets": 69015,
+            "solde_cloture": 14397600,
+            "apports_cumules_capital_initial_inclus": 11900000,
+            "interets_cumules": 2497600
+          },
+          {
+            "mois": 67,
+            "solde_ouverture": 14397600,
+            "versement": 150000,
+            "interets": 70081,
+            "solde_cloture": 14617681,
+            "apports_cumules_capital_initial_inclus": 12050000,
+            "interets_cumules": 2567681
+          },
+          {
+            "mois": 68,
+            "solde_ouverture": 14617681,
+            "versement": 150000,
+            "interets": 71152,
+            "solde_cloture": 14838833,
+            "apports_cumules_capital_initial_inclus": 12200000,
+            "interets_cumules": 2638833
+          },
+          {
+            "mois": 69,
+            "solde_ouverture": 14838833,
+            "versement": 150000,
+            "interets": 72229,
+            "solde_cloture": 15061062,
+            "apports_cumules_capital_initial_inclus": 12350000,
+            "interets_cumules": 2711062
+          },
+          {
+            "mois": 70,
+            "solde_ouverture": 15061062,
+            "versement": 150000,
+            "interets": 73310,
+            "solde_cloture": 15284372,
+            "apports_cumules_capital_initial_inclus": 12500000,
+            "interets_cumules": 2784372
+          },
+          {
+            "mois": 71,
+            "solde_ouverture": 15284372,
+            "versement": 150000,
+            "interets": 74397,
+            "solde_cloture": 15508769,
+            "apports_cumules_capital_initial_inclus": 12650000,
+            "interets_cumules": 2858769
+          },
+          {
+            "mois": 72,
+            "solde_ouverture": 15508769,
+            "versement": 150000,
+            "interets": 75490,
+            "solde_cloture": 15734259,
+            "apports_cumules_capital_initial_inclus": 12800000,
+            "interets_cumules": 2934259
+          },
+          {
+            "mois": 73,
+            "solde_ouverture": 15734259,
+            "versement": 150000,
+            "interets": 76587,
+            "solde_cloture": 15960846,
+            "apports_cumules_capital_initial_inclus": 12950000,
+            "interets_cumules": 3010846
+          },
+          {
+            "mois": 74,
+            "solde_ouverture": 15960846,
+            "versement": 150000,
+            "interets": 77690,
+            "solde_cloture": 16188536,
+            "apports_cumules_capital_initial_inclus": 13100000,
+            "interets_cumules": 3088536
+          },
+          {
+            "mois": 75,
+            "solde_ouverture": 16188536,
+            "versement": 150000,
+            "interets": 78799,
+            "solde_cloture": 16417335,
+            "apports_cumules_capital_initial_inclus": 13250000,
+            "interets_cumules": 3167335
+          },
+          {
+            "mois": 76,
+            "solde_ouverture": 16417335,
+            "versement": 150000,
+            "interets": 79912,
+            "solde_cloture": 16647247,
+            "apports_cumules_capital_initial_inclus": 13400000,
+            "interets_cumules": 3247247
+          },
+          {
+            "mois": 77,
+            "solde_ouverture": 16647247,
+            "versement": 150000,
+            "interets": 81031,
+            "solde_cloture": 16878278,
+            "apports_cumules_capital_initial_inclus": 13550000,
+            "interets_cumules": 3328278
+          },
+          {
+            "mois": 78,
+            "solde_ouverture": 16878278,
+            "versement": 150000,
+            "interets": 82156,
+            "solde_cloture": 17110434,
+            "apports_cumules_capital_initial_inclus": 13700000,
+            "interets_cumules": 3410434
+          },
+          {
+            "mois": 79,
+            "solde_ouverture": 17110434,
+            "versement": 150000,
+            "interets": 83286,
+            "solde_cloture": 17343720,
+            "apports_cumules_capital_initial_inclus": 13850000,
+            "interets_cumules": 3493720
+          },
+          {
+            "mois": 80,
+            "solde_ouverture": 17343720,
+            "versement": 150000,
+            "interets": 84421,
+            "solde_cloture": 17578141,
+            "apports_cumules_capital_initial_inclus": 14000000,
+            "interets_cumules": 3578141
+          },
+          {
+            "mois": 81,
+            "solde_ouverture": 17578141,
+            "versement": 150000,
+            "interets": 85562,
+            "solde_cloture": 17813703,
+            "apports_cumules_capital_initial_inclus": 14150000,
+            "interets_cumules": 3663703
+          },
+          {
+            "mois": 82,
+            "solde_ouverture": 17813703,
+            "versement": 150000,
+            "interets": 86709,
+            "solde_cloture": 18050412,
+            "apports_cumules_capital_initial_inclus": 14300000,
+            "interets_cumules": 3750412
+          },
+          {
+            "mois": 83,
+            "solde_ouverture": 18050412,
+            "versement": 150000,
+            "interets": 87861,
+            "solde_cloture": 18288273,
+            "apports_cumules_capital_initial_inclus": 14450000,
+            "interets_cumules": 3838273
+          },
+          {
+            "mois": 84,
+            "solde_ouverture": 18288273,
+            "versement": 150000,
+            "interets": 89019,
+            "solde_cloture": 18527292,
+            "apports_cumules_capital_initial_inclus": 14600000,
+            "interets_cumules": 3927292
+          },
+          {
+            "mois": 85,
+            "solde_ouverture": 18527292,
+            "versement": 150000,
+            "interets": 90183,
+            "solde_cloture": 18767475,
+            "apports_cumules_capital_initial_inclus": 14750000,
+            "interets_cumules": 4017475
+          },
+          {
+            "mois": 86,
+            "solde_ouverture": 18767475,
+            "versement": 150000,
+            "interets": 91352,
+            "solde_cloture": 19008827,
+            "apports_cumules_capital_initial_inclus": 14900000,
+            "interets_cumules": 4108827
+          },
+          {
+            "mois": 87,
+            "solde_ouverture": 19008827,
+            "versement": 150000,
+            "interets": 92526,
+            "solde_cloture": 19251353,
+            "apports_cumules_capital_initial_inclus": 15050000,
+            "interets_cumules": 4201353
+          },
+          {
+            "mois": 88,
+            "solde_ouverture": 19251353,
+            "versement": 150000,
+            "interets": 93707,
+            "solde_cloture": 19495060,
+            "apports_cumules_capital_initial_inclus": 15200000,
+            "interets_cumules": 4295060
+          },
+          {
+            "mois": 89,
+            "solde_ouverture": 19495060,
+            "versement": 150000,
+            "interets": 94893,
+            "solde_cloture": 19739953,
+            "apports_cumules_capital_initial_inclus": 15350000,
+            "interets_cumules": 4389953
+          },
+          {
+            "mois": 90,
+            "solde_ouverture": 19739953,
+            "versement": 150000,
+            "interets": 96085,
+            "solde_cloture": 19986038,
+            "apports_cumules_capital_initial_inclus": 15500000,
+            "interets_cumules": 4486038
+          },
+          {
+            "mois": 91,
+            "solde_ouverture": 19986038,
+            "versement": 150000,
+            "interets": 97283,
+            "solde_cloture": 20233321,
+            "apports_cumules_capital_initial_inclus": 15650000,
+            "interets_cumules": 4583321
+          },
+          {
+            "mois": 92,
+            "solde_ouverture": 20233321,
+            "versement": 150000,
+            "interets": 98487,
+            "solde_cloture": 20481808,
+            "apports_cumules_capital_initial_inclus": 15800000,
+            "interets_cumules": 4681808
+          },
+          {
+            "mois": 93,
+            "solde_ouverture": 20481808,
+            "versement": 150000,
+            "interets": 99696,
+            "solde_cloture": 20731504,
+            "apports_cumules_capital_initial_inclus": 15950000,
+            "interets_cumules": 4781504
+          },
+          {
+            "mois": 94,
+            "solde_ouverture": 20731504,
+            "versement": 150000,
+            "interets": 100912,
+            "solde_cloture": 20982416,
+            "apports_cumules_capital_initial_inclus": 16100000,
+            "interets_cumules": 4882416
+          },
+          {
+            "mois": 95,
+            "solde_ouverture": 20982416,
+            "versement": 150000,
+            "interets": 102133,
+            "solde_cloture": 21234549,
+            "apports_cumules_capital_initial_inclus": 16250000,
+            "interets_cumules": 4984549
+          },
+          {
+            "mois": 96,
+            "solde_ouverture": 21234549,
+            "versement": 150000,
+            "interets": 103360,
+            "solde_cloture": 21487909,
+            "apports_cumules_capital_initial_inclus": 16400000,
+            "interets_cumules": 5087909
+          },
+          {
+            "mois": 97,
+            "solde_ouverture": 21487909,
+            "versement": 150000,
+            "interets": 104593,
+            "solde_cloture": 21742502,
+            "apports_cumules_capital_initial_inclus": 16550000,
+            "interets_cumules": 5192502
+          },
+          {
+            "mois": 98,
+            "solde_ouverture": 21742502,
+            "versement": 150000,
+            "interets": 105833,
+            "solde_cloture": 21998335,
+            "apports_cumules_capital_initial_inclus": 16700000,
+            "interets_cumules": 5298335
+          },
+          {
+            "mois": 99,
+            "solde_ouverture": 21998335,
+            "versement": 150000,
+            "interets": 107078,
+            "solde_cloture": 22255413,
+            "apports_cumules_capital_initial_inclus": 16850000,
+            "interets_cumules": 5405413
+          },
+          {
+            "mois": 100,
+            "solde_ouverture": 22255413,
+            "versement": 150000,
+            "interets": 108329,
+            "solde_cloture": 22513742,
+            "apports_cumules_capital_initial_inclus": 17000000,
+            "interets_cumules": 5513742
+          },
+          {
+            "mois": 101,
+            "solde_ouverture": 22513742,
+            "versement": 150000,
+            "interets": 109587,
+            "solde_cloture": 22773329,
+            "apports_cumules_capital_initial_inclus": 17150000,
+            "interets_cumules": 5623329
+          },
+          {
+            "mois": 102,
+            "solde_ouverture": 22773329,
+            "versement": 150000,
+            "interets": 110850,
+            "solde_cloture": 23034179,
+            "apports_cumules_capital_initial_inclus": 17300000,
+            "interets_cumules": 5734179
+          },
+          {
+            "mois": 103,
+            "solde_ouverture": 23034179,
+            "versement": 150000,
+            "interets": 112120,
+            "solde_cloture": 23296299,
+            "apports_cumules_capital_initial_inclus": 17450000,
+            "interets_cumules": 5846299
+          },
+          {
+            "mois": 104,
+            "solde_ouverture": 23296299,
+            "versement": 150000,
+            "interets": 113396,
+            "solde_cloture": 23559695,
+            "apports_cumules_capital_initial_inclus": 17600000,
+            "interets_cumules": 5959695
+          },
+          {
+            "mois": 105,
+            "solde_ouverture": 23559695,
+            "versement": 150000,
+            "interets": 114678,
+            "solde_cloture": 23824373,
+            "apports_cumules_capital_initial_inclus": 17750000,
+            "interets_cumules": 6074373
+          },
+          {
+            "mois": 106,
+            "solde_ouverture": 23824373,
+            "versement": 150000,
+            "interets": 115966,
+            "solde_cloture": 24090339,
+            "apports_cumules_capital_initial_inclus": 17900000,
+            "interets_cumules": 6190339
+          },
+          {
+            "mois": 107,
+            "solde_ouverture": 24090339,
+            "versement": 150000,
+            "interets": 117261,
+            "solde_cloture": 24357600,
+            "apports_cumules_capital_initial_inclus": 18050000,
+            "interets_cumules": 6307600
+          },
+          {
+            "mois": 108,
+            "solde_ouverture": 24357600,
+            "versement": 150000,
+            "interets": 118562,
+            "solde_cloture": 24626162,
+            "apports_cumules_capital_initial_inclus": 18200000,
+            "interets_cumules": 6426162
+          },
+          {
+            "mois": 109,
+            "solde_ouverture": 24626162,
+            "versement": 150000,
+            "interets": 119869,
+            "solde_cloture": 24896031,
+            "apports_cumules_capital_initial_inclus": 18350000,
+            "interets_cumules": 6546031
+          },
+          {
+            "mois": 110,
+            "solde_ouverture": 24896031,
+            "versement": 150000,
+            "interets": 121183,
+            "solde_cloture": 25167214,
+            "apports_cumules_capital_initial_inclus": 18500000,
+            "interets_cumules": 6667214
+          },
+          {
+            "mois": 111,
+            "solde_ouverture": 25167214,
+            "versement": 150000,
+            "interets": 122503,
+            "solde_cloture": 25439717,
+            "apports_cumules_capital_initial_inclus": 18650000,
+            "interets_cumules": 6789717
+          },
+          {
+            "mois": 112,
+            "solde_ouverture": 25439717,
+            "versement": 150000,
+            "interets": 123829,
+            "solde_cloture": 25713546,
+            "apports_cumules_capital_initial_inclus": 18800000,
+            "interets_cumules": 6913546
+          },
+          {
+            "mois": 113,
+            "solde_ouverture": 25713546,
+            "versement": 150000,
+            "interets": 125162,
+            "solde_cloture": 25988708,
+            "apports_cumules_capital_initial_inclus": 18950000,
+            "interets_cumules": 7038708
+          },
+          {
+            "mois": 114,
+            "solde_ouverture": 25988708,
+            "versement": 150000,
+            "interets": 126501,
+            "solde_cloture": 26265209,
+            "apports_cumules_capital_initial_inclus": 19100000,
+            "interets_cumules": 7165209
+          },
+          {
+            "mois": 115,
+            "solde_ouverture": 26265209,
+            "versement": 150000,
+            "interets": 127847,
+            "solde_cloture": 26543056,
+            "apports_cumules_capital_initial_inclus": 19250000,
+            "interets_cumules": 7293056
+          },
+          {
+            "mois": 116,
+            "solde_ouverture": 26543056,
+            "versement": 150000,
+            "interets": 129200,
+            "solde_cloture": 26822256,
+            "apports_cumules_capital_initial_inclus": 19400000,
+            "interets_cumules": 7422256
+          },
+          {
+            "mois": 117,
+            "solde_ouverture": 26822256,
+            "versement": 150000,
+            "interets": 130559,
+            "solde_cloture": 27102815,
+            "apports_cumules_capital_initial_inclus": 19550000,
+            "interets_cumules": 7552815
+          },
+          {
+            "mois": 118,
+            "solde_ouverture": 27102815,
+            "versement": 150000,
+            "interets": 131924,
+            "solde_cloture": 27384739,
+            "apports_cumules_capital_initial_inclus": 19700000,
+            "interets_cumules": 7684739
+          },
+          {
+            "mois": 119,
+            "solde_ouverture": 27384739,
+            "versement": 150000,
+            "interets": 133297,
+            "solde_cloture": 27668036,
+            "apports_cumules_capital_initial_inclus": 19850000,
+            "interets_cumules": 7818036
+          },
+          {
+            "mois": 120,
+            "solde_ouverture": 27668036,
+            "versement": 150000,
+            "interets": 134676,
+            "solde_cloture": 27952712,
+            "apports_cumules_capital_initial_inclus": 20000000,
+            "interets_cumules": 7952712
+          }
+        ]
+      }
+    },
+    "debut": {
+      "role": "variante informative : écartée par H2 (fin de mois, validée)",
+      "exact_sans_arrondi_intermediaire": {
+        "statut": "informatif",
+        "hypotheses": [
+          "H1",
+          "H2",
+          "H3"
+        ],
+        "hypotheses_a_valider": [],
+        "valeur_finale_centimes": "28071338.911742875438",
+        "valeur_finale_arrondie_centimes": 28071339,
+        "dont_capital_initial_capitalise_centimes": "3581695.393085707244",
+        "dont_versements_capitalises_centimes": "24489643.518657168195",
+        "interets_totaux_centimes": "8071338.911742875438"
+      },
+      "arrondi_mensuel": {
+        "statut": "informatif",
+        "hypotheses": [
+          "H1",
+          "H2",
+          "H3",
+          "H4"
+        ],
+        "hypotheses_a_valider": [],
+        "valeur_finale_centimes": 28071333,
+        "apports_cumules_capital_initial_inclus_centimes": 20000000,
+        "interets_cumules_centimes": 8071333,
+        "ecart_vs_exact_centimes": "-5.911742875438",
+        "echeancier": [
+          {
+            "mois": 1,
+            "solde_ouverture": 2000000,
+            "versement": 150000,
+            "interets": 10465,
+            "solde_cloture": 2160465,
+            "apports_cumules_capital_initial_inclus": 2150000,
+            "interets_cumules": 10465
+          },
+          {
+            "mois": 2,
+            "solde_ouverture": 2160465,
+            "versement": 150000,
+            "interets": 11246,
+            "solde_cloture": 2321711,
+            "apports_cumules_capital_initial_inclus": 2300000,
+            "interets_cumules": 21711
+          },
+          {
+            "mois": 3,
+            "solde_ouverture": 2321711,
+            "versement": 150000,
+            "interets": 12031,
+            "solde_cloture": 2483742,
+            "apports_cumules_capital_initial_inclus": 2450000,
+            "interets_cumules": 33742
+          },
+          {
+            "mois": 4,
+            "solde_ouverture": 2483742,
+            "versement": 150000,
+            "interets": 12820,
+            "solde_cloture": 2646562,
+            "apports_cumules_capital_initial_inclus": 2600000,
+            "interets_cumules": 46562
+          },
+          {
+            "mois": 5,
+            "solde_ouverture": 2646562,
+            "versement": 150000,
+            "interets": 13612,
+            "solde_cloture": 2810174,
+            "apports_cumules_capital_initial_inclus": 2750000,
+            "interets_cumules": 60174
+          },
+          {
+            "mois": 6,
+            "solde_ouverture": 2810174,
+            "versement": 150000,
+            "interets": 14409,
+            "solde_cloture": 2974583,
+            "apports_cumules_capital_initial_inclus": 2900000,
+            "interets_cumules": 74583
+          },
+          {
+            "mois": 7,
+            "solde_ouverture": 2974583,
+            "versement": 150000,
+            "interets": 15209,
+            "solde_cloture": 3139792,
+            "apports_cumules_capital_initial_inclus": 3050000,
+            "interets_cumules": 89792
+          },
+          {
+            "mois": 8,
+            "solde_ouverture": 3139792,
+            "versement": 150000,
+            "interets": 16013,
+            "solde_cloture": 3305805,
+            "apports_cumules_capital_initial_inclus": 3200000,
+            "interets_cumules": 105805
+          },
+          {
+            "mois": 9,
+            "solde_ouverture": 3305805,
+            "versement": 150000,
+            "interets": 16821,
+            "solde_cloture": 3472626,
+            "apports_cumules_capital_initial_inclus": 3350000,
+            "interets_cumules": 122626
+          },
+          {
+            "mois": 10,
+            "solde_ouverture": 3472626,
+            "versement": 150000,
+            "interets": 17633,
+            "solde_cloture": 3640259,
+            "apports_cumules_capital_initial_inclus": 3500000,
+            "interets_cumules": 140259
+          },
+          {
+            "mois": 11,
+            "solde_ouverture": 3640259,
+            "versement": 150000,
+            "interets": 18449,
+            "solde_cloture": 3808708,
+            "apports_cumules_capital_initial_inclus": 3650000,
+            "interets_cumules": 158708
+          },
+          {
+            "mois": 12,
+            "solde_ouverture": 3808708,
+            "versement": 150000,
+            "interets": 19269,
+            "solde_cloture": 3977977,
+            "apports_cumules_capital_initial_inclus": 3800000,
+            "interets_cumules": 177977
+          },
+          {
+            "mois": 13,
+            "solde_ouverture": 3977977,
+            "versement": 150000,
+            "interets": 20093,
+            "solde_cloture": 4148070,
+            "apports_cumules_capital_initial_inclus": 3950000,
+            "interets_cumules": 198070
+          },
+          {
+            "mois": 14,
+            "solde_ouverture": 4148070,
+            "versement": 150000,
+            "interets": 20921,
+            "solde_cloture": 4318991,
+            "apports_cumules_capital_initial_inclus": 4100000,
+            "interets_cumules": 218991
+          },
+          {
+            "mois": 15,
+            "solde_ouverture": 4318991,
+            "versement": 150000,
+            "interets": 21753,
+            "solde_cloture": 4490744,
+            "apports_cumules_capital_initial_inclus": 4250000,
+            "interets_cumules": 240744
+          },
+          {
+            "mois": 16,
+            "solde_ouverture": 4490744,
+            "versement": 150000,
+            "interets": 22589,
+            "solde_cloture": 4663333,
+            "apports_cumules_capital_initial_inclus": 4400000,
+            "interets_cumules": 263333
+          },
+          {
+            "mois": 17,
+            "solde_ouverture": 4663333,
+            "versement": 150000,
+            "interets": 23429,
+            "solde_cloture": 4836762,
+            "apports_cumules_capital_initial_inclus": 4550000,
+            "interets_cumules": 286762
+          },
+          {
+            "mois": 18,
+            "solde_ouverture": 4836762,
+            "versement": 150000,
+            "interets": 24273,
+            "solde_cloture": 5011035,
+            "apports_cumules_capital_initial_inclus": 4700000,
+            "interets_cumules": 311035
+          },
+          {
+            "mois": 19,
+            "solde_ouverture": 5011035,
+            "versement": 150000,
+            "interets": 25122,
+            "solde_cloture": 5186157,
+            "apports_cumules_capital_initial_inclus": 4850000,
+            "interets_cumules": 336157
+          },
+          {
+            "mois": 20,
+            "solde_ouverture": 5186157,
+            "versement": 150000,
+            "interets": 25974,
+            "solde_cloture": 5362131,
+            "apports_cumules_capital_initial_inclus": 5000000,
+            "interets_cumules": 362131
+          },
+          {
+            "mois": 21,
+            "solde_ouverture": 5362131,
+            "versement": 150000,
+            "interets": 26831,
+            "solde_cloture": 5538962,
+            "apports_cumules_capital_initial_inclus": 5150000,
+            "interets_cumules": 388962
+          },
+          {
+            "mois": 22,
+            "solde_ouverture": 5538962,
+            "versement": 150000,
+            "interets": 27691,
+            "solde_cloture": 5716653,
+            "apports_cumules_capital_initial_inclus": 5300000,
+            "interets_cumules": 416653
+          },
+          {
+            "mois": 23,
+            "solde_ouverture": 5716653,
+            "versement": 150000,
+            "interets": 28556,
+            "solde_cloture": 5895209,
+            "apports_cumules_capital_initial_inclus": 5450000,
+            "interets_cumules": 445209
+          },
+          {
+            "mois": 24,
+            "solde_ouverture": 5895209,
+            "versement": 150000,
+            "interets": 29425,
+            "solde_cloture": 6074634,
+            "apports_cumules_capital_initial_inclus": 5600000,
+            "interets_cumules": 474634
+          },
+          {
+            "mois": 25,
+            "solde_ouverture": 6074634,
+            "versement": 150000,
+            "interets": 30299,
+            "solde_cloture": 6254933,
+            "apports_cumules_capital_initial_inclus": 5750000,
+            "interets_cumules": 504933
+          },
+          {
+            "mois": 26,
+            "solde_ouverture": 6254933,
+            "versement": 150000,
+            "interets": 31176,
+            "solde_cloture": 6436109,
+            "apports_cumules_capital_initial_inclus": 5900000,
+            "interets_cumules": 536109
+          },
+          {
+            "mois": 27,
+            "solde_ouverture": 6436109,
+            "versement": 150000,
+            "interets": 32058,
+            "solde_cloture": 6618167,
+            "apports_cumules_capital_initial_inclus": 6050000,
+            "interets_cumules": 568167
+          },
+          {
+            "mois": 28,
+            "solde_ouverture": 6618167,
+            "versement": 150000,
+            "interets": 32944,
+            "solde_cloture": 6801111,
+            "apports_cumules_capital_initial_inclus": 6200000,
+            "interets_cumules": 601111
+          },
+          {
+            "mois": 29,
+            "solde_ouverture": 6801111,
+            "versement": 150000,
+            "interets": 33835,
+            "solde_cloture": 6984946,
+            "apports_cumules_capital_initial_inclus": 6350000,
+            "interets_cumules": 634946
+          },
+          {
+            "mois": 30,
+            "solde_ouverture": 6984946,
+            "versement": 150000,
+            "interets": 34730,
+            "solde_cloture": 7169676,
+            "apports_cumules_capital_initial_inclus": 6500000,
+            "interets_cumules": 669676
+          },
+          {
+            "mois": 31,
+            "solde_ouverture": 7169676,
+            "versement": 150000,
+            "interets": 35629,
+            "solde_cloture": 7355305,
+            "apports_cumules_capital_initial_inclus": 6650000,
+            "interets_cumules": 705305
+          },
+          {
+            "mois": 32,
+            "solde_ouverture": 7355305,
+            "versement": 150000,
+            "interets": 36532,
+            "solde_cloture": 7541837,
+            "apports_cumules_capital_initial_inclus": 6800000,
+            "interets_cumules": 741837
+          },
+          {
+            "mois": 33,
+            "solde_ouverture": 7541837,
+            "versement": 150000,
+            "interets": 37440,
+            "solde_cloture": 7729277,
+            "apports_cumules_capital_initial_inclus": 6950000,
+            "interets_cumules": 779277
+          },
+          {
+            "mois": 34,
+            "solde_ouverture": 7729277,
+            "versement": 150000,
+            "interets": 38353,
+            "solde_cloture": 7917630,
+            "apports_cumules_capital_initial_inclus": 7100000,
+            "interets_cumules": 817630
+          },
+          {
+            "mois": 35,
+            "solde_ouverture": 7917630,
+            "versement": 150000,
+            "interets": 39270,
+            "solde_cloture": 8106900,
+            "apports_cumules_capital_initial_inclus": 7250000,
+            "interets_cumules": 856900
+          },
+          {
+            "mois": 36,
+            "solde_ouverture": 8106900,
+            "versement": 150000,
+            "interets": 40191,
+            "solde_cloture": 8297091,
+            "apports_cumules_capital_initial_inclus": 7400000,
+            "interets_cumules": 897091
+          },
+          {
+            "mois": 37,
+            "solde_ouverture": 8297091,
+            "versement": 150000,
+            "interets": 41117,
+            "solde_cloture": 8488208,
+            "apports_cumules_capital_initial_inclus": 7550000,
+            "interets_cumules": 938208
+          },
+          {
+            "mois": 38,
+            "solde_ouverture": 8488208,
+            "versement": 150000,
+            "interets": 42047,
+            "solde_cloture": 8680255,
+            "apports_cumules_capital_initial_inclus": 7700000,
+            "interets_cumules": 980255
+          },
+          {
+            "mois": 39,
+            "solde_ouverture": 8680255,
+            "versement": 150000,
+            "interets": 42982,
+            "solde_cloture": 8873237,
+            "apports_cumules_capital_initial_inclus": 7850000,
+            "interets_cumules": 1023237
+          },
+          {
+            "mois": 40,
+            "solde_ouverture": 8873237,
+            "versement": 150000,
+            "interets": 43921,
+            "solde_cloture": 9067158,
+            "apports_cumules_capital_initial_inclus": 8000000,
+            "interets_cumules": 1067158
+          },
+          {
+            "mois": 41,
+            "solde_ouverture": 9067158,
+            "versement": 150000,
+            "interets": 44865,
+            "solde_cloture": 9262023,
+            "apports_cumules_capital_initial_inclus": 8150000,
+            "interets_cumules": 1112023
+          },
+          {
+            "mois": 42,
+            "solde_ouverture": 9262023,
+            "versement": 150000,
+            "interets": 45813,
+            "solde_cloture": 9457836,
+            "apports_cumules_capital_initial_inclus": 8300000,
+            "interets_cumules": 1157836
+          },
+          {
+            "mois": 43,
+            "solde_ouverture": 9457836,
+            "versement": 150000,
+            "interets": 46767,
+            "solde_cloture": 9654603,
+            "apports_cumules_capital_initial_inclus": 8450000,
+            "interets_cumules": 1204603
+          },
+          {
+            "mois": 44,
+            "solde_ouverture": 9654603,
+            "versement": 150000,
+            "interets": 47724,
+            "solde_cloture": 9852327,
+            "apports_cumules_capital_initial_inclus": 8600000,
+            "interets_cumules": 1252327
+          },
+          {
+            "mois": 45,
+            "solde_ouverture": 9852327,
+            "versement": 150000,
+            "interets": 48687,
+            "solde_cloture": 10051014,
+            "apports_cumules_capital_initial_inclus": 8750000,
+            "interets_cumules": 1301014
+          },
+          {
+            "mois": 46,
+            "solde_ouverture": 10051014,
+            "versement": 150000,
+            "interets": 49654,
+            "solde_cloture": 10250668,
+            "apports_cumules_capital_initial_inclus": 8900000,
+            "interets_cumules": 1350668
+          },
+          {
+            "mois": 47,
+            "solde_ouverture": 10250668,
+            "versement": 150000,
+            "interets": 50626,
+            "solde_cloture": 10451294,
+            "apports_cumules_capital_initial_inclus": 9050000,
+            "interets_cumules": 1401294
+          },
+          {
+            "mois": 48,
+            "solde_ouverture": 10451294,
+            "versement": 150000,
+            "interets": 51602,
+            "solde_cloture": 10652896,
+            "apports_cumules_capital_initial_inclus": 9200000,
+            "interets_cumules": 1452896
+          },
+          {
+            "mois": 49,
+            "solde_ouverture": 10652896,
+            "versement": 150000,
+            "interets": 52584,
+            "solde_cloture": 10855480,
+            "apports_cumules_capital_initial_inclus": 9350000,
+            "interets_cumules": 1505480
+          },
+          {
+            "mois": 50,
+            "solde_ouverture": 10855480,
+            "versement": 150000,
+            "interets": 53570,
+            "solde_cloture": 11059050,
+            "apports_cumules_capital_initial_inclus": 9500000,
+            "interets_cumules": 1559050
+          },
+          {
+            "mois": 51,
+            "solde_ouverture": 11059050,
+            "versement": 150000,
+            "interets": 54561,
+            "solde_cloture": 11263611,
+            "apports_cumules_capital_initial_inclus": 9650000,
+            "interets_cumules": 1613611
+          },
+          {
+            "mois": 52,
+            "solde_ouverture": 11263611,
+            "versement": 150000,
+            "interets": 55556,
+            "solde_cloture": 11469167,
+            "apports_cumules_capital_initial_inclus": 9800000,
+            "interets_cumules": 1669167
+          },
+          {
+            "mois": 53,
+            "solde_ouverture": 11469167,
+            "versement": 150000,
+            "interets": 56557,
+            "solde_cloture": 11675724,
+            "apports_cumules_capital_initial_inclus": 9950000,
+            "interets_cumules": 1725724
+          },
+          {
+            "mois": 54,
+            "solde_ouverture": 11675724,
+            "versement": 150000,
+            "interets": 57562,
+            "solde_cloture": 11883286,
+            "apports_cumules_capital_initial_inclus": 10100000,
+            "interets_cumules": 1783286
+          },
+          {
+            "mois": 55,
+            "solde_ouverture": 11883286,
+            "versement": 150000,
+            "interets": 58573,
+            "solde_cloture": 12091859,
+            "apports_cumules_capital_initial_inclus": 10250000,
+            "interets_cumules": 1841859
+          },
+          {
+            "mois": 56,
+            "solde_ouverture": 12091859,
+            "versement": 150000,
+            "interets": 59588,
+            "solde_cloture": 12301447,
+            "apports_cumules_capital_initial_inclus": 10400000,
+            "interets_cumules": 1901447
+          },
+          {
+            "mois": 57,
+            "solde_ouverture": 12301447,
+            "versement": 150000,
+            "interets": 60608,
+            "solde_cloture": 12512055,
+            "apports_cumules_capital_initial_inclus": 10550000,
+            "interets_cumules": 1962055
+          },
+          {
+            "mois": 58,
+            "solde_ouverture": 12512055,
+            "versement": 150000,
+            "interets": 61633,
+            "solde_cloture": 12723688,
+            "apports_cumules_capital_initial_inclus": 10700000,
+            "interets_cumules": 2023688
+          },
+          {
+            "mois": 59,
+            "solde_ouverture": 12723688,
+            "versement": 150000,
+            "interets": 62663,
+            "solde_cloture": 12936351,
+            "apports_cumules_capital_initial_inclus": 10850000,
+            "interets_cumules": 2086351
+          },
+          {
+            "mois": 60,
+            "solde_ouverture": 12936351,
+            "versement": 150000,
+            "interets": 63698,
+            "solde_cloture": 13150049,
+            "apports_cumules_capital_initial_inclus": 11000000,
+            "interets_cumules": 2150049
+          },
+          {
+            "mois": 61,
+            "solde_ouverture": 13150049,
+            "versement": 150000,
+            "interets": 64739,
+            "solde_cloture": 13364788,
+            "apports_cumules_capital_initial_inclus": 11150000,
+            "interets_cumules": 2214788
+          },
+          {
+            "mois": 62,
+            "solde_ouverture": 13364788,
+            "versement": 150000,
+            "interets": 65784,
+            "solde_cloture": 13580572,
+            "apports_cumules_capital_initial_inclus": 11300000,
+            "interets_cumules": 2280572
+          },
+          {
+            "mois": 63,
+            "solde_ouverture": 13580572,
+            "versement": 150000,
+            "interets": 66834,
+            "solde_cloture": 13797406,
+            "apports_cumules_capital_initial_inclus": 11450000,
+            "interets_cumules": 2347406
+          },
+          {
+            "mois": 64,
+            "solde_ouverture": 13797406,
+            "versement": 150000,
+            "interets": 67890,
+            "solde_cloture": 14015296,
+            "apports_cumules_capital_initial_inclus": 11600000,
+            "interets_cumules": 2415296
+          },
+          {
+            "mois": 65,
+            "solde_ouverture": 14015296,
+            "versement": 150000,
+            "interets": 68950,
+            "solde_cloture": 14234246,
+            "apports_cumules_capital_initial_inclus": 11750000,
+            "interets_cumules": 2484246
+          },
+          {
+            "mois": 66,
+            "solde_ouverture": 14234246,
+            "versement": 150000,
+            "interets": 70016,
+            "solde_cloture": 14454262,
+            "apports_cumules_capital_initial_inclus": 11900000,
+            "interets_cumules": 2554262
+          },
+          {
+            "mois": 67,
+            "solde_ouverture": 14454262,
+            "versement": 150000,
+            "interets": 71087,
+            "solde_cloture": 14675349,
+            "apports_cumules_capital_initial_inclus": 12050000,
+            "interets_cumules": 2625349
+          },
+          {
+            "mois": 68,
+            "solde_ouverture": 14675349,
+            "versement": 150000,
+            "interets": 72163,
+            "solde_cloture": 14897512,
+            "apports_cumules_capital_initial_inclus": 12200000,
+            "interets_cumules": 2697512
+          },
+          {
+            "mois": 69,
+            "solde_ouverture": 14897512,
+            "versement": 150000,
+            "interets": 73245,
+            "solde_cloture": 15120757,
+            "apports_cumules_capital_initial_inclus": 12350000,
+            "interets_cumules": 2770757
+          },
+          {
+            "mois": 70,
+            "solde_ouverture": 15120757,
+            "versement": 150000,
+            "interets": 74331,
+            "solde_cloture": 15345088,
+            "apports_cumules_capital_initial_inclus": 12500000,
+            "interets_cumules": 2845088
+          },
+          {
+            "mois": 71,
+            "solde_ouverture": 15345088,
+            "versement": 150000,
+            "interets": 75423,
+            "solde_cloture": 15570511,
+            "apports_cumules_capital_initial_inclus": 12650000,
+            "interets_cumules": 2920511
+          },
+          {
+            "mois": 72,
+            "solde_ouverture": 15570511,
+            "versement": 150000,
+            "interets": 76520,
+            "solde_cloture": 15797031,
+            "apports_cumules_capital_initial_inclus": 12800000,
+            "interets_cumules": 2997031
+          },
+          {
+            "mois": 73,
+            "solde_ouverture": 15797031,
+            "versement": 150000,
+            "interets": 77623,
+            "solde_cloture": 16024654,
+            "apports_cumules_capital_initial_inclus": 12950000,
+            "interets_cumules": 3074654
+          },
+          {
+            "mois": 74,
+            "solde_ouverture": 16024654,
+            "versement": 150000,
+            "interets": 78731,
+            "solde_cloture": 16253385,
+            "apports_cumules_capital_initial_inclus": 13100000,
+            "interets_cumules": 3153385
+          },
+          {
+            "mois": 75,
+            "solde_ouverture": 16253385,
+            "versement": 150000,
+            "interets": 79844,
+            "solde_cloture": 16483229,
+            "apports_cumules_capital_initial_inclus": 13250000,
+            "interets_cumules": 3233229
+          },
+          {
+            "mois": 76,
+            "solde_ouverture": 16483229,
+            "versement": 150000,
+            "interets": 80963,
+            "solde_cloture": 16714192,
+            "apports_cumules_capital_initial_inclus": 13400000,
+            "interets_cumules": 3314192
+          },
+          {
+            "mois": 77,
+            "solde_ouverture": 16714192,
+            "versement": 150000,
+            "interets": 82087,
+            "solde_cloture": 16946279,
+            "apports_cumules_capital_initial_inclus": 13550000,
+            "interets_cumules": 3396279
+          },
+          {
+            "mois": 78,
+            "solde_ouverture": 16946279,
+            "versement": 150000,
+            "interets": 83217,
+            "solde_cloture": 17179496,
+            "apports_cumules_capital_initial_inclus": 13700000,
+            "interets_cumules": 3479496
+          },
+          {
+            "mois": 79,
+            "solde_ouverture": 17179496,
+            "versement": 150000,
+            "interets": 84352,
+            "solde_cloture": 17413848,
+            "apports_cumules_capital_initial_inclus": 13850000,
+            "interets_cumules": 3563848
+          },
+          {
+            "mois": 80,
+            "solde_ouverture": 17413848,
+            "versement": 150000,
+            "interets": 85493,
+            "solde_cloture": 17649341,
+            "apports_cumules_capital_initial_inclus": 14000000,
+            "interets_cumules": 3649341
+          },
+          {
+            "mois": 81,
+            "solde_ouverture": 17649341,
+            "versement": 150000,
+            "interets": 86639,
+            "solde_cloture": 17885980,
+            "apports_cumules_capital_initial_inclus": 14150000,
+            "interets_cumules": 3735980
+          },
+          {
+            "mois": 82,
+            "solde_ouverture": 17885980,
+            "versement": 150000,
+            "interets": 87791,
+            "solde_cloture": 18123771,
+            "apports_cumules_capital_initial_inclus": 14300000,
+            "interets_cumules": 3823771
+          },
+          {
+            "mois": 83,
+            "solde_ouverture": 18123771,
+            "versement": 150000,
+            "interets": 88949,
+            "solde_cloture": 18362720,
+            "apports_cumules_capital_initial_inclus": 14450000,
+            "interets_cumules": 3912720
+          },
+          {
+            "mois": 84,
+            "solde_ouverture": 18362720,
+            "versement": 150000,
+            "interets": 90112,
+            "solde_cloture": 18602832,
+            "apports_cumules_capital_initial_inclus": 14600000,
+            "interets_cumules": 4002832
+          },
+          {
+            "mois": 85,
+            "solde_ouverture": 18602832,
+            "versement": 150000,
+            "interets": 91280,
+            "solde_cloture": 18844112,
+            "apports_cumules_capital_initial_inclus": 14750000,
+            "interets_cumules": 4094112
+          },
+          {
+            "mois": 86,
+            "solde_ouverture": 18844112,
+            "versement": 150000,
+            "interets": 92455,
+            "solde_cloture": 19086567,
+            "apports_cumules_capital_initial_inclus": 14900000,
+            "interets_cumules": 4186567
+          },
+          {
+            "mois": 87,
+            "solde_ouverture": 19086567,
+            "versement": 150000,
+            "interets": 93635,
+            "solde_cloture": 19330202,
+            "apports_cumules_capital_initial_inclus": 15050000,
+            "interets_cumules": 4280202
+          },
+          {
+            "mois": 88,
+            "solde_ouverture": 19330202,
+            "versement": 150000,
+            "interets": 94821,
+            "solde_cloture": 19575023,
+            "apports_cumules_capital_initial_inclus": 15200000,
+            "interets_cumules": 4375023
+          },
+          {
+            "mois": 89,
+            "solde_ouverture": 19575023,
+            "versement": 150000,
+            "interets": 96013,
+            "solde_cloture": 19821036,
+            "apports_cumules_capital_initial_inclus": 15350000,
+            "interets_cumules": 4471036
+          },
+          {
+            "mois": 90,
+            "solde_ouverture": 19821036,
+            "versement": 150000,
+            "interets": 97210,
+            "solde_cloture": 20068246,
+            "apports_cumules_capital_initial_inclus": 15500000,
+            "interets_cumules": 4568246
+          },
+          {
+            "mois": 91,
+            "solde_ouverture": 20068246,
+            "versement": 150000,
+            "interets": 98413,
+            "solde_cloture": 20316659,
+            "apports_cumules_capital_initial_inclus": 15650000,
+            "interets_cumules": 4666659
+          },
+          {
+            "mois": 92,
+            "solde_ouverture": 20316659,
+            "versement": 150000,
+            "interets": 99622,
+            "solde_cloture": 20566281,
+            "apports_cumules_capital_initial_inclus": 15800000,
+            "interets_cumules": 4766281
+          },
+          {
+            "mois": 93,
+            "solde_ouverture": 20566281,
+            "versement": 150000,
+            "interets": 100838,
+            "solde_cloture": 20817119,
+            "apports_cumules_capital_initial_inclus": 15950000,
+            "interets_cumules": 4867119
+          },
+          {
+            "mois": 94,
+            "solde_ouverture": 20817119,
+            "versement": 150000,
+            "interets": 102059,
+            "solde_cloture": 21069178,
+            "apports_cumules_capital_initial_inclus": 16100000,
+            "interets_cumules": 4969178
+          },
+          {
+            "mois": 95,
+            "solde_ouverture": 21069178,
+            "versement": 150000,
+            "interets": 103285,
+            "solde_cloture": 21322463,
+            "apports_cumules_capital_initial_inclus": 16250000,
+            "interets_cumules": 5072463
+          },
+          {
+            "mois": 96,
+            "solde_ouverture": 21322463,
+            "versement": 150000,
+            "interets": 104518,
+            "solde_cloture": 21576981,
+            "apports_cumules_capital_initial_inclus": 16400000,
+            "interets_cumules": 5176981
+          },
+          {
+            "mois": 97,
+            "solde_ouverture": 21576981,
+            "versement": 150000,
+            "interets": 105757,
+            "solde_cloture": 21832738,
+            "apports_cumules_capital_initial_inclus": 16550000,
+            "interets_cumules": 5282738
+          },
+          {
+            "mois": 98,
+            "solde_ouverture": 21832738,
+            "versement": 150000,
+            "interets": 107002,
+            "solde_cloture": 22089740,
+            "apports_cumules_capital_initial_inclus": 16700000,
+            "interets_cumules": 5389740
+          },
+          {
+            "mois": 99,
+            "solde_ouverture": 22089740,
+            "versement": 150000,
+            "interets": 108253,
+            "solde_cloture": 22347993,
+            "apports_cumules_capital_initial_inclus": 16850000,
+            "interets_cumules": 5497993
+          },
+          {
+            "mois": 100,
+            "solde_ouverture": 22347993,
+            "versement": 150000,
+            "interets": 109510,
+            "solde_cloture": 22607503,
+            "apports_cumules_capital_initial_inclus": 17000000,
+            "interets_cumules": 5607503
+          },
+          {
+            "mois": 101,
+            "solde_ouverture": 22607503,
+            "versement": 150000,
+            "interets": 110773,
+            "solde_cloture": 22868276,
+            "apports_cumules_capital_initial_inclus": 17150000,
+            "interets_cumules": 5718276
+          },
+          {
+            "mois": 102,
+            "solde_ouverture": 22868276,
+            "versement": 150000,
+            "interets": 112043,
+            "solde_cloture": 23130319,
+            "apports_cumules_capital_initial_inclus": 17300000,
+            "interets_cumules": 5830319
+          },
+          {
+            "mois": 103,
+            "solde_ouverture": 23130319,
+            "versement": 150000,
+            "interets": 113318,
+            "solde_cloture": 23393637,
+            "apports_cumules_capital_initial_inclus": 17450000,
+            "interets_cumules": 5943637
+          },
+          {
+            "mois": 104,
+            "solde_ouverture": 23393637,
+            "versement": 150000,
+            "interets": 114600,
+            "solde_cloture": 23658237,
+            "apports_cumules_capital_initial_inclus": 17600000,
+            "interets_cumules": 6058237
+          },
+          {
+            "mois": 105,
+            "solde_ouverture": 23658237,
+            "versement": 150000,
+            "interets": 115888,
+            "solde_cloture": 23924125,
+            "apports_cumules_capital_initial_inclus": 17750000,
+            "interets_cumules": 6174125
+          },
+          {
+            "mois": 106,
+            "solde_ouverture": 23924125,
+            "versement": 150000,
+            "interets": 117182,
+            "solde_cloture": 24191307,
+            "apports_cumules_capital_initial_inclus": 17900000,
+            "interets_cumules": 6291307
+          },
+          {
+            "mois": 107,
+            "solde_ouverture": 24191307,
+            "versement": 150000,
+            "interets": 118483,
+            "solde_cloture": 24459790,
+            "apports_cumules_capital_initial_inclus": 18050000,
+            "interets_cumules": 6409790
+          },
+          {
+            "mois": 108,
+            "solde_ouverture": 24459790,
+            "versement": 150000,
+            "interets": 119789,
+            "solde_cloture": 24729579,
+            "apports_cumules_capital_initial_inclus": 18200000,
+            "interets_cumules": 6529579
+          },
+          {
+            "mois": 109,
+            "solde_ouverture": 24729579,
+            "versement": 150000,
+            "interets": 121103,
+            "solde_cloture": 25000682,
+            "apports_cumules_capital_initial_inclus": 18350000,
+            "interets_cumules": 6650682
+          },
+          {
+            "mois": 110,
+            "solde_ouverture": 25000682,
+            "versement": 150000,
+            "interets": 122422,
+            "solde_cloture": 25273104,
+            "apports_cumules_capital_initial_inclus": 18500000,
+            "interets_cumules": 6773104
+          },
+          {
+            "mois": 111,
+            "solde_ouverture": 25273104,
+            "versement": 150000,
+            "interets": 123748,
+            "solde_cloture": 25546852,
+            "apports_cumules_capital_initial_inclus": 18650000,
+            "interets_cumules": 6896852
+          },
+          {
+            "mois": 112,
+            "solde_ouverture": 25546852,
+            "versement": 150000,
+            "interets": 125081,
+            "solde_cloture": 25821933,
+            "apports_cumules_capital_initial_inclus": 18800000,
+            "interets_cumules": 7021933
+          },
+          {
+            "mois": 113,
+            "solde_ouverture": 25821933,
+            "versement": 150000,
+            "interets": 126420,
+            "solde_cloture": 26098353,
+            "apports_cumules_capital_initial_inclus": 18950000,
+            "interets_cumules": 7148353
+          },
+          {
+            "mois": 114,
+            "solde_ouverture": 26098353,
+            "versement": 150000,
+            "interets": 127765,
+            "solde_cloture": 26376118,
+            "apports_cumules_capital_initial_inclus": 19100000,
+            "interets_cumules": 7276118
+          },
+          {
+            "mois": 115,
+            "solde_ouverture": 26376118,
+            "versement": 150000,
+            "interets": 129117,
+            "solde_cloture": 26655235,
+            "apports_cumules_capital_initial_inclus": 19250000,
+            "interets_cumules": 7405235
+          },
+          {
+            "mois": 116,
+            "solde_ouverture": 26655235,
+            "versement": 150000,
+            "interets": 130476,
+            "solde_cloture": 26935711,
+            "apports_cumules_capital_initial_inclus": 19400000,
+            "interets_cumules": 7535711
+          },
+          {
+            "mois": 117,
+            "solde_ouverture": 26935711,
+            "versement": 150000,
+            "interets": 131841,
+            "solde_cloture": 27217552,
+            "apports_cumules_capital_initial_inclus": 19550000,
+            "interets_cumules": 7667552
+          },
+          {
+            "mois": 118,
+            "solde_ouverture": 27217552,
+            "versement": 150000,
+            "interets": 133213,
+            "solde_cloture": 27500765,
+            "apports_cumules_capital_initial_inclus": 19700000,
+            "interets_cumules": 7800765
+          },
+          {
+            "mois": 119,
+            "solde_ouverture": 27500765,
+            "versement": 150000,
+            "interets": 134591,
+            "solde_cloture": 27785356,
+            "apports_cumules_capital_initial_inclus": 19850000,
+            "interets_cumules": 7935356
+          },
+          {
+            "mois": 120,
+            "solde_ouverture": 27785356,
+            "versement": 150000,
+            "interets": 135977,
+            "solde_cloture": 28071333,
+            "apports_cumules_capital_initial_inclus": 20000000,
+            "interets_cumules": 8071333
+          }
+        ]
+      }
+    }
+  },
+  "controles_externes": {
+    "statut": "manquant",
+    "note": "Aucune valeur de contrôle certifiée n'est disponible ; les valeurs indicatives de l'ancien rapport E1 ne sont pas des références."
+  }
+}
