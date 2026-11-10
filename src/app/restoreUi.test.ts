@@ -8,7 +8,7 @@
  *  - parcours complet de la page Paramètres : aperçu, sauvegarde de sécurité
  *    téléchargée, restauration, réinitialisation des états mémorisés.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement as h, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -27,7 +27,7 @@ import { undoStore } from '@/data/backup';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildContext, summarizePeriod } from '@/domain/calc/ledger';
-import { monthPeriod, monthKey, todayISO } from '@/domain/dates';
+import { monthPeriod, todayISO } from '@/domain/dates';
 import { LAST_ACCOUNT_KEY, MONTH_KEY, SESSION_KEYS_RESET_ON_RESTORE } from './uiState';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -49,9 +49,21 @@ Blob.prototype.text ??= function (this: Blob) {
 };
 window.scrollTo = (() => {}) as never;
 
+// Horloge figée : les jeux de démonstration dépendent de la date (seules les échéances
+// passées sont générées), le nombre d'opérations varie donc selon le jour d'exécution.
+// Seul `Date` est simulé : setTimeout, IndexedDB et React gardent leur temps réel.
+const NOW = new Date('2026-11-15T12:00:00Z');
+const TODAY = '2026-11-15'; // Africa/Casablanca
+const OTHER_TODAY = '2026-03-10'; // jeu restauré : aucune opération dans le mois courant
+
 let seq = 0;
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
+});
 
 afterEach(() => {
   act(() => root?.unmount());
@@ -61,9 +73,10 @@ afterEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
-async function newRepo(today = todayISO('Africa/Casablanca')) {
+async function newRepo(today: string = TODAY) {
   const repo = new LocalRepository(new NexoraDB(`ui-${++seq}`), 'local-user');
   await repo.replaceWithSnapshot(generateDemoData(repo.userId, today, 'Test'));
   return repo;
@@ -98,9 +111,10 @@ const probe = () => document.querySelector<HTMLElement>('[data-testid="probe"]')
 const rows = () => container!.querySelectorAll('input[type="checkbox"]').length;
 
 async function waitFor(cond: () => boolean, timeout = 4000) {
-  const start = Date.now();
+  // performance.now() : non simulé, le délai reste mesuré malgré l'horloge figée.
+  const start = performance.now();
   while (!cond()) {
-    if (Date.now() - start > timeout) throw new Error('délai dépassé');
+    if (performance.now() - start > timeout) throw new Error('délai dépassé');
     await act(async () => {
       await new Promise((r) => setTimeout(r, 20));
     });
@@ -108,6 +122,17 @@ async function waitFor(cond: () => boolean, timeout = 4000) {
 }
 
 describe('restauration — interface', () => {
+  it('horloge figée : la date de l’application et des jeux de démonstration ne dépend pas du jour réel', async () => {
+    expect(todayISO('Africa/Casablanca')).toBe(TODAY);
+    const repo = await newRepo();
+    // Les attentes « nombre d'opérations restaurées » exigent des volumes distincts.
+    const n = (await repo.snapshot())!.transactions.length;
+    expect(n).toBe(generateDemoData('u', TODAY).transactions.length);
+    expect(generateDemoData('u', OTHER_TODAY).transactions.length).not.toBe(n);
+    expect(generateDemoData('u', '2026-05-20').transactions.length).not.toBe(n);
+    expect(JSON.parse(V1).data.transactions.length).not.toBe(n);
+  });
+
   it('18-19 page Transactions : filtre mémorisé sur un compte de l’ancien jeu → données restaurées visibles, KPI recalculés', async () => {
     const repo = await newRepo();
     const before = (await repo.snapshot())!;
@@ -121,6 +146,7 @@ describe('restauration — interface', () => {
     const other = await newRepo('2026-05-20');
     const file = JSON.parse(JSON.stringify(await other.exportBackup()));
     const otherSnap = (await other.snapshot())!;
+    expect(otherSnap.transactions.length).not.toBe(before.transactions.length);
     expect(otherSnap.accounts.some((a) => a.id === oldAccount)).toBe(false);
     await act(async () => repo.restoreBackup(file));
     await waitFor(() => probe()!.dataset.tx === String(otherSnap.transactions.length));
@@ -151,8 +177,9 @@ describe('restauration — interface', () => {
 
   it('parcours Paramètres : aperçu, sauvegarde de sécurité téléchargée, restauration, filtres et mois réinitialisés', async () => {
     const repo = await newRepo();
-    const other = await newRepo('2026-03-10');
+    const other = await newRepo(OTHER_TODAY);
     const otherSnap = (await other.snapshot())!;
+    expect(otherSnap.transactions.length).not.toBe((await repo.snapshot())!.transactions.length);
     const backup = JSON.stringify(await other.exportBackup());
     sessionStorage.setItem('nexora.tx-filters', JSON.stringify({ accountId: 'x' }));
     sessionStorage.setItem('nexora.analytics', JSON.stringify({ categoryId: 'y' }));
@@ -182,18 +209,51 @@ describe('restauration — interface', () => {
 
     const confirmBtn = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Restaurer')!;
     await act(async () => confirmBtn.click());
-    await waitFor(() => probe()!.dataset.tx === String(otherSnap.transactions.length));
+    // Fin réelle du parcours : l'emplacement d'annulation est rempli en dernier.
+    await waitFor(() => undoStore.get() !== null && probe()!.dataset.tx === String(otherSnap.transactions.length));
 
     expect(downloads).toHaveLength(1);
     expect(downloads[0]).toMatch(/^nexora-securite-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.json$/);
     for (const k of SESSION_KEYS_RESET_ON_RESTORE) expect(sessionStorage.getItem(k), k).toBeNull();
     expect(localStorage.getItem(LAST_ACCOUNT_KEY)).toBeNull();
-    // Mois positionné sur des données restaurées (ici, le mois courant n'en contient pas).
-    const latest = otherSnap.transactions.map((t) => t.date).filter((d) => d <= todayISO('Africa/Casablanca')).sort().at(-1)!;
-    const expectedMonth = otherSnap.transactions.some((t) => t.date.slice(0, 7) === monthKey(todayISO('Africa/Casablanca'))) ? monthKey(todayISO('Africa/Casablanca')) : latest.slice(0, 7);
+    // Mois positionné sur des données restaurées : novembre 2026 n'en contient pas, la
+    // dernière opération passée du jeu restauré date de mars 2026.
+    const expectedMonth = '2026-03';
+    expect(otherSnap.transactions.some((t) => t.date.startsWith('2026-11'))).toBe(false);
+    expect(otherSnap.transactions.map((t) => t.date).sort().at(-1)!.slice(0, 7)).toBe(expectedMonth);
     expect(sessionStorage.getItem(MONTH_KEY)).toBe(expectedMonth);
     expect(probe()!.dataset.month).toBe(expectedMonth);
     expect(Number(probe()!.dataset.income) + Number(probe()!.dataset.expenses)).toBeGreaterThan(0);
+  });
+
+  it('parcours Paramètres : sauvegarde au même nombre d’opérations → fin de restauration attendue, pas le seul volume', async () => {
+    // Régression : deux jeux générés à des dates différentes peuvent compter autant
+    // d'opérations ; attendre ce seul nombre laissait la restauration se poursuivre après le test.
+    const repo = await newRepo();
+    const other = await newRepo();
+    const before = (await repo.snapshot())!;
+    const otherSnap = (await other.snapshot())!;
+    expect(otherSnap.transactions.length).toBe(before.transactions.length);
+    sessionStorage.setItem('nexora.tx-filters', JSON.stringify({ accountId: before.accounts[0].id }));
+    sessionStorage.setItem(MONTH_KEY, '2030-01');
+    URL.createObjectURL = (() => 'blob:x') as never;
+    URL.revokeObjectURL = (() => {}) as never;
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    await render(repo, h(Settings));
+    const input = container!.querySelector<HTMLInputElement>('[data-testid="restore-input"]')!;
+    const file = new File([JSON.stringify(await other.exportBackup())], 'meme-volume.json', { type: 'application/json' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    await waitFor(() => !!document.querySelector('[data-testid="restore-preview"]'));
+    expect(probe()!.dataset.tx).toBe(String(otherSnap.transactions.length)); // volume déjà « atteint »
+    await act(async () => button('Restaurer')!.click());
+    await waitFor(() => undoStore.get() !== null);
+
+    expect((await repo.snapshot())!.accounts.map((a) => a.id).sort()).toEqual(otherSnap.accounts.map((a) => a.id).sort());
+    expect(sessionStorage.getItem('nexora.tx-filters')).toBeNull();
+    expect(sessionStorage.getItem(MONTH_KEY)).toBe('2026-11'); // le mois courant contient des opérations
+    expect(probe()!.dataset.month).toBe('2026-11');
   });
 
   it('parcours Paramètres : fichier invalide → message, aucune écriture, aucun téléchargement', async () => {
