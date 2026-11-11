@@ -6,7 +6,7 @@ import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, EmptyState } from '@/components/ui/Misc';
 import { Dialog, useConfirm } from '@/components/ui/Dialog';
-import { Field, Input, MoneyInput, Select, Textarea } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Select, Textarea, useAmountGuard } from '@/components/ui/Field';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { ChartTooltip, LegendDot, NoData, SERIES, useChart } from '@/components/charts/ChartKit';
@@ -32,6 +32,8 @@ export default function NetWorth() {
   const { data, ctx, fmt, today, repo, settings, uiLocale } = useApp();
   const chart = useChart();
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const confirm = useConfirm();
   const [assetForm, setAssetForm] = useState<{ id?: string; name: string; type: AssetType; currency: string; linkedAccountId?: string; notes?: string; value: number | null; date: string } | null>(null);
   const [valForm, setValForm] = useState<{ asset: Asset; value: number | null; date: string; note: string } | null>(null);
@@ -47,6 +49,7 @@ export default function NetWorth() {
   const share = (k: AssetClass[]) => (nw.totalAssets > 0 ? k.reduce((a, c) => a + nw.byClass[c], 0) / nw.totalAssets : null);
 
   async function saveAsset() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!assetForm) return;
     try {
       const { value, date, id, ...rest } = assetForm;
@@ -59,6 +62,7 @@ export default function NetWorth() {
   }
 
   async function saveValuation() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!valForm || valForm.value == null) return;
     try {
       await repo.addValuation(valForm.asset.id, valForm.date, valForm.value, valForm.note || undefined);
@@ -226,7 +230,7 @@ export default function NetWorth() {
             </Field>
             {!assetForm.id && (
               <>
-                <Field label={t('nw.estimatedValue')}><MoneyInput value={assetForm.value} onChange={(v) => setAssetForm({ ...assetForm, value: v })} currency={assetForm.currency} /></Field>
+                <Field label={t('nw.estimatedValue')}><MoneyInput onIssue={amounts.track('m1')} value={assetForm.value} onChange={(v) => setAssetForm({ ...assetForm, value: v })} currency={assetForm.currency} /></Field>
                 <Field label={t('nw.valuationDate')}><Input type="date" value={assetForm.date} onChange={(e) => setAssetForm({ ...assetForm, date: e.target.value })} /></Field>
               </>
             )}
@@ -239,7 +243,7 @@ export default function NetWorth() {
         footer={<><Button variant="ghost" onClick={() => setValForm(null)}>{t('common.cancel')}</Button><Button variant="primary" onClick={saveValuation} disabled={valForm?.value == null}>{t('common.save')}</Button></>}>
         {valForm && (
           <div className="space-y-4">
-            <Field label={t('nw.estimatedValue')} hint={t('nw.manualHint')}><MoneyInput value={valForm.value} onChange={(v) => setValForm({ ...valForm, value: v })} currency={valForm.asset.currency} data-autofocus /></Field>
+            <Field label={t('nw.estimatedValue')} hint={t('nw.manualHint')}><MoneyInput onIssue={amounts.track('m2')} value={valForm.value} onChange={(v) => setValForm({ ...valForm, value: v })} currency={valForm.asset.currency} data-autofocus /></Field>
             <Field label={t('common.date')}><Input type="date" value={valForm.date} onChange={(e) => setValForm({ ...valForm, date: e.target.value })} /></Field>
             <Field label={t('nw.sourceNote')}><Input value={valForm.note} onChange={(e) => setValForm({ ...valForm, note: e.target.value })} placeholder={t('nw.sourcePlaceholder')} /></Field>
           </div>

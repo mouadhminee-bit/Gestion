@@ -24,6 +24,8 @@ import {
   DecisionInputError,
   MAX_VARIANTS,
   MIN_VARIANTS,
+  projectDecision,
+  referenceTrajectory,
   simulateDecision,
   validateDecision,
   type DecisionInput,
@@ -31,7 +33,7 @@ import {
   type InitialSituation,
 } from '@/domain/calc/decision';
 import { parseMonths, type DecisionKind } from './decisionDraft';
-import { trajectoryRows } from './simulationRun';
+import { trajectoryRows, unexpected } from './simulationRun';
 import { createSnapshot, MAX_LABEL_LENGTH, MAX_NAME_LENGTH, type DecisionSnapshot, type SnapshotVariantResult } from './snapshot';
 
 /** Identifiants des variantes dans le snapshot, par position : la première (A) sert de base aux écarts. */
@@ -134,43 +136,67 @@ export function runComparison(input: ComparisonInput): ComparisonResult {
 
   const decisions = variants.map((v) => v.decision!);
   const options = { horizonMonths: horizon, startMonth: input.startMonth };
-  // Chaque variante est d'abord exécutée seule : une erreur du moteur sur l'horizon réel (montants
-  // hors bornes…) est ainsi attribuée à la variante concernée. Ces résultats sont le détail mensuel.
-  const live: DecisionResult[] = [];
-  decisions.forEach((d, k) => {
-    try {
-      live.push(simulateDecision(d, options));
-    } catch (e) {
-      if (!(e instanceof DecisionInputError)) throw e;
-      for (const i of e.issues) setV(k, 'decision', i.code);
-    }
-  });
-  if (Object.keys(vErr).length) return { ok: false, errors: { ...errors, variants: vErr } };
-  try {
-    const snapshot = createSnapshot({
-      name: input.name,
-      situation: input.situation,
-      horizonMonths: horizon,
-      startMonth: input.startMonth,
-      variants: decisions.map((decision, k) => ({ id: VARIANT_IDS[k], label: variants[k].label.trim(), decision })),
-      ...(input.id ? { id: input.id } : {}),
-      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
-    });
-    return { ok: true, snapshot, live };
-  } catch (e) {
-    if (!(e instanceof DecisionInputError)) throw e;
+  const situation = input.situation;
+  /** Erreurs du moteur rattachées à leur origine : variante, situation, nom, horizon ou commune. */
+  const attribute = (e: DecisionInputError, variant?: number): ComparisonResult => {
     for (const i of e.issues) {
       const m = /^variants\[(\d+)\]\.(.+)$/.exec(i.field);
-      if (m) {
-        if (m[2] === 'label') setV(Number(m[1]), 'label', i.code);
-        else setV(Number(m[1]), 'decision', i.code); // resultOutOfRange, notAmortizable…
-      } else if (i.field.startsWith('situation')) errors.situation ??= 'invalid';
+      if (variant !== undefined) setV(variant, 'decision', i.code);
+      else if (m) setV(Number(m[1]), m[2] === 'label' ? 'label' : 'decision', i.code); // resultOutOfRange, notAmortizable…
+      else if (i.field.startsWith('situation')) errors.situation ??= 'invalid';
       else if (i.field === 'name') errors.name ??= i.code;
       else if (i.field.endsWith('horizonMonths')) errors.horizon ??= i.code;
       else errors.form ??= i.code;
     }
     if (Object.keys(vErr).length) errors.variants = vErr;
     return { ok: false, errors };
+  };
+
+  try {
+    // Référence commune (situation seule) : un dépassement ici concerne toutes les variantes.
+    let reference: ReturnType<typeof referenceTrajectory>;
+    try {
+      reference = referenceTrajectory(situation, options);
+    } catch (e) {
+      if (!(e instanceof DecisionInputError)) throw e;
+      return attribute(e);
+    }
+    // Chaque variante est d'abord exécutée seule, puis projetée sur la référence : une erreur du moteur
+    // sur l'horizon réel (montants hors bornes, dépassement de capacité avec la situation…) est ainsi
+    // attribuée à la variante concernée, sans empêcher le diagnostic des autres. Ces résultats forment
+    // le détail mensuel affiché (non stocké).
+    const live: DecisionResult[] = [];
+    let failed = false;
+    decisions.forEach((d, k) => {
+      try {
+        const result = simulateDecision(d, options);
+        projectDecision(reference, result);
+        live.push(result);
+      } catch (e) {
+        if (!(e instanceof DecisionInputError)) throw e;
+        attribute(e, k);
+        failed = true;
+      }
+    });
+    if (failed) return { ok: false, errors };
+    try {
+      const snapshot = createSnapshot({
+        name: input.name,
+        situation,
+        horizonMonths: horizon,
+        startMonth: input.startMonth,
+        variants: decisions.map((decision, k) => ({ id: VARIANT_IDS[k], label: variants[k].label.trim(), decision })),
+        ...(input.id ? { id: input.id } : {}),
+        ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+      });
+      return { ok: true, snapshot, live };
+    } catch (e) {
+      if (!(e instanceof DecisionInputError)) throw e;
+      return attribute(e);
+    }
+  } catch (e) {
+    // Erreur imprévue : jamais d'exception non interceptée dans la carte, jamais de résultat partiel.
+    return { ok: false, errors: { form: unexpected(e) } };
   }
 }
 
@@ -208,8 +234,9 @@ export type IndicatorKey =
   | 'loanPaid'
   | 'goalContribution'
   | 'goalReachedMonth'
-  | 'goalContributed'
-  | 'goalInterest'
+  | 'goalToReach'
+  | 'goalContributedHorizon'
+  | 'goalInterestHorizon'
   | 'goalShortfall'
   | 'goalFinal'
   | 'invFinal'
@@ -221,12 +248,24 @@ export interface Indicator {
   unit: IndicatorUnit;
   /** Valeur par variante (null : sans objet pour cette variante). */
   values: (number | null)[];
-  /** Écart « variante − A » par variante ; toujours null pour A. */
+  /** Écart « variante − A » par variante ; toujours null pour A, et pour toutes si `comparable` est faux. */
   differences: (number | null)[];
+  /**
+   * Période couverte par la valeur de chaque variante, en mois, quand ce n'est pas l'horizon commun
+   * (durée du crédit, mois d'atteinte, échéance de l'objectif) ; null : horizon commun à toutes.
+   */
+  periods: (number | null)[] | null;
+  /** Valeurs portant sur une même période : écarts calculés. Faux : aucun écart (périodes différentes). */
+  comparable: boolean;
+  /** Écart non représentable exactement (au-delà des entiers exacts) : signalé, jamais arrondi (A3). */
+  outOfRange: boolean[];
 }
 
 type Reader = (v: SnapshotVariantResult) => number | null;
-const COMMON: [IndicatorKey, IndicatorUnit, Reader][] = [
+type Spec = [IndicatorKey, IndicatorUnit, Reader, Reader?];
+type LoanDetails = NonNullable<Extract<SnapshotVariantResult['details'], { kind: 'purchase' }>['loan']>;
+type GoalDetails = Extract<SnapshotVariantResult['details'], { kind: 'goal' }>;
+const COMMON: Spec[] = [
   ['endCash', 'money', (v) => v.endOfHorizon.cash],
   ['endCashDelta', 'money', (v) => v.endOfHorizon.cashDelta],
   ['endNetWorth', 'money', (v) => v.endOfHorizon.netWorth],
@@ -235,25 +274,30 @@ const COMMON: [IndicatorKey, IndicatorUnit, Reader][] = [
   ['lowestCashMonth', 'month', (v) => v.lowestCash.month],
   ['firstNegativeCashMonth', 'month', (v) => v.firstNegativeCashMonth],
 ];
-const loan = (f: (l: NonNullable<Extract<SnapshotVariantResult['details'], { kind: 'purchase' }>['loan']>) => number): Reader => (v) =>
-  v.details.kind === 'purchase' && v.details.loan ? f(v.details.loan) : null;
-const goal = (f: (g: Extract<SnapshotVariantResult['details'], { kind: 'goal' }>) => number | null): Reader => (v) => (v.details.kind === 'goal' ? f(v.details) : null);
+const loan = (f: (l: LoanDetails) => number): Reader => (v) => (v.details.kind === 'purchase' && v.details.loan ? f(v.details.loan) : null);
+const goal = (f: (g: GoalDetails) => number | null): Reader => (v) => (v.details.kind === 'goal' ? f(v.details) : null);
 const inv = (f: (g: Extract<SnapshotVariantResult['details'], { kind: 'investment' }>) => number): Reader => (v) => (v.details.kind === 'investment' ? f(v.details) : null);
-const SPECIFIC: Record<DecisionKind, [IndicatorKey, IndicatorUnit, Reader][]> = {
+/** Durée réelle du crédit : période des totaux du crédit. */
+const loanPeriod = loan((l) => l.actualMonths);
+const SPECIFIC: Record<DecisionKind, Spec[]> = {
   purchase: [
     ['loanInstallment', 'money', loan((l) => l.installment)],
     ['loanLastInstallment', 'money', loan((l) => l.lastInstallment)],
     ['loanMonths', 'count', loan((l) => l.actualMonths)],
-    ['loanInterest', 'money', loan((l) => l.totalInterest)],
-    ['loanPaid', 'money', loan((l) => l.totalPaid)],
+    ['loanInterest', 'money', loan((l) => l.totalInterest), loanPeriod],
+    ['loanPaid', 'money', loan((l) => l.totalPaid), loanPeriod],
   ],
   recurring: [],
   goal: [
     ['goalContribution', 'money', goal((g) => g.monthlyContribution)],
     ['goalReachedMonth', 'month', goal((g) => g.reachedMonth)],
-    ['goalContributed', 'money', goal((g) => g.totalContributed)],
-    ['goalInterest', 'money', goal((g) => g.totalInterest)],
-    ['goalShortfall', 'money', goal((g) => g.shortfallAtDeadline)],
+    // Jusqu'à l'atteinte : période propre à chaque variante (aucune valeur si la cible n'est pas atteinte).
+    ['goalToReach', 'money', goal((g) => g.contributionsToReach), goal((g) => g.reachedMonth)],
+    // Sur l'horizon commun : mêmes mois pour toutes les variantes.
+    ['goalContributedHorizon', 'money', goal((g) => g.contributedToHorizon)],
+    ['goalInterestHorizon', 'money', goal((g) => g.interestToHorizon)],
+    // À l'échéance de chaque variante.
+    ['goalShortfall', 'money', goal((g) => g.shortfallAtDeadline), goal((g) => g.deadlineMonths)],
     ['goalFinal', 'money', goal((g) => g.finalBalance)],
   ],
   investment: [
@@ -266,16 +310,22 @@ const SPECIFIC: Record<DecisionKind, [IndicatorKey, IndicatorUnit, Reader][]> = 
 /**
  * Indicateurs comparés, lus dans les résultats figés : les indicateurs communs puis ceux du type de
  * décision. Un indicateur propre au type n'est retenu que si le moteur le fournit pour au moins une
- * variante (ex. crédit : au moins une variante financée).
+ * variante (ex. crédit : au moins une variante financée). Les écarts ne sont calculés qu'entre des
+ * valeurs portant sur la même période : un total du crédit sur 48 mois et un autre sur 60 mois, ou
+ * des versements jusqu'à des atteintes à des mois différents, sont affichés sans écart.
  */
 export function comparisonIndicators(snapshot: DecisionSnapshot): Indicator[] {
   const results = snapshot.results.variants;
   const kind = snapshot.hypotheses.variants[0].decision.kind;
   const out: Indicator[] = [];
-  for (const [key, unit, read] of [...COMMON, ...SPECIFIC[kind]]) {
+  for (const [key, unit, read, period] of [...COMMON, ...SPECIFIC[kind]]) {
     const values = results.map(read);
     if (!COMMON.some((c) => c[0] === key) && values.every((x) => x === null)) continue;
-    out.push({ key, unit, values, differences: values.map((x, k) => (k === 0 ? null : differenceFromA(x, values[0]))) });
+    const periods = period ? results.map(period) : null;
+    const comparable = !periods || new Set(periods.filter((_, k) => values[k] !== null)).size <= 1;
+    const differences = values.map((x, k) => (k === 0 || !comparable ? null : differenceFromA(x, values[0])));
+    const outOfRange = values.map((x, k) => k > 0 && comparable && x !== null && values[0] !== null && differences[k] === null);
+    out.push({ key, unit, values, differences, periods, comparable, outOfRange });
   }
   return out;
 }

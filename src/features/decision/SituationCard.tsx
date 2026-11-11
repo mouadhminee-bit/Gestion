@@ -15,6 +15,7 @@ import { Badge, DemoBadge } from '@/components/ui/Misc';
 import { Field, MoneyInput } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import type { InitialSituation } from '@/domain/calc/decision';
+import { amountIssueMessage, type AmountInputIssue } from '@/domain/money';
 import type { InitialSituationDetails } from '@/domain/calc/decisionSituation';
 import { t, td } from '@/i18n/core';
 import { draftFromSituation, sameSituation, SITUATION_FIELDS, validateSituationDraft, type SituationDraft, type SituationField, type SituationIssueCode } from './situationDraft';
@@ -43,10 +44,13 @@ export function SituationCard({ computed, value, onChange }: SituationCardProps)
   const [draft, setDraft] = useState<SituationDraft>(() => (value ? draftFromSituation(value) : { cash: null, netWorth: null, monthlySavings: null }));
   const [hasText, setHasText] = useState<Partial<Record<SituationField, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<SituationField, SituationIssueCode>>>({});
+  // Motif de refus d'une saisie monétaire (ambiguïté, décimales…), pour un message précis.
+  const [issues, setIssues] = useState<Partial<Record<SituationField, AmountInputIssue | null>>>({});
 
   function startEditing() {
     setDraft(value ? draftFromSituation(value) : { cash: null, netWorth: null, monthlySavings: null });
     setHasText({});
+    setIssues({});
     setErrors({});
     setEditing(true);
   }
@@ -98,13 +102,14 @@ export function SituationCard({ computed, value, onChange }: SituationCardProps)
             {SITUATION_FIELDS.map((f) => {
               const id = `dl-situation-${f}`;
               return (
-                <Field key={f} label={t(LABEL[f])} htmlFor={id} required hint={hint(f)} error={errors[f] ? td(`dl.situation.err.${errors[f]}`) : undefined}>
+                <Field key={f} label={t(LABEL[f])} htmlFor={id} required hint={hint(f)} error={errors[f] ? (errors[f] === 'invalid' && issues[f] ? amountIssueMessage(issues[f]!, settings.locale, currency) : td(`dl.situation.err.${errors[f]}`)) : undefined}>
                   <MoneyInput
                     id={id}
                     name={f}
                     currency={currency}
                     allowNegative
-                    keepInvalidText
+                    showIssue={false}
+                    onIssue={(issue) => setIssues((all) => ({ ...all, [f]: issue }))}
                     required
                     invalid={!!errors[f]}
                     value={draft[f]}
@@ -113,8 +118,8 @@ export function SituationCard({ computed, value, onChange }: SituationCardProps)
                       // L'erreur affichée ne concerne plus la nouvelle saisie.
                       setErrors(({ [f]: _fixed, ...rest }) => rest);
                     }}
-                    // Une saisie non interprétable n'est jamais effacée ni corrigée (`keepInvalidText`) :
-                    // elle reste visible et l'erreur s'affiche dès la sortie du champ.
+                    // Une saisie refusée n'est jamais effacée ni corrigée (`MoneyInput`) : elle reste
+                    // visible et l'erreur, avec son motif, s'affiche dès la sortie du champ.
                     onBlur={() => {
                       if (draft[f] === null && hasText[f]) setErrors((e) => ({ ...e, [f]: 'invalid' }));
                     }}

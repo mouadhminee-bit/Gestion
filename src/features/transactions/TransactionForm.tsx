@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '@/app/AppContext';
 import { Dialog, useConfirm } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
-import { Field, Input, MoneyInput, Segmented, Select, Textarea } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Segmented, Select, Textarea, useAmountGuard } from '@/components/ui/Field';
 import { CategoryIcon } from '@/components/ui/Misc';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
@@ -89,6 +89,8 @@ function draftFromGroup(group: Transaction[]): TransactionDraft {
 function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClose: () => void; onReopen: (a: OpenArgs) => void }) {
   const { data, repo, today, ctx, fmt, uiLocale } = useApp();
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const confirm = useConfirm();
   const editing = args.mode === 'edit' ? data.transactions.find((t) => t.id === args.id) : undefined;
   const group = useMemo(
@@ -177,6 +179,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
   const isDebtTx = editing?.type === 'debt';
 
   async function save(again = false) {
+    if (amounts.blocked) return void toast.error(tr('money.input.fixBeforeSave'));
     const d: TransactionDraft = {
       ...draft,
       tags: tagText.split(',').map((t) => t.trim()).filter(Boolean),
@@ -309,7 +312,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
         </div>
 
         <Field label={draft.type === 'transfer' ? tr('form.amountDebited') : tr('common.amount')} error={errors.amount} required>
-          <MoneyInput value={draft.amount} onChange={(v) => set('amount', v)} currency={currency} size="xl" invalid={!!errors.amount} data-autofocus placeholder="0" aria-label={tr('common.amount')} />
+          <MoneyInput onIssue={amounts.track('m1')} value={draft.amount} onChange={(v) => set('amount', v)} currency={currency} size="xl" invalid={!!errors.amount} data-autofocus placeholder="0" aria-label={tr('common.amount')} />
         </Field>
 
         {draft.type === 'adjustment' && (
@@ -367,7 +370,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
         </div>
         {crossCurrency && (
           <Field label={tr('form.credited', { currency: toAccount!.currency })} error={errors.toAmount} hint={tr('form.creditedHint')} required>
-            <MoneyInput value={draft.toAmount ?? null} onChange={(v) => set('toAmount', v)} currency={toAccount!.currency} invalid={!!errors.toAmount} />
+            <MoneyInput onIssue={amounts.track('m2')} value={draft.toAmount ?? null} onChange={(v) => set('toAmount', v)} currency={toAccount!.currency} invalid={!!errors.toAmount} />
           </Field>
         )}
         {draft.type === 'transfer' && (

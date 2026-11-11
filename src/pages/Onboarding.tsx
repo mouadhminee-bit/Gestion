@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowRight, FlaskConical, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
 import { Logo } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/Button';
-import { Field, Input, MoneyInput, Select } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Select, useAmountGuard } from '@/components/ui/Field';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import type { NexoraRepository } from '@/data/contracts';
 import { generateDemoData } from '@/data/demo';
@@ -17,6 +17,8 @@ import { currencyName } from '@/i18n/labels';
 
 export function Onboarding({ repo, existing }: { repo: NexoraRepository; existing?: UserSettings }) {
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const [step, setStep] = useState<'welcome' | 'setup'>('welcome');
   const [name, setName] = useState(existing?.displayName ?? '');
   const [currency, setCurrency] = useState(existing?.baseCurrency ?? 'MAD');
@@ -38,6 +40,7 @@ export function Onboarding({ repo, existing }: { repo: NexoraRepository; existin
   }
 
   async function startFresh() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     setBusy(true);
     try {
       await repo.ensureUser(name.trim());
@@ -116,7 +119,7 @@ export function Onboarding({ repo, existing }: { repo: NexoraRepository; existin
                   <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
                 </Field>
                 <Field label={t('onb.balance')} hint={t('onb.balanceHint')}>
-                  <MoneyInput value={balance} onChange={setBalance} currency={currency} allowNegative />
+                  <MoneyInput onIssue={amounts.track('m1')} value={balance} onChange={setBalance} currency={currency} locale={locale} allowNegative />
                 </Field>
               </div>
             </div>

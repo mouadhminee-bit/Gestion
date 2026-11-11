@@ -12,7 +12,7 @@
  */
 import type { MonthKey } from '@/domain/dates';
 import { addMonthsToKey } from '@/domain/dates';
-import { DecisionInputError, simulateDecision, validateDecision, type DecisionInput, type DecisionResult, type InitialSituation } from '@/domain/calc/decision';
+import { DecisionInputError, projectDecision, referenceTrajectory, simulateDecision, validateDecision, type DecisionInput, type DecisionResult, type InitialSituation } from '@/domain/calc/decision';
 import { parseMonths } from './decisionDraft';
 import { createSnapshot, MAX_NAME_LENGTH, type DecisionSnapshot } from './snapshot';
 
@@ -44,6 +44,12 @@ export interface RunInput {
   createdAt?: string;
 }
 
+/** Erreur imprévue (défaut interne) : journalisée pour le diagnostic, signalée à l'utilisateur. */
+export function unexpected(e: unknown): 'internalError' {
+  console.error('Decision Lab : erreur inattendue', e);
+  return 'internalError';
+}
+
 export function runSimulation(input: RunInput): RunResult {
   const errors: RunErrors = {};
   if (!input.name.trim()) errors.name = 'required';
@@ -67,6 +73,9 @@ export function runSimulation(input: RunInput): RunResult {
 
   const options = { horizonMonths: horizon, startMonth: input.startMonth };
   try {
+    // Moteur seul, puis projection sur la situation (dépassement de capacité possible : A3).
+    const live = simulateDecision(input.decision, options);
+    projectDecision(referenceTrajectory(input.situation, options), live);
     const snapshot = createSnapshot({
       name: input.name,
       situation: input.situation,
@@ -76,9 +85,10 @@ export function runSimulation(input: RunInput): RunResult {
       ...(input.id ? { id: input.id } : {}),
       ...(input.createdAt ? { createdAt: input.createdAt } : {}),
     });
-    return { ok: true, snapshot, live: simulateDecision(input.decision, options) };
+    return { ok: true, snapshot, live };
   } catch (e) {
-    if (!(e instanceof DecisionInputError)) throw e;
+    // Erreur imprévue : jamais d'exception non interceptée dans la carte, jamais de résultat partiel.
+    if (!(e instanceof DecisionInputError)) return { ok: false, errors: { form: unexpected(e) } };
     for (const i of e.issues) {
       if (i.field.startsWith('situation')) errors.situation ??= 'invalid';
       else if (i.field === 'name') errors.name ??= i.code;
@@ -126,19 +136,27 @@ export function trajectoryRows(snapshot: DecisionSnapshot, variant = 0): Traject
 export type NoticeLevel = 'warning' | 'info';
 export interface SimulationNotice {
   level: NoticeLevel;
-  code: 'negativeCash' | 'goalNotReached' | 'goalAfterHorizon' | 'goalLate' | 'loanBeyondHorizon' | 'loanEarlyPayoff';
+  code: 'noEffect' | 'noEffectAfterHorizon' | 'negativeCash' | 'goalNotReached' | 'goalAfterHorizon' | 'goalLate' | 'loanBeyondHorizon' | 'loanEarlyPayoff';
   vars: Record<string, number>;
 }
 
 /**
  * Avertissements et notes d'une variante, tirés uniquement des résultats du moteur figés dans le
- * snapshot. `warning` : point d'attention (trésorerie négative, cible non atteinte) ; `info` :
- * précision de lecture. Aucun de ces messages n'est bloquant.
+ * snapshot. `warning` : point d'attention (décision sans effet dans l'horizon, trésorerie négative,
+ * cible non atteinte) ; `info` : précision de lecture. Aucun de ces messages n'est bloquant.
  */
 export function simulationNotices(snapshot: DecisionSnapshot, variant = 0): SimulationNotice[] {
   const v = snapshot.results.variants[variant];
   const horizon = snapshot.hypotheses.horizonMonths;
   const out: SimulationNotice[] = [];
+  // Décision valide mais sans aucun effet dans l'horizon (A4) : trésorerie ET patrimoine identiques à la
+  // situation sans décision, chaque mois. Des flux qui se compensent (achat comptant, placement à 0 %)
+  // modifient la trésorerie : ils ne sont jamais signalés ici. Le motif est lu dans les hypothèses.
+  if (v.cashDelta.every((x) => x === 0) && v.netWorthDelta.every((x) => x === 0)) {
+    const d = snapshot.hypotheses.variants[variant].decision;
+    if (d.kind === 'recurring' && (d.startMonth ?? 1) > horizon) out.push({ level: 'warning', code: 'noEffectAfterHorizon', vars: { start: d.startMonth ?? 1, months: horizon } });
+    else out.push({ level: 'warning', code: 'noEffect', vars: { months: horizon } });
+  }
   if (v.firstNegativeCashMonth !== null) out.push({ level: 'warning', code: 'negativeCash', vars: { month: v.firstNegativeCashMonth } });
   const d = v.details;
   if (d.kind === 'goal') {

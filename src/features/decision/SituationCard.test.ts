@@ -204,24 +204,24 @@ describe('situation initiale — saisie et validation', () => {
     expect(shownText('netWorth')).toContain('0,00 DH');
   });
 
-  it('saisie non interprétable : erreur « non valide », jamais effacée ni corrigée silencieusement', async () => {
+  it('saisie non interprétable : erreur précise (motif et format attendu), jamais effacée ni corrigée silencieusement', async () => {
     await render();
     await click(button('Modifier'));
     await type('cash', '1,2,3');
     // Sortie du champ : la saisie reste visible telle quelle et l'erreur apparaît aussitôt.
     await act(async () => input('cash').dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
     expect(input('cash').value).toBe('1,2,3');
-    expect(fieldError('cash')).toBe('Ce montant n\'est pas valide.');
+    expect(fieldError('cash')).toBe('Montant non valide. Format attendu : 1.234,56.');
     await type('monthlySavings', '-');
     await click(button('Valider la situation'));
     expect(input('cash').value).toBe('1,2,3');
     expect(input('monthlySavings').value).toBe('-');
-    expect(fieldError('cash')).toBe('Ce montant n\'est pas valide.');
-    expect(fieldError('monthlySavings')).toBe('Ce montant n\'est pas valide.');
+    expect(fieldError('cash')).toBe('Montant non valide. Format attendu : 1.234,56.');
+    expect(fieldError('monthlySavings')).toBe('Montant non valide. Format attendu : 1.234,56.');
     // Corriger un champ retire son erreur sans attendre une nouvelle validation.
     await type('cash', '12');
     expect(fieldError('cash')).toBeNull();
-    expect(fieldError('monthlySavings')).toBe('Ce montant n\'est pas valide.');
+    expect(fieldError('monthlySavings')).toBe('Montant non valide. Format attendu : 1.234,56.');
     // Après correction et sortie du champ : la saisie valide est remise en forme normalement.
     await act(async () => input('cash').dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
     expect(input('cash').value).toBe('12');

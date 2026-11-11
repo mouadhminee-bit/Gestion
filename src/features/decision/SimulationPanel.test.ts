@@ -266,6 +266,93 @@ describe('types de décision : indicateurs propres', () => {
   });
 });
 
+describe('objectif d\'épargne : totaux sur l\'horizon simulé (A2)', () => {
+  async function goalContribution(monthly: string, horizon: string) {
+    await click($('[data-testid="dl-kind-goal"]'));
+    await click([...decision().querySelectorAll('[role="radio"]')].find((b) => b.textContent === 'Versement fixé'));
+    await type('#dl-f-target', '60000');
+    await type('#dl-f-effectiveRateBps', '0');
+    await type('#dl-f-monthlyContribution', monthly);
+    await click(buttonIn(decision(), 'Valider les hypothèses'));
+    await simulate(horizon);
+    return results()!;
+  }
+
+  it('cible non atteinte : versé sur les 60 mois = 6 000 DH (jamais le total sur 480 mois), aucune atteinte affichée', async () => {
+    await render();
+    const r = await goalContribution('100', '60');
+    const goal = $('[data-testid="dl-res-goal"]', r)!;
+    expect(text($('[data-testid="dl-res-goal-contributed"]', goal))).toBe('Versé sur les 60 mois simulés6.000,00 DH');
+    expect(text($('[data-testid="dl-res-goal-interest"]', goal))).toContain('0,00 DH');
+    expect(text($('[data-testid="dl-res-goal-final"]', goal))).toContain('6.000,00 DH');
+    expect(text($('[data-testid="dl-res-goal-reached"]', goal))).toContain('Non atteinte en 480 mois');
+    expect($('[data-testid="dl-res-goal-to-reach"]', goal)).toBeNull();
+    expect(text(goal)).not.toContain('48.000,00');
+    // Même période que la trésorerie : écart de trésorerie = −versé sur l'horizon.
+    expect(text($('[data-testid="dl-res-cash-delta"]', r))).toContain('-6.000,00 DH');
+  });
+
+  it('cible atteinte après l\'horizon : mois d\'atteinte signalé, versements nécessaires distincts du versé sur l\'horizon', async () => {
+    await render();
+    const r = await goalContribution('2000', '24'); // atteinte au mois 30
+    const goal = $('[data-testid="dl-res-goal"]', r)!;
+    expect(text($('[data-testid="dl-res-goal-reached"]', goal))).toContain('Mois 30 (après l\'horizon)');
+    expect(text($('[data-testid="dl-res-goal-to-reach"]', goal))).toBe('Versements nécessaires pour atteindre la cible (jusqu\'au mois 30)60.000,00 DH');
+    expect(text($('[data-testid="dl-res-goal-contributed"]', goal))).toBe('Versé sur les 24 mois simulés48.000,00 DH');
+  });
+});
+
+describe('valeurs extrêmes (A3)', () => {
+  it('patrimoine initial extrême et placement : message explicite, aucun résultat, aucune exception', async () => {
+    const thrown: unknown[] = [];
+    const onError = (e: ErrorEvent) => thrown.push(e.error);
+    window.addEventListener('error', onError);
+    try {
+      await render();
+      const situation = $('[data-testid="dl-situation"]')!;
+      await click(buttonIn(situation, 'Modifier'));
+      await type('#dl-situation-netWorth', '90071992547409');
+      await click(buttonIn(situation, 'Valider la situation'));
+      await click($('[data-testid="dl-kind-investment"]'));
+      await type('#dl-f-initialCapital', '100000');
+      await type('#dl-f-monthlyContribution', '0');
+      await type('#dl-f-effectiveRateBps', '10');
+      await click(buttonIn(decision(), 'Valider les hypothèses'));
+      await simulate('120');
+      expect(text($('[data-testid="dl-run-error"]'))).toBe('Ces montants sont trop élevés pour être simulés.');
+      expect(results()).toBeNull();
+      // Situation corrigée (patrimoine représentable) : la même décision aboutit.
+      await click(buttonIn(situation, 'Modifier'));
+      await type('#dl-situation-netWorth', '300000');
+      await click(buttonIn(situation, 'Valider la situation'));
+      await simulate('120');
+      expect(results()).not.toBeNull();
+      expect($('[data-testid="dl-run-error"]')).toBeNull();
+    } finally {
+      window.removeEventListener('error', onError);
+    }
+    expect(thrown).toEqual([]);
+  });
+});
+
+describe('décision sans effet dans l\'horizon (A4)', () => {
+  it('dépense commençant au mois 24, horizon 12 : avertissement contextualisé, aucun résultat présenté comme un avantage', async () => {
+    await render();
+    await click($('[data-testid="dl-kind-recurring"]'));
+    await type('#dl-f-monthlyAmount', '500');
+    await type('#dl-f-startMonth', '24');
+    await click(buttonIn(decision(), 'Valider les hypothèses'));
+    await simulate('12');
+    const notice = $('[data-notice="noEffectAfterHorizon"]', results()!)!;
+    expect(notice.getAttribute('role')).toBe('alert');
+    expect(text(notice)).toBe('La dépense commence au mois 24, après la fin de l\'horizon (12 mois) : aucun effet n\'est simulé. Allongez l\'horizon pour en mesurer l\'impact.');
+    // Horizon allongé jusqu'au premier mois de la dépense : effet réel, plus d'avertissement.
+    await simulate('24');
+    expect($('[data-notice="noEffectAfterHorizon"]', results()!)).toBeNull();
+    expect(text($('[data-testid="dl-res-cash-delta"]', results()!))).toContain('-500,00 DH');
+  });
+});
+
 describe('langue RTL', () => {
   it('arabe : libellés, résultats et erreurs traduits', async () => {
     activateMessages('ar', ar);

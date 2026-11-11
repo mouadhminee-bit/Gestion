@@ -5,7 +5,8 @@
  * Le moteur E3 est la seule source des règles : bornes, champs obligatoires, cohérences (apport,
  * crédit, assurance…) et faisabilité (crédit amortissable) sont vérifiées en appelant
  * `validateDecision` puis `simulateDecision`. Ce module ne contient que la lecture des saisies :
- *  - montants : centimes entiers, convertis par `MoneyInput` / `parseAmount` (aucun flottant) ;
+ *  - montants : centimes entiers, convertis par `MoneyInput` / `parseAmountInput` selon la locale
+ *    active (aucun flottant ; une saisie ambiguë est refusée, jamais convertie en silence) ;
  *  - taux : texte en % avec deux décimales au plus, converti en points de base par lecture des
  *    chiffres (7,25 % → 725 bp), sans calcul en virgule flottante ;
  *  - durées : nombre entier de mois.
@@ -25,6 +26,7 @@ import {
   type RecurringExpenseDecision,
   type SavingsGoalDecision,
 } from '@/domain/calc/decision';
+import type { AmountInputIssue } from '@/domain/money';
 
 export type DecisionKind = DecisionInput['kind'];
 export const DECISION_KINDS: readonly DecisionKind[] = ['purchase', 'recurring', 'goal', 'investment'];
@@ -44,6 +46,8 @@ export interface DecisionDraft {
   money: Record<string, number | null>;
   /** Un texte est présent dans le champ monétaire (distingue « vide » de « non interprétable »). */
   moneyText: Record<string, boolean>;
+  /** Motif de refus de la saisie monétaire (ambiguïté, décimales…), pour un message précis. */
+  moneyIssue?: Record<string, AmountInputIssue | null>;
   text: Record<string, string>;
   /** Achat : financé par un crédit. */
   financed: boolean;
@@ -52,7 +56,7 @@ export interface DecisionDraft {
 }
 
 export function emptyDraft(kind: DecisionKind): DecisionDraft {
-  return { kind, money: {}, moneyText: {}, text: {}, financed: false, goalMode: 'effort' };
+  return { kind, money: {}, moneyText: {}, moneyIssue: {}, text: {}, financed: false, goalMode: 'effort' };
 }
 
 const money = (key: string, required: boolean): FieldSpec => ({ key, type: 'money', required });

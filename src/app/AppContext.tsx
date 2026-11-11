@@ -128,6 +128,11 @@ export function AppProvider({ repo, data: rawData, children }: { repo: NexoraRep
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }
 
+/** État de l'application s'il est disponible (null hors AppProvider, ex. accueil avant configuration). */
+export function useOptionalApp(): AppState | null {
+  return useContext(AppCtx);
+}
+
 export function useApp(): AppState {
   const v = useContext(AppCtx);
   if (!v) throw new Error('useApp hors AppProvider');

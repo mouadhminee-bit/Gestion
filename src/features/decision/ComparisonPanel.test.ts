@@ -257,6 +257,13 @@ describe('choix du mode et saisie des variantes', () => {
     expect(cell('goalContribution', 'B', 'value')).toBe('3.000,00 DH');
     expect(cell('goalContribution', 'B', 'diff')).toBe('+570,17 DH');
     expect(text($('[data-testid="dl-cmp-mixed-modes"]', r))).toContain('Les variantes n\'utilisent pas toutes la même méthode');
+    // A2 : versements jusqu'à l'atteinte (mois 24 et 20) : périodes différentes, aucun écart calculé.
+    expect(cell('goalToReach', 'B', 'diff')).toBe('non comparable');
+    expect(text($('[data-indicator="goalToReach"] [data-testid="dl-cmp-periods-differ"]', r))).toContain('aucun écart n\'est calculé');
+    expect(text($('[data-indicator="goalToReach"] tr[data-variant="A"] [data-testid="dl-cmp-period"]', r))).toBe('jusqu\'au mois 24');
+    // Sur l'horizon commun (36 mois) : même période, écart calculé.
+    expect(cell('goalContributedHorizon', 'A', 'value')).toBe('58.315,73 DH');
+    expect(cell('goalContributedHorizon', 'B', 'diff')).not.toBe('non comparable');
   });
 });
 
@@ -394,6 +401,47 @@ describe('comparaison : exécution, résultats, écarts', () => {
     expect(cell('endCashDelta', 'D', 'diff')).toBe('-6.000,00 DH'); // D − A = −12 000 − (−6 000)
     expect(cell('endCashDelta', 'C', 'diff')).toBe('+2.400,00 DH');
     expect($('[data-testid="dl-cmp-chart-extra"]', r)).toBeNull();
+  });
+});
+
+describe('valeurs extrêmes (A3)', () => {
+  it('une variante en dépassement : erreur attribuée à cette variante, les autres sans erreur', async () => {
+    await render();
+    const situation = $('[data-testid="dl-situation"]')!;
+    await click(buttonIn(situation, 'Modifier'));
+    await type('#dl-situation-netWorth', '90071992547409');
+    await click(buttonIn(situation, 'Valider la situation'));
+    await compareMode();
+    await click($('[data-testid="dl-cmp-kind-investment"]'));
+    await fillInvestment(0, '1', '0', '0');
+    await validate('A');
+    await fillInvestment(1, '100000', '0', '10');
+    await validate('B');
+    await launch('120');
+    const err = $('[data-testid="dl-cmp-run-error"]')!;
+    expect($$('[data-variant]', err).map((el) => el.dataset.variant)).toEqual(['B']);
+    expect(text(err)).toContain('Ces montants sont trop élevés pour être simulés.');
+    expect(results()).toBeNull();
+  });
+});
+
+describe('variante sans effet dans l\'horizon (A4)', () => {
+  it('signalée dans sa synthèse et au-dessus des indicateurs ; l\'autre variante n\'est pas signalée', async () => {
+    await render();
+    await compareMode();
+    await click($('[data-testid="dl-cmp-kind-recurring"]'));
+    await type('#dl-v0-f-monthlyAmount', '500');
+    await validate('A');
+    await type('#dl-v1-f-monthlyAmount', '500');
+    await type('#dl-v1-f-startMonth', '24');
+    await validate('B');
+    await launch('12');
+    const r = results()!;
+    expect($('[data-testid="dl-cmp-summary"][data-variant="A"] [data-notice]', r)).toBeNull();
+    expect($('[data-testid="dl-cmp-summary"][data-variant="B"] [data-notice="noEffectAfterHorizon"]', r)).not.toBeNull();
+    expect(text($('[data-testid="dl-cmp-no-effect"]', r))).toBe('Sans effet pendant l\'horizon : B · Variante B. Leurs écarts traduisent l\'absence de flux simulés, pas un avantage.');
+    // L'écart reste celui du moteur (aucun résultat inventé).
+    expect(cell('endCashDelta', 'B', 'value')).toBe('0,00 DH');
   });
 });
 

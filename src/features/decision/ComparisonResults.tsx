@@ -50,6 +50,7 @@ export function ComparisonResults({ snapshot, live }: { snapshot: DecisionSnapsh
   const rows = useMemo(() => comparisonRows(snapshot), [snapshot]);
   const indicators = useMemo(() => comparisonIndicators(snapshot), [snapshot]);
   const notices = useMemo(() => snapshot.results.variants.map((_, k) => simulationNotices(snapshot, k)), [snapshot]);
+  const noEffect = notices.flatMap((list, k) => (list.some((n) => n.code === 'noEffect' || n.code === 'noEffectAfterHorizon') ? [`${VARIANT_IDS[k]} · ${labels[k]}`] : []));
   const monthLabel = (r: ComparisonRow) => (r.monthKey ? formatMonthShort(r.monthKey, uiLocale) : String(r.month));
 
   // Séries supplémentaires du moteur (comparaison en cours uniquement) : solde du compte dédié ou dette.
@@ -64,13 +65,26 @@ export function ComparisonResults({ snapshot, live }: { snapshot: DecisionSnapsh
   const valueText = (ind: Indicator, x: number | null): string => {
     if (x === null) {
       if (ind.key === 'firstNegativeCashMonth') return t('dl.res.never');
-      if (ind.key === 'goalReachedMonth') return t('dl.res.goal.notReached', { max: MAX_HORIZON_MONTHS });
+      if (ind.key === 'goalReachedMonth' || ind.key === 'goalToReach') return t('dl.res.goal.notReached', { max: MAX_HORIZON_MONTHS });
       if (ind.key.startsWith('loan')) return t('dl.cmp.noLoan');
       return '—';
     }
     return ind.unit === 'money' ? money(x) : String(x);
   };
-  const diffText = (ind: Indicator, d: number | null): string => (d === null ? '—' : ind.unit === 'money' ? signed(d) : signedInt.format(d));
+  const diffText = (ind: Indicator, k: number): string => {
+    const d = ind.differences[k];
+    if (!ind.comparable) return t('dl.cmp.notComparable');
+    if (ind.outOfRange[k]) return t('dl.cmp.diffOutOfRange');
+    return d === null ? '—' : ind.unit === 'money' ? signed(d) : signedInt.format(d);
+  };
+  /** Période propre à la valeur d'une variante (durée du crédit, mois d'atteinte, échéance). */
+  const periodText = (ind: Indicator, k: number): string | null => {
+    const p = ind.periods?.[k];
+    if (p === null || p === undefined || ind.values[k] === null) return null;
+    if (ind.key === 'goalToReach') return t('dl.cmp.period.reach', { month: p });
+    if (ind.key === 'goalShortfall') return t('dl.cmp.period.deadline', { month: p });
+    return t('dl.cmp.period.loan', { months: p });
+  };
 
   const lineChart = (testId: string, title: string, values: number[][], reference?: number[]) => {
     const series = [
@@ -155,6 +169,13 @@ export function ComparisonResults({ snapshot, live }: { snapshot: DecisionSnapsh
         <p data-testid="dl-cmp-sign-rule" className="mt-1 text-xs text-muted">
           {t('dl.cmp.signRule', { base: isolate(`${VARIANT_IDS[0]} · ${labels[0]}`) })}
         </p>
+        {/* Variante sans effet dans l'horizon (A4) : ses écarts ne traduisent aucun avantage. */}
+        {noEffect.length > 0 && (
+          <p role="alert" data-testid="dl-cmp-no-effect" className="mt-2 flex gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
+            <span>{t('dl.cmp.noEffect', { variants: isolate(noEffect.join(', ')) })}</span>
+          </p>
+        )}
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {indicators.map((ind) => (
             <div key={ind.key} data-testid="dl-cmp-indicator" data-indicator={ind.key} className="rounded-2xl border border-line/10 p-3">
@@ -176,13 +197,18 @@ export function ComparisonResults({ snapshot, live }: { snapshot: DecisionSnapsh
                       </th>
                       <td className={cn('num py-1 text-end font-semibold', ind.unit === 'money' && x !== null && x < 0 && 'text-negative')}>
                         <bdi data-testid="dl-cmp-value">{valueText(ind, x)}</bdi>
+                        {periodText(ind, k) && (
+                          <span data-testid="dl-cmp-period" className="block text-[10px] font-normal text-muted">
+                            {periodText(ind, k)}
+                          </span>
+                        )}
                       </td>
                       <td className="num py-1 ps-2 text-end text-muted">
                         {k === 0 ? (
                           <span className="text-[10px] uppercase tracking-wide">{t('dl.cmp.baseShort')}</span>
                         ) : (
-                          <bdi data-testid="dl-cmp-diff" title={t('dl.cmp.diffTitle', { letter: VARIANT_IDS[k] })}>
-                            {diffText(ind, ind.differences[k])}
+                          <bdi data-testid="dl-cmp-diff" title={ind.comparable ? t('dl.cmp.diffTitle', { letter: VARIANT_IDS[k] }) : t('dl.cmp.periodsDiffer')}>
+                            {diffText(ind, k)}
                           </bdi>
                         )}
                       </td>
@@ -190,6 +216,11 @@ export function ComparisonResults({ snapshot, live }: { snapshot: DecisionSnapsh
                   ))}
                 </tbody>
               </table>
+              {!ind.comparable && (
+                <p data-testid="dl-cmp-periods-differ" className="mt-1.5 text-[11px] text-muted">
+                  {t('dl.cmp.periodsDiffer')}
+                </p>
+              )}
             </div>
           ))}
         </div>

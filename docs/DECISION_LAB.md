@@ -3,7 +3,7 @@
 État : **étape E5.5** — moteur métier pur (E3), persistance des simulations (E4), page « Mes
 simulations » (E5.1), situation financière initiale (E5.2), formulaires de décision (E5.3),
 exécution, résultats, trajectoires et enregistrement des simulations (E5.4) et comparateur
-multi-variantes (E5.5).
+multi-variantes (E5.5), puis corrections A1 à A4 de l'audit transversal (§ 14).
 
 ## 1. Fichiers
 
@@ -124,6 +124,14 @@ Versements arrêtés ; le capital reste sur le compte dédié et produit le rend
 arrondis, H4). `reachedMonth` et `balanceAtReach` (mois et solde d'atteinte) sont distincts de
 `finalBalance` (solde à l'horizon) et `interestAfterReach` ; `balanceAtDeadline` est le solde réel
 à l'échéance, `shortfallAtDeadline` vaut 0 si la cible est atteinte.
+
+Deux périodes distinctes (correction A2, § 14.2) :
+* **jusqu'à l'atteinte** (échéancier, ou 480 mois si la cible n'est pas atteinte) :
+  `totalContributed`, `totalInterest` ; `contributionsToReach` = versements nécessaires pour
+  atteindre la cible (null si elle n'est pas atteinte) ;
+* **sur l'horizon simulé** (mois 1 à l'horizon, mêmes mois que la trésorerie et le patrimoine) :
+  `contributedToHorizon` (versements réellement effectués), `interestToHorizon` (intérêts acquis,
+  après l'atteinte compris) ; `finalBalance` = `contributedToHorizon` + `interestToHorizon`.
 
 ## 5. Validation
 
@@ -313,7 +321,8 @@ montants en centimes entiers de la devise de base.
   l'horizon maximal (`referenceTrajectory` sur 480 mois sans dépasser les entiers sûrs). Elle est
   vérifiée en appelant le moteur, sans la recopier.
 * **Aucun calcul financier dans l'interface** : la saisie est convertie en centimes par
-  `MoneyInput` / `parseAmount` (sans flottant) ; la validation est dans `situationDraft.ts`.
+  `MoneyInput` / `parseAmountInput` selon la locale active (sans flottant ; saisie ambiguë
+  refusée, § 14.1) ; la validation est dans `situationDraft.ts`.
 
 ### 10.2 Validation (`validateSituationDraft`)
 
@@ -379,9 +388,9 @@ facultatif vide est **omis** de l'entrée (le moteur applique sa valeur par déf
 
 ### 11.2 Lecture des saisies et validation (`buildDecision`)
 
-1. **Lecture** (interface) : montants en centimes par `MoneyInput` (`allowNegative` : un négatif
-   n'est jamais converti en positif, `keepInvalidText` : une saisie non interprétable reste
-   visible) ; taux en % avec deux décimales au plus, convertis en points de base par lecture des
+1. **Lecture** (interface) : montants en centimes par `MoneyInput` selon la locale active
+   (`allowNegative` : un négatif n'est jamais converti en positif ; une saisie refusée —
+   ambiguë, non valide, trop de décimales — reste visible avec son motif, § 14.1) ; taux en % avec deux décimales au plus, convertis en points de base par lecture des
    chiffres (7,25 % → 725 bp, sans virgule flottante) ; durées en mois entiers. Champ obligatoire
    vide → `required` ; saisie non interprétable → `invalid`.
 2. **Règles du moteur**, une fois tous les champs lisibles : `validateDecision` avec l'horizon
@@ -434,8 +443,10 @@ L'entrée validée est transmise par `onValidated` à la page, qui affiche la ca
   sans la décision, écart dû à la décision ; trésorerie la plus basse et son mois ; premier mois de
   trésorerie négative.
 * Par type, uniquement ce que fournit le moteur : **achat** — mensualité, dernière échéance, nombre
-  d'échéances, intérêts, total remboursé ; **objectif** — versement, mois d'atteinte, dernier
-  versement, total versé, intérêts, solde et manque à l'échéance, solde final ; **placement** —
+  d'échéances, intérêts, total remboursé ; **objectif** — versement, mois d'atteinte (signalé
+  « après l'horizon » le cas échéant), versements nécessaires pour atteindre la cible (si elle est
+  atteinte), dernier versement, versé et intérêts **sur l'horizon simulé**, solde final, solde et
+  manque à l'échéance (§ 14.2) ; **placement** —
   valeur finale, total investi, intérêts ; **dépense récurrente** — indicateurs communs seuls.
 * Lecture factuelle (« Ce que montre le calcul ») : écarts signés et point bas, sans recommandation ;
   avertissements distincts ; limites du calcul (devise de base, ni inflation, ni fiscalité, ni
@@ -521,13 +532,15 @@ travers de `createSnapshot` (E4), qui acceptaient déjà 2 à 4 variantes.
   « base des écarts »). Positif : valeur plus élevée ; négatif : valeur plus faible. L'écart ne
   qualifie pas la variante : affiché sans couleur de jugement, aucune variante n'est dite
   « meilleure » ou « rentable ». Écart absent (« — ») si l'une des valeurs manque (pas de crédit,
-  cible non atteinte…) ou s'il sortirait des entiers exacts.
+  cible non atteinte…) ; « hors limites » s'il sortirait des entiers exacts (§ 14.3) ; « non
+  comparable » si les valeurs portent sur des périodes différentes (§ 14.2).
 * Indicateurs communs : trésorerie et patrimoine en fin d'horizon, écarts dus à la décision,
   trésorerie la plus basse et son mois, premier mois de trésorerie négative. Par type, seulement ce
   que fournit le moteur : achat (crédit : mensualité, dernière échéance, nombre d'échéances,
   intérêts, total remboursé — affichés si au moins une variante est financée, « Sans crédit »
-  sinon) ; objectif (versement, mois d'atteinte, total versé, intérêts, manque à l'échéance, solde
-  final) ; placement (valeur finale, total investi, intérêts) ; dépense récurrente : indicateurs
+  sinon ; intérêts et total remboursé sur la durée de chaque crédit) ; objectif (versement, mois
+  d'atteinte, versements nécessaires jusqu'à l'atteinte, versé et intérêts sur l'horizon, manque à
+  l'échéance, solde final) ; placement (valeur finale, total investi, intérêts) ; dépense récurrente : indicateurs
   communs seuls. Pas de « coût total » : le moteur ne le fournit pas.
 * Présentation : une synthèse par variante (écarts par rapport à la situation sans décision,
   avertissements propres), puis une carte par indicateur (une ligne par variante) — lisible sur
@@ -563,3 +576,90 @@ travers de `createSnapshot` (E4), qui acceptaient déjà 2 à 4 variantes.
   stockage indisponible, simulation simple intacte, arabe et hébreu).
 * `DecisionLab.test.ts` : la consultation d'une simulation à plusieurs variantes affiche désormais
   les résultats comparés (auparavant aucun résultat, en attendant E5.5).
+
+## 14. Corrections A1 à A4 (audit transversal E2 → E5.5)
+
+### 14.1 A1 — saisie des montants selon la locale (`money.ts`, `MoneyInput`)
+
+* `parseAmountInput(texte, devise, locale)` suit les séparateurs de la **locale active**
+  (`settings.locale`, lus dans `Intl.NumberFormat` : point, espace insécable, apostrophe, « ٬ » ;
+  groupement indien en hi-IN ; chiffres arabes-indiens et persans) et calcule en BigInt sur les
+  chaînes. fr-MA : « 180.000 » → 180 000,00 ; « 180.000,50 » → 180 000,50 ; « 180,50 » → 180,50.
+* **Aucune interprétation silencieuse** : une saisie lisible de deux façons est refusée
+  (`ambiguous` : « 180.50 » ou « 1,500.50 » en fr-MA, « 180.000 » en en-US), comme une saisie trop
+  précise pour la devise (`precision`, jamais arrondie), non valide (`invalid`) ou hors des entiers
+  exacts (`tooLarge`). Propriété testée sur les 34 formats proposés : un montant affiché par
+  l'application, ressaisi tel quel, redonne exactement la même valeur ; écrit selon une autre
+  convention, il est lu exactement ou refusé — jamais avec un facteur 10, 100 ou 1 000.
+* `MoneyInput` : texte refusé conservé tel quel, champ marqué invalide, motif affiché avec un
+  exemple au format de la locale (« Montant ambigu : utilisez le format 1.234,56. ») ou transmis à
+  l'appelant (`onIssue`, formulaires du Decision Lab) ; saisie acceptée réécrite à la sortie du
+  champ avec le séparateur décimal de la locale (valeur retenue visible). Comportement commun à
+  tous les écrans de saisie ; l'accueil (hors réglages) utilise la locale qu'il propose.
+* **Écrans qui remplacent un montant vide par 0 ou « aucun »** (comptes, objectifs, dettes,
+  récurrences, budgets, patrimoine, opérations, accueil) : la valeur substituée ne remplace plus le
+  texte refusé, et l'enregistrement est bloqué tant qu'une saisie est refusée (`useAmountGuard` :
+  « Corrigez les montants signalés avant d'enregistrer. »). Prévisions (`Forecast.tsx`, non
+  modifié) : le champ refusé est signalé, mais le calcul de l'écran utilise 0 tant qu'il n'est pas
+  corrigé (aucun enregistrement) ; filtres des opérations : filtre non appliqué tant que la saisie
+  est refusée.
+* Correction d'un montant dans l'import CSV (tableau de vérification) : même parseur ; refus →
+  ligne en erreur, non importée. L'**analyse des fichiers importés** garde `parseAmount` (format du
+  fichier, pas la convention de l'utilisateur) : risque résiduel signalé (§ 14.5).
+
+### 14.2 A2 — totaux d'un objectif d'épargne sur l'horizon (E3, compatibilité E4)
+
+* E3 (`simulateGoal`) fournit, additionnés mois par mois : `contributedToHorizon`,
+  `interestToHorizon` (rendement après l'atteinte compris) et `contributionsToReach` (null si la
+  cible n'est pas atteinte : aucune atteinte fictive). Les totaux de l'échéancier
+  (`totalContributed`, `totalInterest`) sont conservés tels quels mais ne sont plus affichés comme
+  des totaux de la simulation.
+* Affichage : « Versé sur les N mois simulés », « Intérêts sur les N mois simulés » ; « Versements
+  nécessaires pour atteindre la cible (jusqu'au mois X) » seulement si elle est atteinte ; mois
+  d'atteinte « après l'horizon » signalé.
+* Comparateur : chaque indicateur dont la période n'est pas l'horizon commun porte sa période par
+  variante (durée du crédit, mois d'atteinte, échéance) ; l'écart n'est calculé que si les
+  périodes sont identiques, sinon « non comparable ».
+* **Compatibilité E4** (format 1 inchangé, aucune migration destructive) : un snapshot enregistré
+  avant la correction est lu sans erreur ; ses totaux de l'horizon sont reconstitués exactement à
+  partir de ses séries figées (`goalHorizonTotalsFromImpact` : versé = −écart de trésorerie,
+  intérêts = impact sur le patrimoine — identité vérifiée sur des simulations complètes) et
+  écrits lors de l'enregistrement suivant. Présents, les nouveaux champs sont obligatoires
+  ensemble et contrôlés contre les séries. Moteur : version 1 inchangée (aucun résultat existant
+  modifié).
+
+### 14.3 A3 — valeurs extrêmes
+
+* E3 : cumuls mensuels, impact sur le patrimoine, variation mensuelle, trajectoire de référence
+  (produit mois × épargne) et projection « avec décision » calculés exactement (BigInt) ; hors des
+  entiers exacts → `DecisionInputError` `resultOutOfRange`, jamais un résultat tronqué, saturé ou
+  remplacé par zéro. Corrige une erreur silencieuse : −(2^53 − 1) + 3 × (2^52 + 1) valait
+  4 503 599 627 370 501 au lieu de 4 503 599 627 370 500.
+* E4 : chaque mois « avec la décision » d'un snapshot doit être un entier exact.
+* E5 : `runSimulation` / `runComparison` projettent chaque variante sur la référence et
+  attribuent le dépassement à la variante concernée (les autres restent diagnostiquées) ; une
+  erreur imprévue est journalisée et signalée (`internalError`) : aucune exception non
+  interceptée, aucun résultat partiel. Comparateur : écart non représentable → « hors limites ».
+
+### 14.4 A4 — décisions sans effet dans l'horizon
+
+* `simulationNotices` (même règle pour une simulation simple, chaque variante et une simulation
+  relue dans l'historique) : trésorerie **et** patrimoine identiques à la situation sans décision
+  à chaque mois de l'horizon → avertissement `noEffectAfterHorizon` (dépense commençant après
+  l'horizon, avec le mois de début) ou `noEffect` (paramètres sans flux : placement sans capital ni
+  versement dans la période, achat de prix et frais nuls). Des montants qui se compensent dans le
+  patrimoine (achat comptant à la valeur du bien, placement à 0 %) modifient la trésorerie : jamais
+  signalés. Une décision invalide reste refusée (`emptyInvestment`…).
+* Comparateur : avertissement dans la synthèse de la variante et rappel au-dessus des indicateurs
+  (« leurs écarts traduisent l'absence de flux simulés, pas un avantage »).
+
+### 14.5 Tests et risques résiduels
+
+* Tests : `money.test.ts` (cas obligatoires, 34 locales, propriété affichage / saisie et entre
+  conventions), `MoneyInput.test.ts`, `amountGuard.test.ts` (écran Comptes, application réelle), `decision.goalHorizon.test.ts` (oracle E2 sommé jusqu'à
+  l'horizon, valeurs à rendement nul, horizons 1, 12, 60 et 480), `snapshot.compat.test.ts`,
+  `extremes.test.ts`, `noEffect.test.ts`, et parcours d'interface (`SimulationPanel`,
+  `ComparisonPanel`, `DecisionBuilder`, `SituationCard`).
+* Risques résiduels : analyse des fichiers CSV importés (`parseAmount`, hors saisie) ; écran
+  Prévisions (calcul affiché avec 0 tant qu'un champ refusé n'est pas corrigé) ; traductions
+  générées par IA (23 nouvelles clés), non relues par des locuteurs natifs.

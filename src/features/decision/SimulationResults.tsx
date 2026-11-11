@@ -131,13 +131,22 @@ export function SimulationResults({ snapshot, live }: { snapshot: DecisionSnapsh
           <h4 className="mb-3 text-sm font-semibold">{t('dl.res.goal.title')}</h4>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Metric label={t('dl.res.goal.effort')} value={money(v.details.monthlyContribution)} />
-            <Metric label={t('dl.res.goal.reached')} value={v.details.reachedMonth === null ? t('dl.res.goal.notReached', { max: MAX_HORIZON_MONTHS }) : String(v.details.reachedMonth)} testId="dl-res-goal-reached" />
-            {v.details.reachedMonth !== null && <Metric label={t('dl.res.goal.lastContribution')} value={money(v.details.lastContribution)} />}
-            <Metric label={t('dl.res.goal.contributed')} value={money(v.details.totalContributed)} />
-            <Metric label={t('dl.res.goal.interest')} value={money(v.details.totalInterest)} />
+            <Metric
+              label={t('dl.res.goal.reached')}
+              value={v.details.reachedMonth === null ? t('dl.res.goal.notReached', { max: MAX_HORIZON_MONTHS }) : v.details.reachedMonth > horizon ? t('dl.res.goal.reachedAfter', { month: v.details.reachedMonth }) : String(v.details.reachedMonth)}
+              testId="dl-res-goal-reached"
+            />
+            {/* Jusqu'à l'atteinte : période propre à l'objectif, affichée seulement si la cible est atteinte. */}
+            {v.details.contributionsToReach !== null && v.details.reachedMonth !== null && (
+              <Metric label={t('dl.res.goal.toReach', { month: v.details.reachedMonth })} value={money(v.details.contributionsToReach)} testId="dl-res-goal-to-reach" />
+            )}
+            {v.details.reachedMonth !== null && <Metric label={t('dl.res.goal.lastContributionAt', { month: v.details.reachedMonth })} value={money(v.details.lastContribution)} />}
+            {/* Sur l'horizon simulé : mêmes mois que la trésorerie et le patrimoine. */}
+            <Metric label={t('dl.res.goal.contributedHorizon', { months: horizon })} value={money(v.details.contributedToHorizon)} testId="dl-res-goal-contributed" />
+            <Metric label={t('dl.res.goal.interestHorizon', { months: horizon })} value={money(v.details.interestToHorizon)} testId="dl-res-goal-interest" />
+            <Metric label={t('dl.res.goal.final')} value={money(v.details.finalBalance)} testId="dl-res-goal-final" />
             {v.details.deadlineMonths !== null && v.details.balanceAtDeadline !== null && <Metric label={t('dl.res.goal.deadline', { month: v.details.deadlineMonths })} value={money(v.details.balanceAtDeadline)} />}
             {!!v.details.shortfallAtDeadline && <Metric label={t('dl.res.goal.shortfall')} value={money(v.details.shortfallAtDeadline)} tone="negative" />}
-            <Metric label={t('dl.res.goal.final')} value={money(v.details.finalBalance)} />
           </dl>
         </div>
       )}

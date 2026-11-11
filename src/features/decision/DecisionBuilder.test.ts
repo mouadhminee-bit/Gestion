@@ -257,7 +257,8 @@ describe('erreurs au niveau des champs', () => {
     await type('target', '6,0,0');
     await blur('target');
     expect(input('target').value).toBe('6,0,0');
-    expect(fieldError('target')).toBe('Cette valeur n\'est pas valide.');
+    // Motif précis, avec un exemple au format de la locale (fr-MA par défaut).
+    expect(fieldError('target')).toBe('Montant non valide. Format attendu : 1.234,56.');
     await type('effectiveRateBps', '3,125');
     await type('months', 'deux ans');
     await submit();
@@ -265,6 +266,15 @@ describe('erreurs au niveau des champs', () => {
     expect(input('months').value).toBe('deux ans');
     expect(fieldError('effectiveRateBps')).toBe('Cette valeur n\'est pas valide.');
     expect(fieldError('months')).toBe('Cette valeur n\'est pas valide.');
+    // Saisie ambiguë (« 60.00 » : décimale ou milliers ?) : refusée et signalée, jamais convertie.
+    await type('target', '60.00');
+    await blur('target');
+    expect(input('target').value).toBe('60.00');
+    expect(fieldError('target')).toBe('Montant ambigu : utilisez le format 1.234,56.');
+    // Format de la locale (point = milliers) : accepté.
+    await type('target', '60.000');
+    await submit();
+    expect(fieldError('target')).toBeNull();
     // Correction : chaque erreur disparaît dès la nouvelle saisie, puis validation.
     await type('target', '60000');
     expect(fieldError('target')).toBeNull();

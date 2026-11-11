@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/Misc';
 import { Field, Input, MoneyInput, Segmented, Switch } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
 import { MAX_HORIZON_MONTHS, MAX_RATE_BPS, MAX_VARIANTS, MIN_VARIANTS, type DecisionInput } from '@/domain/calc/decision';
+import { amountIssueMessage, type AmountInputIssue } from '@/domain/money';
 import { cn } from '@/lib/cn';
 import { t, td } from '@/i18n/core';
 import {
@@ -68,7 +69,7 @@ export function errorMessage(field: string, code: string): string {
   if (code === 'required' && field === 'insuranceMonths') return t('dl.err.insuranceMonths');
   if (code === 'tooLarge') return t('dl.err.tooLarge', { max: MAX_HORIZON_MONTHS });
   if (code === 'rateOutOfRange') return t('dl.err.rateOutOfRange', { max: MAX_RATE_BPS / 100 });
-  const known = ['required', 'negative', 'notPositive', 'exceedsPrice', 'loanRequired', 'loanNotAllowed', 'notAmortizable', 'emptyInvestment', 'resultOutOfRange'];
+  const known = ['required', 'negative', 'notPositive', 'exceedsPrice', 'loanRequired', 'loanNotAllowed', 'notAmortizable', 'emptyInvestment', 'resultOutOfRange', 'internalError'];
   return known.includes(code) ? td(`dl.err.${code}`) : t('dl.err.invalid');
 }
 
@@ -315,6 +316,7 @@ export function DecisionForm({
                       clearError(f.key);
                     }}
                     onMoneyText={(hasText) => update((d) => ({ ...d, moneyText: { ...d.moneyText, [f.key]: hasText } }))}
+                    onMoneyIssue={(issue) => update((d) => ({ ...d, moneyIssue: { ...d.moneyIssue, [f.key]: issue } }))}
                     onText={(v) => {
                       update((d) => ({ ...d, text: { ...d.text, [f.key]: v } }));
                       clearError(f.key);
@@ -373,6 +375,7 @@ function DraftField({
   error,
   onMoney,
   onMoneyText,
+  onMoneyIssue,
   onText,
   onInvalidBlur,
 }: {
@@ -385,21 +388,28 @@ function DraftField({
   onMoney: (v: number | null) => void;
   /** Présence d'un texte dans le champ monétaire (indépendante de la valeur interprétée). */
   onMoneyText: (hasText: boolean) => void;
+  /** Motif de refus de la saisie monétaire (null : vide ou acceptée). */
+  onMoneyIssue: (issue: AmountInputIssue | null) => void;
   onText: (v: string) => void;
   onInvalidBlur: () => void;
 }) {
+  const { settings } = useApp();
   const id = `${idPrefix}-${spec.key.replace('.', '-')}`;
   const hk = hintKey(kind, spec.key);
+  // Saisie monétaire refusée : motif précis (ambiguïté, décimales…) avec un exemple au format de la locale.
+  const issue = spec.type === 'money' ? draft.moneyIssue?.[spec.key] : null;
+  const message = error === 'invalid' && issue ? amountIssueMessage(issue, settings.locale, currency) : error ? errorMessage(spec.key, error) : undefined;
   return (
     <div data-testid={`dl-field-${spec.key}`}>
-      <Field label={td(labelKey(kind, spec.key))} htmlFor={id} required={spec.required} hint={hk ? td(hk) : undefined} error={error ? errorMessage(spec.key, error) : undefined}>
+      <Field label={td(labelKey(kind, spec.key))} htmlFor={id} required={spec.required} hint={hk ? td(hk) : undefined} error={message}>
         {spec.type === 'money' ? (
           <MoneyInput
             id={id}
             name={spec.key}
             currency={currency}
             allowNegative
-            keepInvalidText
+            showIssue={false}
+            onIssue={onMoneyIssue}
             required={spec.required}
             invalid={!!error}
             value={draft.money[spec.key] ?? null}

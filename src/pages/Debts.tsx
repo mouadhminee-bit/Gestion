@@ -5,7 +5,7 @@ import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, EmptyState, ProgressBar } from '@/components/ui/Misc';
 import { Dialog, useConfirm } from '@/components/ui/Dialog';
-import { Field, Input, MoneyInput, Segmented, Select, Switch, Textarea } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Segmented, Select, Switch, Textarea, useAmountGuard } from '@/components/ui/Field';
 import { InfoTip } from '@/components/ui/Tooltip';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { ValidationError } from '@/data/repository';
@@ -21,6 +21,8 @@ type Form = Omit<Debt, 'id' | 'userId' | 'createdAt' | 'updatedAt'> & { id?: str
 export default function Debts() {
   const { data, ctx, fmt, today, repo, settings } = useApp();
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const confirm = useConfirm();
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
@@ -46,6 +48,7 @@ export default function Debts() {
   const newForm = (): Form => ({ label: '', type: 'loan', direction: 'payable', principal: 0, currency: settings.baseCurrency, startDate: today, dueDate: undefined, counterparty: '', interestRate: undefined, installmentAmount: undefined, installmentFrequency: 'monthly', status: 'active', notes: '', createOrigin: false, originAccountId: data.accounts.find((a) => !a.archived)?.id });
 
   async function save() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!form) return;
     try {
       const { createOrigin, originAccountId, id, ...rest } = form;
@@ -61,6 +64,7 @@ export default function Debts() {
   }
 
   async function savePayment() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!payment) return;
     try {
       await repo.addDebtPayment(payment.debt.id, { date: payment.date, principal: payment.principal ?? 0, interest: payment.interest ?? 0, accountId: payment.accountId || undefined, note: payment.note || undefined });
@@ -155,13 +159,13 @@ export default function Debts() {
                 {Object.entries(DEBT_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v} — {DEBT_TYPE_DIRECTION[k as DebtType] === 'payable' ? t('debt.dirPayable') : t('debt.dirReceivable')}</option>)}
               </Select>
             </Field>
-            <Field label={t('debt.principal')} required error={errors.principal}><MoneyInput value={form.principal || null} onChange={(v) => setForm({ ...form, principal: v ?? 0 })} currency={form.currency} /></Field>
+            <Field label={t('debt.principal')} required error={errors.principal}><MoneyInput onIssue={amounts.track('m1')} value={form.principal || null} onChange={(v) => setForm({ ...form, principal: v ?? 0 })} currency={form.currency} /></Field>
             <Field label={t('common.currency')}><Select value={form.currency} disabled={!!form.id} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}</Select></Field>
             <Field label={t('debt.startDate')} error={errors.startDate}><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Field>
             <Field label={t('debt.dueDate')}><Input type="date" value={form.dueDate ?? ''} onChange={(e) => setForm({ ...form, dueDate: e.target.value || undefined })} /></Field>
             <Field label={t('debt.counterparty')}><Input value={form.counterparty ?? ''} onChange={(e) => setForm({ ...form, counterparty: e.target.value })} placeholder={t('debt.counterpartyPlaceholder')} /></Field>
             <Field label={t('debt.rate')}><Input inputMode="decimal" value={form.interestRate ?? ''} onChange={(e) => { const v = parseFloat(e.target.value.replace(',', '.')); setForm({ ...form, interestRate: Number.isFinite(v) ? v : undefined }); }} /></Field>
-            <Field label={t('debt.installment')}><MoneyInput value={form.installmentAmount ?? null} onChange={(v) => setForm({ ...form, installmentAmount: v ?? undefined })} currency={form.currency} /></Field>
+            <Field label={t('debt.installment')}><MoneyInput onIssue={amounts.track('m2')} value={form.installmentAmount ?? null} onChange={(v) => setForm({ ...form, installmentAmount: v ?? undefined })} currency={form.currency} /></Field>
             <Field label={t('debt.installmentFrequency')}><Select value={form.installmentFrequency ?? 'monthly'} onChange={(e) => setForm({ ...form, installmentFrequency: e.target.value as Debt['installmentFrequency'] })}><option value="monthly">{t('debt.freq.monthly')}</option><option value="quarterly">{t('debt.freq.quarterly')}</option><option value="annual">{t('debt.freq.annual')}</option></Select></Field>
             {form.id && <Field label={t('common.status')}><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Debt['status'] })}><option value="active">{t('debt.status.active')}</option><option value="settled">{t('debt.status.settled')}</option><option value="archived">{t('debt.status.archived')}</option></Select></Field>}
             {!form.id && (
@@ -183,8 +187,8 @@ export default function Debts() {
         footer={<><Button variant="ghost" onClick={() => setPayment(null)}>{t('common.cancel')}</Button><Button variant="primary" onClick={savePayment}>{t('common.save')}</Button></>}>
         {payment && (
           <div className="space-y-4">
-            <Field label={<span className="inline-flex items-center gap-1">{t('debt.principalPart')} <InfoTip>{t('debt.principalPartInfo')}</InfoTip></span>}><MoneyInput value={payment.principal} onChange={(v) => setPayment({ ...payment, principal: v })} currency={payment.debt.currency} data-autofocus /></Field>
-            <Field label={<span className="inline-flex items-center gap-1">{t('debt.interestPart')} <InfoTip>{t('debt.interestPartInfo')}</InfoTip></span>}><MoneyInput value={payment.interest} onChange={(v) => setPayment({ ...payment, interest: v })} currency={payment.debt.currency} /></Field>
+            <Field label={<span className="inline-flex items-center gap-1">{t('debt.principalPart')} <InfoTip>{t('debt.principalPartInfo')}</InfoTip></span>}><MoneyInput onIssue={amounts.track('m3')} value={payment.principal} onChange={(v) => setPayment({ ...payment, principal: v })} currency={payment.debt.currency} data-autofocus /></Field>
+            <Field label={<span className="inline-flex items-center gap-1">{t('debt.interestPart')} <InfoTip>{t('debt.interestPartInfo')}</InfoTip></span>}><MoneyInput onIssue={amounts.track('m4')} value={payment.interest} onChange={(v) => setPayment({ ...payment, interest: v })} currency={payment.debt.currency} /></Field>
             <Field label={t('common.date')}><Input type="date" value={payment.date} onChange={(e) => setPayment({ ...payment, date: e.target.value })} /></Field>
             <Field label={t('debt.account')} hint={t('debt.accountHint')}>
               <Select value={payment.accountId} onChange={(e) => setPayment({ ...payment, accountId: e.target.value })}>

@@ -17,7 +17,7 @@ import { cn } from '@/lib/cn';
 import type { Delimiter, ImportDateFormat } from '@/domain/csv';
 import { detectDateFormat, detectDelimiter, IMPORT_DATE_FORMATS, parseCSV, parseDateWithFormat, parseImportAmount } from '@/domain/csv';
 import { findDuplicates, normalizeLabel } from '@/domain/duplicates';
-import { parseAmount, toPlainString } from '@/domain/money';
+import { formatAmountInput, parseAmountInput } from '@/domain/money';
 import type { TransactionDraft } from '@/domain/validation';
 import type { ImportBatch } from '@/domain/types';
 import { t as tr, td } from '@/i18n/core';
@@ -381,7 +381,11 @@ export default function Import() {
                     <td className="py-1"><input type="checkbox" aria-label={tr('imp.importRow', { n: r.idx + 1 })} className="accent-[rgb(var(--primary))]" checked={r.include} disabled={r.errors.length > 0} onChange={(e) => updateRow(i, { include: e.target.checked })} /></td>
                     <td className="pe-2"><Input type="date" className="h-8 w-[150px] text-xs" value={r.date ?? ''} onChange={(e) => updateRow(i, { date: e.target.value || null })} /></td>
                     <td className="pe-2"><Input className="h-8 text-xs" value={r.label} onChange={(e) => updateRow(i, { label: e.target.value })} /></td>
-                    <td className="pe-2"><Input className="h-8 w-[120px] text-end text-xs num" defaultValue={r.amount == null ? '' : toPlainString(r.amount, currency, ',')} onBlur={(e) => updateRow(i, { amount: parseAmount(e.target.value, currency) })} /></td>
+                    <td className="pe-2">
+                      {/* Correction saisie à la main : séparateurs de la locale ; une saisie ambiguë ou non valide
+                          n'est pas convertie (montant absent : la ligne passe en erreur et n'est pas importée). */}
+                      <Input className="h-8 w-[120px] text-end text-xs num" defaultValue={r.amount == null ? '' : formatAmountInput(r.amount, currency, settings.locale)} onBlur={(e) => { const p = parseAmountInput(e.target.value, currency, settings.locale); updateRow(i, { amount: p.ok ? p.value : null }); }} />
+                    </td>
                     <td className="ps-3">
                       {r.errors.length ? <span className="text-negative">{r.errors.join(', ')}</span> : r.duplicate ? <span className="inline-flex items-center gap-1 text-warning"><AlertTriangle className="h-3 w-3" />{r.duplicate}</span> : <span className="text-positive">{tr('imp.ok')}</span>}
                     </td>

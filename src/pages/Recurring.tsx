@@ -5,7 +5,7 @@ import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, CategoryIcon, EmptyState } from '@/components/ui/Misc';
 import { Dialog, useConfirm } from '@/components/ui/Dialog';
-import { Field, Input, MoneyInput, Segmented, Select, Switch, Textarea } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Segmented, Select, Switch, Textarea, useAmountGuard } from '@/components/ui/Field';
 import { InfoTip } from '@/components/ui/Tooltip';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { ValidationError } from '@/data/repository';
@@ -24,6 +24,8 @@ type Form = Omit<RecurringRule, 'id' | 'userId' | 'createdAt' | 'updatedAt'> & {
 export default function Recurring() {
   const { data, ctx, fmt, today, repo, settings, uiLocale } = useApp();
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const confirm = useConfirm();
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
@@ -43,6 +45,7 @@ export default function Recurring() {
   const newForm = (): Form => ({ kind: 'expense', label: '', amount: 0, currency: settings.baseCurrency, accountId: data.accounts.find((a) => !a.archived)?.id ?? '', categoryId: null, subcategoryId: null, payee: '', frequency: 'monthly', customInterval: 1, customUnit: 'month', startDate: today, endDate: undefined, active: true, notes: '' });
 
   async function save() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!form) return;
     try {
       await repo.saveRecurringRule({ ...form, endDate: form.endDate || undefined });
@@ -55,6 +58,7 @@ export default function Recurring() {
   }
 
   async function confirmPay() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!pay || !pay.amount) return;
     try {
       await repo.markOccurrencePaid(pay.o.rule.id, pay.o.dueDate, { date: pay.date, amount: pay.amount, accountId: pay.accountId });
@@ -195,7 +199,7 @@ export default function Recurring() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t('common.type')} className="sm:col-span-2"><Segmented value={form.kind} onChange={(v) => setForm({ ...form, kind: v, categoryId: null, subcategoryId: null })} options={[{ value: 'expense', label: t('rec.kind.expense') }, { value: 'income', label: t('rec.kind.income') }]} className="w-full" /></Field>
             <Field label={t('common.label')} required error={errors.label}><Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder={t('rec.labelPlaceholder')} data-autofocus /></Field>
-            <Field label={t('common.amount')} required error={errors.amount}><MoneyInput value={form.amount || null} onChange={(v) => setForm({ ...form, amount: v ?? 0 })} currency={ctx.accounts.get(form.accountId)?.currency ?? settings.baseCurrency} /></Field>
+            <Field label={t('common.amount')} required error={errors.amount}><MoneyInput onIssue={amounts.track('m1')} value={form.amount || null} onChange={(v) => setForm({ ...form, amount: v ?? 0 })} currency={ctx.accounts.get(form.accountId)?.currency ?? settings.baseCurrency} /></Field>
             <Field label={t('common.account')} error={errors.accountId}>
               <Select value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>{data.accounts.filter((a) => !a.archived || a.id === form.accountId).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</Select>
             </Field>
@@ -230,7 +234,7 @@ export default function Recurring() {
         {pay && (
           <div className="space-y-4">
             <p className="text-xs text-muted">{t('rec.confirm.hint')}</p>
-            <Field label={t(pay.o.rule.kind === 'income' ? 'rec.amountReceived' : 'rec.amountPaid')}><MoneyInput value={pay.amount} onChange={(v) => setPay({ ...pay, amount: v })} currency={pay.o.rule.currency} data-autofocus /></Field>
+            <Field label={t(pay.o.rule.kind === 'income' ? 'rec.amountReceived' : 'rec.amountPaid')}><MoneyInput onIssue={amounts.track('m2')} value={pay.amount} onChange={(v) => setPay({ ...pay, amount: v })} currency={pay.o.rule.currency} data-autofocus /></Field>
             <Field label={t(pay.o.rule.kind === 'income' ? 'rec.receiptDate' : 'rec.paymentDate')}><Input type="date" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} /></Field>
             <Field label={t('common.account')}><Select value={pay.accountId} onChange={(e) => setPay({ ...pay, accountId: e.target.value })}>{data.accounts.filter((a) => !a.archived).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</Select></Field>
           </div>

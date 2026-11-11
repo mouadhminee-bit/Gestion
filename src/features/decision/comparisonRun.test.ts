@@ -253,7 +253,7 @@ describe('écarts « variante − A » et indicateurs', () => {
       expect(ind.differences[0]).toBeNull();
       ind.values.forEach((x, k) => {
         if (k === 0) return;
-        expect(ind.differences[k], `${ind.key} ${k}`).toBe(x === null || ind.values[0] === null ? null : x - ind.values[0]!);
+        expect(ind.differences[k], `${ind.key} ${k}`).toBe(!ind.comparable || x === null || ind.values[0] === null ? null : x - ind.values[0]!);
       });
     }
     return Object.fromEntries(inds.map((i) => [i.key, i]));
@@ -285,6 +285,17 @@ describe('écarts « variante − A » et indicateurs', () => {
     expect(ind.loanMonths.values).toEqual([48, null, 60]);
     expect(ind.loanInstallment.differences[1]).toBeNull();
     expect(ind.loanInstallment.differences[2]).toBe(loans[2]!.installment - loans[0]!.installment);
+    // Totaux du crédit sur 48 et 60 mois : périodes différentes, valeurs affichées sans écart (A2).
+    for (const key of ['loanInterest', 'loanPaid']) {
+      expect(ind[key].periods, key).toEqual([48, null, 60]);
+      expect(ind[key].comparable, key).toBe(false);
+      expect(ind[key].differences, key).toEqual([null, null, null]);
+    }
+    // Même durée : écart calculé.
+    const same = ok(input([FAMILIES.purchase[0], { ...FAMILIES.purchase[2], loan: { nominalRateBps: 550, months: 48 } } as DecisionInput], '60'));
+    const si = check(same.snapshot);
+    expect(si.loanInterest.comparable).toBe(true);
+    expect(si.loanInterest.differences[1]).toBe(same.live[1].loan!.totalInterest - same.live[0].loan!.totalInterest);
     // Aucune variante financée : pas d'indicateur de crédit.
     const cash = ok(input([FAMILIES.purchase[1], { kind: 'purchase', price: 18_000_000, downPayment: 18_000_000, fees: 0 }], '12'));
     expect(comparisonIndicators(cash.snapshot).some((i) => i.key.startsWith('loan'))).toBe(false);
@@ -297,6 +308,10 @@ describe('écarts « variante − A » et indicateurs', () => {
     expect(gi.goalReachedMonth.values).toEqual(g.live.map((x) => x.goal!.reachedMonth));
     expect(gi.goalFinal.values).toEqual(g.live.map((x) => x.goal!.finalBalance));
     expect(gi.goalShortfall.values).toEqual(g.live.map((x) => x.goal!.shortfallAtDeadline));
+    expect(gi.goalContributedHorizon.values).toEqual(g.live.map((x) => x.goal!.contributedToHorizon));
+    expect(gi.goalInterestHorizon.values).toEqual(g.live.map((x) => x.goal!.interestToHorizon));
+    expect(gi.goalToReach.values).toEqual(g.live.map((x) => x.goal!.contributionsToReach));
+    expect(gi.goalContributedHorizon.comparable).toBe(true);
     const i = ok(input(FAMILIES.investment.slice(0, 2), '120'));
     const ii = check(i.snapshot);
     const last = (k: number) => i.live[k].savings![i.live[k].savings!.length - 1];

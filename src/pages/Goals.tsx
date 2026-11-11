@@ -5,7 +5,7 @@ import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, CategoryIcon, EmptyState, ProgressBar, ProgressRing } from '@/components/ui/Misc';
 import { Dialog, useConfirm } from '@/components/ui/Dialog';
-import { Field, Input, MoneyInput, Segmented, Select, Switch, Textarea } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Segmented, Select, Switch, Textarea, useAmountGuard } from '@/components/ui/Field';
 import { InfoTip } from '@/components/ui/Tooltip';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { useBalances } from '@/features/hooks';
@@ -33,6 +33,8 @@ const PRIORITY: Record<GoalPriority, string> = lazyLabels('goal.priority', ['hig
 export default function Goals() {
   const { data, fmt, today, repo, settings, ctx } = useApp();
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const confirm = useConfirm();
   const balances = useBalances();
   const [form, setForm] = useState<Form | null>(null);
@@ -55,6 +57,7 @@ export default function Goals() {
   const newForm = (): Form => ({ name: '', description: '', targetAmount: 0, currency: settings.baseCurrency, savedAmount: 0, targetDate: undefined, priority: 'medium', linkedAccountId: undefined, trackLinkedAccount: false, monthlyContribution: undefined, status: 'active', icon: 'Target', color: COLOR_SWATCHES[data.goals.length % COLOR_SWATCHES.length] });
 
   async function save() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!form) return;
     try {
       await repo.saveGoal({ ...form, linkedAccountId: form.linkedAccountId || undefined, trackLinkedAccount: !!form.linkedAccountId && form.trackLinkedAccount });
@@ -67,6 +70,7 @@ export default function Goals() {
   }
 
   async function saveContribution() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!contrib || !contrib.amount) return;
     try {
       await repo.addGoalContribution(contrib.goal.id, contrib.withdraw ? -contrib.amount : contrib.amount, contrib.date, contrib.note || undefined);
@@ -170,10 +174,10 @@ export default function Goals() {
         {form && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t('common.name')} required error={errors.name} className="sm:col-span-2"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('goal.namePlaceholder')} data-autofocus /></Field>
-            <Field label={t('goal.target')} required error={errors.targetAmount}><MoneyInput value={form.targetAmount || null} onChange={(v) => setForm({ ...form, targetAmount: v ?? 0 })} currency={form.currency} /></Field>
-            <Field label={t('goal.alreadySaved')} error={errors.savedAmount} hint={form.trackLinkedAccount ? t('goal.ignoredTracking') : undefined}><MoneyInput value={form.savedAmount} onChange={(v) => setForm({ ...form, savedAmount: v ?? 0 })} currency={form.currency} disabled={form.trackLinkedAccount} /></Field>
+            <Field label={t('goal.target')} required error={errors.targetAmount}><MoneyInput onIssue={amounts.track('m1')} value={form.targetAmount || null} onChange={(v) => setForm({ ...form, targetAmount: v ?? 0 })} currency={form.currency} /></Field>
+            <Field label={t('goal.alreadySaved')} error={errors.savedAmount} hint={form.trackLinkedAccount ? t('goal.ignoredTracking') : undefined}><MoneyInput onIssue={amounts.track('m2')} value={form.savedAmount} onChange={(v) => setForm({ ...form, savedAmount: v ?? 0 })} currency={form.currency} disabled={form.trackLinkedAccount} /></Field>
             <Field label={t('goal.targetDateOptional')} error={errors.targetDate}><Input type="date" value={form.targetDate ?? ''} onChange={(e) => setForm({ ...form, targetDate: e.target.value || undefined })} /></Field>
-            <Field label={t('goal.monthlyWanted')}><MoneyInput value={form.monthlyContribution ?? null} onChange={(v) => setForm({ ...form, monthlyContribution: v ?? undefined })} currency={form.currency} /></Field>
+            <Field label={t('goal.monthlyWanted')}><MoneyInput onIssue={amounts.track('m3')} value={form.monthlyContribution ?? null} onChange={(v) => setForm({ ...form, monthlyContribution: v ?? undefined })} currency={form.currency} /></Field>
             <Field label={t('goal.priority')}><Segmented value={form.priority} onChange={(v) => setForm({ ...form, priority: v })} options={[{ value: 'high', label: PRIORITY.high }, { value: 'medium', label: PRIORITY.medium }, { value: 'low', label: PRIORITY.low }]} className="w-full" /></Field>
             <Field label={t('common.status')}><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as GoalStatus })}><option value="active">{t('goal.status.active')}</option><option value="paused">{t('goal.status.paused')}</option><option value="achieved">{t('goal.status.achieved')}</option><option value="archived">{t('goal.status.archived')}</option></Select></Field>
             <Field label={t('goal.linkedAccount')} className="sm:col-span-2" hint={t('goal.linkedAccountHint')}>
@@ -201,7 +205,7 @@ export default function Goals() {
         {contrib && (
           <div className="space-y-4">
             <Segmented value={contrib.withdraw ? 'out' : 'in'} onChange={(v) => setContrib({ ...contrib, withdraw: v === 'out' })} options={[{ value: 'in', label: t('goal.add') }, { value: 'out', label: t('goal.withdraw') }]} className="w-full" />
-            <Field label={t('common.amount')} required><MoneyInput value={contrib.amount} onChange={(v) => setContrib({ ...contrib, amount: v })} currency={contrib.goal.currency} data-autofocus /></Field>
+            <Field label={t('common.amount')} required><MoneyInput onIssue={amounts.track('m4')} value={contrib.amount} onChange={(v) => setContrib({ ...contrib, amount: v })} currency={contrib.goal.currency} data-autofocus /></Field>
             <Field label={t('common.date')}><Input type="date" value={contrib.date} onChange={(e) => setContrib({ ...contrib, date: e.target.value })} /></Field>
             <Field label={t('common.note')}><Input value={contrib.note} onChange={(e) => setContrib({ ...contrib, note: e.target.value })} /></Field>
             <History goalId={contrib.goal.id} />

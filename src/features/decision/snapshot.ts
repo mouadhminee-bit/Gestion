@@ -20,6 +20,7 @@ import {
   compareDecisions,
   DECISION_ENGINE_VERSION,
   DecisionInputError,
+  goalHorizonTotalsFromImpact,
   MAX_HORIZON_MONTHS,
   MAX_VARIANTS,
   projectDecision,
@@ -60,8 +61,14 @@ export type SnapshotDetails =
       monthlyContribution: number;
       reachedMonth: number | null;
       lastContribution: number;
+      /** Échéancier jusqu'à l'atteinte (ou 480 mois) : période propre à l'objectif. */
       totalContributed: number;
       totalInterest: number;
+      /** Versements nécessaires pour atteindre la cible (null : non atteinte). */
+      contributionsToReach: number | null;
+      /** Versements et intérêts du mois 1 à la fin de l'horizon simulé. */
+      contributedToHorizon: number;
+      interestToHorizon: number;
       balanceAtReach: number | null;
       deadlineMonths: number | null;
       reachedByDeadline: boolean | null;
@@ -124,6 +131,9 @@ function detailsOf(r: DecisionResult): SnapshotDetails {
         lastContribution: g.lastContribution,
         totalContributed: g.totalContributed,
         totalInterest: g.totalInterest,
+        contributionsToReach: g.contributionsToReach,
+        contributedToHorizon: g.contributedToHorizon,
+        interestToHorizon: g.interestToHorizon,
         balanceAtReach: g.balanceAtReach,
         deadlineMonths: g.deadlineMonths,
         reachedByDeadline: g.reachedByDeadline,
@@ -275,6 +285,13 @@ const DECISION_KEYS: Record<DecisionInput['kind'], string[]> = {
   investment: ['kind', 'initialCapital', 'monthlyContribution', 'contributionMonths', 'effectiveRateBps'],
 };
 const GOAL_KEYS = ['kind', 'mode', 'monthlyContribution', 'reachedMonth', 'lastContribution', 'totalContributed', 'totalInterest', 'balanceAtReach', 'deadlineMonths', 'reachedByDeadline', 'balanceAtDeadline', 'shortfallAtDeadline', 'finalBalance', 'interestAfterReach'];
+/**
+ * Totaux de l'objectif sur l'horizon (correction A2). Absents des simulations enregistrées avant
+ * cette correction (format 1 inchangé) : ils sont alors reconstitués à la lecture, exactement, à partir
+ * des séries figées (`goalHorizonTotalsFromImpact`) — aucune simulation existante n'est invalidée.
+ * Présents : tous obligatoires et contrôlés contre ces mêmes séries.
+ */
+const GOAL_HORIZON_KEYS = ['contributionsToReach', 'contributedToHorizon', 'interestToHorizon'];
 
 function checkDetails(c: Checker, d: unknown, path: string, kind: DecisionInput['kind']): void {
   if (!isObject(d)) return void c.fail(path, 'objet attendu');
@@ -297,13 +314,22 @@ function checkDetails(c: Checker, d: unknown, path: string, kind: DecisionInput[
         c.intOrNull(l.earlyPayoffMonth, `${path}.loan.earlyPayoffMonth`, 1, MAX_HORIZON_MONTHS);
       }
       return;
-    case 'goal':
-      if (!c.shape(d, path, GOAL_KEYS)) return;
+    case 'goal': {
+      const horizonKeys = GOAL_HORIZON_KEYS.filter((k) => k in d);
+      if (horizonKeys.length && horizonKeys.length !== GOAL_HORIZON_KEYS.length) return void c.fail(path, 'totaux de l\'horizon incomplets');
+      if (!c.shape(d, path, [...GOAL_KEYS, ...horizonKeys])) return;
+      if (horizonKeys.length) {
+        c.int(d.contributedToHorizon, `${path}.contributedToHorizon`, 0);
+        c.int(d.interestToHorizon, `${path}.interestToHorizon`, 0);
+        c.intOrNull(d.contributionsToReach, `${path}.contributionsToReach`, 0);
+        if (d.contributionsToReach !== (d.reachedMonth === null ? null : d.totalContributed)) c.fail(`${path}.contributionsToReach`, 'incohérent avec l\'atteinte');
+      }
       if (d.mode !== 'effort' && d.mode !== 'contribution') c.fail(`${path}.mode`, 'mode inconnu');
       for (const k of ['monthlyContribution', 'lastContribution', 'totalContributed', 'totalInterest', 'finalBalance', 'interestAfterReach']) c.int(d[k], `${path}.${k}`, 0);
       for (const k of ['reachedMonth', 'deadlineMonths']) c.intOrNull(d[k], `${path}.${k}`, 1, MAX_HORIZON_MONTHS);
       for (const k of ['balanceAtReach', 'balanceAtDeadline', 'shortfallAtDeadline']) c.intOrNull(d[k], `${path}.${k}`, 0);
       if (d.reachedByDeadline !== null && typeof d.reachedByDeadline !== 'boolean') c.fail(`${path}.reachedByDeadline`, 'booléen ou null attendu');
+    }
   }
 }
 
@@ -382,6 +408,9 @@ export function validateSnapshot(raw: unknown): SnapshotValidation {
         const e = res.endOfHorizon as SnapshotVariantResult['endOfHorizon'];
         const low = res.lowestCash as SnapshotVariantResult['lowestCash'];
         const total = cash.map((d, m) => ref.cash[m] + d);
+        // Chaque mois « avec la décision » (référence + écart) doit rester un entier exact (A3) : les
+        // séries affichées et les tableaux de valeurs en dépendent.
+        if (!total.every(isInt) || !nw.every((d, m) => isInt(ref.netWorth[m] + d))) c.fail(rp, 'valeurs hors des entiers exacts');
         const min = Math.min(...total);
         const firstNeg = total.findIndex((x) => x < 0);
         if (s.finalCumulativeCash !== cash[horizon] || s.finalNetWorthImpact !== nw[horizon]) c.fail(`${rp}.summary`, 'incohérent avec les séries');
@@ -389,15 +418,35 @@ export function validateSnapshot(raw: unknown): SnapshotValidation {
         if (e.cashDelta !== cash[horizon] || e.netWorthDelta !== nw[horizon] || e.cash !== total[horizon] || e.netWorth !== ref.netWorth[horizon] + nw[horizon]) c.fail(`${rp}.endOfHorizon`, 'incohérent avec les séries');
         if (low.value !== min || total[low.month] !== min) c.fail(`${rp}.lowestCash`, 'incohérent avec les séries');
         if ((firstNeg === -1 ? null : firstNeg) !== res.firstNegativeCashMonth) c.fail(`${rp}.firstNegativeCashMonth`, 'incohérent avec les séries');
+        // Objectif : totaux de l'horizon = identité des séries ; solde final = versé + intérêts.
+        const det = res.details as Record<string, unknown>;
+        if (kind === 'goal' && isObject(det) && 'contributedToHorizon' in det) {
+          const expected = goalHorizonTotalsFromImpact(cash[horizon], nw[horizon]);
+          if (det.contributedToHorizon !== expected.contributedToHorizon || det.interestToHorizon !== expected.interestToHorizon || det.finalBalance !== expected.contributedToHorizon + expected.interestToHorizon) {
+            c.fail(`${rp}.details`, 'totaux de l\'horizon incohérents avec les séries');
+          }
+        }
       }
     });
   } catch (e) {
     c.fail('snapshot', `valeur illisible (${e instanceof Error ? e.message : 'erreur'})`);
   }
   if (c.errors.length) return { ok: false, errors: c.errors };
+  let value: DecisionSnapshot;
   try {
-    return { ok: true, value: deepFreeze(JSON.parse(JSON.stringify(raw)) as DecisionSnapshot) };
+    value = JSON.parse(JSON.stringify(raw)) as DecisionSnapshot;
   } catch {
     return { ok: false, errors: ['snapshot : valeur non sérialisable'] };
   }
+  // Simulation enregistrée avant la correction A2 : totaux de l'objectif sur l'horizon reconstitués
+  // exactement à partir des séries figées (identité du modèle), sans recalcul de la simulation.
+  const horizon = value.hypotheses.horizonMonths;
+  value.results.variants.forEach((v) => {
+    const d = v.details;
+    if (d.kind === 'goal' && (d as Partial<typeof d>).contributedToHorizon === undefined) {
+      const totals = goalHorizonTotalsFromImpact(v.cashDelta[horizon], v.netWorthDelta[horizon]);
+      Object.assign(d, { contributionsToReach: d.reachedMonth === null ? null : d.totalContributed, ...totals });
+    }
+  });
+  return { ok: true, value: deepFreeze(value) };
 }

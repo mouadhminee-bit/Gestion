@@ -5,7 +5,7 @@ import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, CategoryIcon, EmptyState, ProgressBar, ProgressRing } from '@/components/ui/Misc';
 import { Dialog, useConfirm } from '@/components/ui/Dialog';
-import { Field, Input, MoneyInput, Select } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Select, useAmountGuard } from '@/components/ui/Field';
 import { InfoTip } from '@/components/ui/Tooltip';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { useMonthData } from '@/features/hooks';
@@ -37,6 +37,8 @@ interface EditState {
 export default function Budgets() {
   const { data, ctx, fmt, month, today, repo, settings, uiLocale } = useApp();
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const confirm = useConfirm();
   const md = useMonthData(month);
   const [edit, setEdit] = useState<EditState | null>(null);
@@ -63,6 +65,7 @@ export default function Budgets() {
   }, [ctx, data, month]);
 
   async function save() {
+    if (amounts.blocked) return void toast.error(t('money.input.fixBeforeSave'));
     if (!edit || edit.amount == null) return;
     const thresholds = edit.thresholds.split(/[,; ]+/).map(Number).filter((n) => n > 0 && n <= 200);
     try {
@@ -283,7 +286,7 @@ export default function Budgets() {
               </Select>
             </Field>
             <Field label={t('budget.planned')} required hint={t('budget.plannedHint')}>
-              <MoneyInput value={edit.amount} onChange={(v) => setEdit({ ...edit, amount: v })} currency={settings.baseCurrency} data-autofocus />
+              <MoneyInput onIssue={amounts.track('m1')} value={edit.amount} onChange={(v) => setEdit({ ...edit, amount: v })} currency={settings.baseCurrency} data-autofocus />
             </Field>
             <Field label={t('budget.applyFollowing')}>
               <Select value={edit.follow} onChange={(e) => setEdit({ ...edit, follow: Number(e.target.value) })}>

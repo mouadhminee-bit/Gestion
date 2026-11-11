@@ -163,8 +163,18 @@ export interface GoalOutcome {
   /** Mois d'atteinte (null : non atteint en 480 mois). */
   reachedMonth: number | null;
   lastContribution: number;
+  /**
+   * Versements et intérêts de l'ÉCHÉANCIER, du mois 1 au mois d'atteinte (ou jusqu'à 480 mois si la
+   * cible n'est pas atteinte) : période propre à l'objectif, différente de l'horizon simulé.
+   */
   totalContributed: number;
   totalInterest: number;
+  /** Total des versements nécessaires pour atteindre la cible (null : cible non atteinte en 480 mois). */
+  contributionsToReach: number | null;
+  /** Versements réellement effectués du mois 1 à la fin de l'horizon simulé. */
+  contributedToHorizon: number;
+  /** Intérêts acquis du mois 1 à la fin de l'horizon (rendement après atteinte compris, H15). */
+  interestToHorizon: number;
   /** Solde du compte dédié au mois d'atteinte (null : non atteint). */
   balanceAtReach: number | null;
   deadlineMonths: number | null;
@@ -461,6 +471,9 @@ const neg = (x: number) => (x === 0 ? 0 : -x);
 
 const ZERO_FLOWS: DecisionFlows = { initial: 0, fees: 0, installment: 0, loanInterest: 0, loanPrincipal: 0, insurance: 0, expense: 0, contribution: 0 };
 
+/** Somme exacte d'entiers (BigInt) : hors des entiers exacts, `resultOutOfRange` (jamais d'arrondi caché). */
+const exactSum = (...values: number[]): number => toSafe(values.reduce((acc, v) => acc + BigInt(v), 0n));
+
 function buildMonths(horizon: number, startMonth: MonthKey | undefined, at: (m: number) => { flows: Partial<DecisionFlows>; assets: number; liabilities: number }): DecisionMonth[] {
   const out: DecisionMonth[] = [];
   let cumulativeCash = 0;
@@ -468,12 +481,12 @@ function buildMonths(horizon: number, startMonth: MonthKey | undefined, at: (m: 
   for (let m = 0; m <= horizon; m++) {
     const { flows: partial, assets, liabilities } = at(m);
     const flows: DecisionFlows = { ...ZERO_FLOWS, ...partial };
-    const cashFlow = flows.initial + flows.fees + flows.installment + flows.insurance + flows.expense + flows.contribution;
-    cumulativeCash += cashFlow;
-    const netWorthImpact = assets - liabilities + cumulativeCash;
-    const row: DecisionMonth = { month: m, flows, cashFlow, cumulativeCash, assets, liabilities, netWorthImpact, netWorthChange: netWorthImpact - prevImpact };
+    // Chaque cumul et chaque différence est calculé exactement puis contrôlé (A3).
+    const cashFlow = exactSum(flows.initial, flows.fees, flows.installment, flows.insurance, flows.expense, flows.contribution);
+    cumulativeCash = exactSum(cumulativeCash, cashFlow);
+    const netWorthImpact = exactSum(assets, -liabilities, cumulativeCash);
+    const row: DecisionMonth = { month: m, flows, cashFlow, cumulativeCash, assets, liabilities, netWorthImpact, netWorthChange: exactSum(netWorthImpact, -prevImpact) };
     if (startMonth) row.monthKey = addMonthsToKey(startMonth, m);
-    if (![cashFlow, cumulativeCash, netWorthImpact].every(Number.isSafeInteger)) throw new DecisionInputError([{ field: 'result', code: 'resultOutOfRange' }]);
     out.push(row);
     prevImpact = netWorthImpact;
   }
@@ -569,6 +582,16 @@ function simulateGoal(d: SavingsGoalDecision, o: SimulationOptions): DecisionRes
   const balanceAtDeadline = deadline == null ? null : balanceAt(deadline);
   const finalBalance = balanceAt(o.horizonMonths);
   const balanceAtReach = plan.reachedMonth === null ? null : last.closingBalance;
+  // Totaux de la période simulée (mois 1 à l'horizon), additionnés mois par mois : versements de
+  // l'échéancier jusqu'à l'horizon, intérêts de l'échéancier puis intérêts après l'atteinte (H15).
+  let contributedToHorizon = 0n;
+  let interestToHorizon = 0n;
+  for (let m = 1; m <= o.horizonMonths; m++) {
+    if (m <= rows.length) {
+      contributedToHorizon += BigInt(rows[m - 1].contribution);
+      interestToHorizon += BigInt(rows[m - 1].interest);
+    } else interestToHorizon += BigInt(balanceAt(m)) - BigInt(balanceAt(m - 1));
+  }
   const months = buildMonths(o.horizonMonths, o.startMonth, (m) => {
     if (m === 0) return { flows: {}, assets: 0, liabilities: 0 };
     const row = rows[m - 1];
@@ -581,6 +604,9 @@ function simulateGoal(d: SavingsGoalDecision, o: SimulationOptions): DecisionRes
     lastContribution: last.contribution,
     totalContributed: last.cumulativeContributions,
     totalInterest: last.cumulativeInterest,
+    contributionsToReach: plan.reachedMonth === null ? null : last.cumulativeContributions,
+    contributedToHorizon: toSafe(contributedToHorizon),
+    interestToHorizon: toSafe(interestToHorizon),
     balanceAtReach,
     deadlineMonths: deadline,
     reachedByDeadline,
@@ -591,6 +617,17 @@ function simulateGoal(d: SavingsGoalDecision, o: SimulationOptions): DecisionRes
     schedule: rows,
   };
   return { engineVersion: DECISION_ENGINE_VERSION, kind: 'goal', horizonMonths: o.horizonMonths, months, summary: summarize(months), goal };
+}
+
+/**
+ * Totaux d'un objectif sur l'horizon, déduits de son impact à l'horizon : le seul flux de trésorerie
+ * d'un objectif est le versement, et son seul actif est le compte dédié (versements + intérêts). D'où
+ * versé = −écart de trésorerie cumulé et intérêts = impact sur le patrimoine. Sert à relire les
+ * simulations enregistrées avant que `simulateGoal` ne fournisse ces totaux (identité vérifiée par
+ * les tests sur des simulations complètes).
+ */
+export function goalHorizonTotalsFromImpact(cumulativeCash: number, netWorthImpact: number): { contributedToHorizon: number; interestToHorizon: number } {
+  return { contributedToHorizon: cumulativeCash === 0 ? 0 : -cumulativeCash, interestToHorizon: netWorthImpact };
 }
 
 /** Simule une décision. Lève `DecisionInputError` si l'entrée est invalide. */
@@ -639,15 +676,21 @@ export function referenceTrajectory(s: InitialSituation, options: SimulationOpti
   const issues = [...validateSituation(s)];
   if (!Number.isSafeInteger(options.horizonMonths) || options.horizonMonths < 1 || options.horizonMonths > MAX_HORIZON_MONTHS) issues.push({ field: 'horizonMonths', code: 'tooLarge' });
   if (issues.length) throw new DecisionInputError(issues);
+  // Multiplication et additions exactes (BigInt) : un produit m × épargne au-delà de 2^53 ne doit
+  // jamais être arrondi puis compensé par une trésorerie de signe opposé (A3).
+  const savings = BigInt(s.monthlySavings);
   return Array.from({ length: options.horizonMonths + 1 }, (_, m) => {
-    const p: ReferencePoint = { month: m, cash: s.cash + m * s.monthlySavings, netWorth: s.netWorth + m * s.monthlySavings };
+    const p: ReferencePoint = { month: m, cash: toSafe(BigInt(s.cash) + BigInt(m) * savings), netWorth: toSafe(BigInt(s.netWorth) + BigInt(m) * savings) };
     if (options.startMonth) p.monthKey = addMonthsToKey(options.startMonth, m);
-    if (!Number.isSafeInteger(p.cash) || !Number.isSafeInteger(p.netWorth)) throw new DecisionInputError([{ field: 'result', code: 'resultOutOfRange' }]);
     return p;
   });
 }
 
-/** Superpose l'impact d'une décision à la référence : avec décision = référence + écart. */
+/**
+ * Superpose l'impact d'une décision à la référence : avec décision = référence + écart, calculé
+ * exactement. Lève `DecisionInputError` (`resultOutOfRange`) si la somme sort des entiers exacts
+ * (ex. patrimoine initial très élevé et placement) : aucun résultat n'est tronqué ni arrondi (A3).
+ */
 export function projectDecision(reference: ReferencePoint[], result: DecisionResult): TrajectoryPoint[] {
   if (reference.length !== result.months.length) throw new Error('horizons différents');
   return reference.map((ref, m) => {
@@ -655,7 +698,7 @@ export function projectDecision(reference: ReferencePoint[], result: DecisionRes
     const p: TrajectoryPoint = {
       month: m,
       reference: { cash: ref.cash, netWorth: ref.netWorth },
-      withDecision: { cash: ref.cash + imp.cumulativeCash, netWorth: ref.netWorth + imp.netWorthImpact },
+      withDecision: { cash: exactSum(ref.cash, imp.cumulativeCash), netWorth: exactSum(ref.netWorth, imp.netWorthImpact) },
       delta: { cash: imp.cumulativeCash, netWorth: imp.netWorthImpact },
     };
     if (ref.monthKey) p.monthKey = ref.monthKey;

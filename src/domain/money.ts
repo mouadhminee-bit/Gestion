@@ -142,6 +142,190 @@ export function parseAmount(input: string, currency: CurrencyCode = 'MAD'): numb
   return negative ? -n : n;
 }
 
+// ---------------------------------------------------------------------------
+// Saisie d'un montant selon la locale (formulaires)
+// ---------------------------------------------------------------------------
+//
+// `parseAmount` (ci-dessus) reste réservé aux fichiers importés : il interprète « 1.500 » comme
+// 1,50 sans connaître la convention de l'utilisateur. Dans un formulaire, la locale active est
+// connue : `parseAmountInput` suit SES séparateurs, n'interprète jamais en silence une saisie qui
+// pourrait se lire de deux façons (elle est refusée avec le code `ambiguous`), n'arrondit jamais
+// (`precision`) et calcule en BigInt sur les chaînes (aucun flottant).
+
+/** Motif de refus d'une saisie : jamais convertie en silence. */
+export type AmountInputIssue = 'invalid' | 'ambiguous' | 'precision' | 'tooLarge';
+/** `value` null : champ vide. */
+export type AmountInputResult = { ok: true; value: number | null } | { ok: false; issue: AmountInputIssue };
+
+export interface AmountSeparators {
+  /** Séparateur décimal de la locale : '.', ',' ou '٫'. */
+  decimal: string;
+  /** Séparateur de milliers de la locale ; les espaces (insécables compris) sont ramenés à ' '. */
+  group: string;
+  /** Taille du groupe le plus à droite (3) et des groupes suivants (2 en groupement indien). */
+  primary: number;
+  secondary: number;
+}
+
+const separatorsCache = new Map<string, AmountSeparators>();
+const FALLBACK_SEPARATORS: AmountSeparators = { decimal: ',', group: '.', primary: 3, secondary: 3 };
+
+/** Séparateurs effectivement utilisés par `Intl.NumberFormat` pour la locale (ceux de l'affichage). */
+export function amountSeparators(locale: string): AmountSeparators {
+  const cached = separatorsCache.get(locale);
+  if (cached) return cached;
+  let result = FALLBACK_SEPARATORS;
+  try {
+    const parts = new Intl.NumberFormat(locale, { useGrouping: true, minimumFractionDigits: 1 }).formatToParts(1234567890.5);
+    const decimal = parts.find((p) => p.type === 'decimal')?.value;
+    const groupRaw = parts.find((p) => p.type === 'group')?.value;
+    const ints = parts.filter((p) => p.type === 'integer').map((p) => p.value.length);
+    if (decimal && groupRaw && ints.length >= 3) {
+      const group = /\s/.test(groupRaw) || groupRaw === ' ' ? ' ' : groupRaw === '’' ? "'" : groupRaw;
+      result = { decimal, group, primary: ints[ints.length - 1], secondary: ints[ints.length - 2] };
+    }
+  } catch {
+    /* locale inconnue : convention par défaut de l'application (fr-MA) */
+  }
+  separatorsCache.set(locale, result);
+  return result;
+}
+
+/** Chiffres arabes-indiens (U+0660…) et persans (U+06F0…) ramenés aux chiffres latins. */
+function latinDigits(s: string): string {
+  return s.replace(/[٠-٩۰-۹]/g, (c) => String(c.charCodeAt(0) & 0xf));
+}
+
+/**
+ * Regroupement des milliers valide : soit des groupes de 3 chiffres, soit le groupement de la locale
+ * (indien : 3 puis 2). Le premier groupe compte 1 à 3 chiffres (1 à `secondary` en groupement indien).
+ */
+function validGrouping(groups: string[], sep: AmountSeparators): boolean {
+  if (groups.some((g) => !/^\d+$/.test(g))) return false;
+  if (groups.length === 1) return true;
+  // Un nombre groupé ne commence jamais par 0 (« 0.500 », « 000.015 » ne sont pas des milliers) : B1.
+  if (!/^[1-9]/.test(groups[0])) return false;
+  const matches = (primary: number, secondary: number) =>
+    groups[groups.length - 1].length === primary &&
+    groups.slice(1, -1).every((g) => g.length === secondary) &&
+    groups[0].length >= 1 &&
+    groups[0].length <= secondary;
+  return matches(3, 3) || matches(sep.primary, sep.secondary);
+}
+
+/** Le texte peut-il précéder un groupe de milliers (« 180 », « 1.234 ») ? Pas « » ni « 0 ». */
+function thousandsPrefix(intText: string): boolean {
+  return /^[1-9]/.test(intText);
+}
+
+/**
+ * Convertit une saisie de formulaire en unités minimales selon la locale `locale` et la devise.
+ *  - « 180.000 » en fr-MA (point = milliers) → 180 000,00 ; « 180,50 » → 180,50.
+ *  - Un séparateur qui pourrait être décimal OU de milliers (« 180.50 » en fr-MA, « 180.000 » en
+ *    en-US, « 1,500.50 » en fr-MA…) est refusé (`ambiguous`) : jamais d'écart d'un facteur 10 à 1 000.
+ *  - Trop de décimales pour la devise : refusé (`precision`), jamais arrondi.
+ *  - Espaces, espaces insécables, apostrophes et « ٬ » : séparateurs de milliers (groupes contrôlés).
+ *  - Chiffres arabes-indiens et persans acceptés ; signe « - », « − » ou « + » en tête.
+ */
+export function parseAmountInput(input: string, currency: CurrencyCode, locale: string): AmountInputResult {
+  const refuse = (issue: AmountInputIssue): AmountInputResult => ({ ok: false, issue });
+  const decimals = currencyDecimals(currency);
+  const sep = amountSeparators(locale);
+  let s = latinDigits(String(input ?? ''))
+    .replace(/[\s\u00a0\u202f\u2009]+/g, ' ')
+    .replace(/’/g, "'")
+    .trim();
+  if (!s) return { ok: true, value: null };
+  let negative = false;
+  if (/^[-−+]/.test(s)) {
+    negative = s[0] !== '+';
+    s = s.slice(1).trim();
+  }
+  if (!s || /[^0-9.,' ٫٬]/.test(s) || !/\d$/.test(s)) return refuse('invalid');
+
+  const count = (c: string) => s.split(c).length - 1;
+  const dots = count('.');
+  const commas = count(',');
+  const segments = s.split(/[ '٬.,٫]/);
+  // Séparateur décimal retenu (null : nombre entier).
+  let decimalChar: string | null = null;
+
+  if (s.includes('٫')) {
+    // Séparateur décimal arabe : jamais de milliers, jamais mêlé aux séparateurs latins.
+    if (count('٫') > 1 || dots || commas) return refuse('ambiguous');
+    decimalChar = '٫';
+  } else if (dots && commas) {
+    // Les deux séparateurs : le dernier est décimal (une seule fois), l'autre groupe les milliers.
+    const last = s.lastIndexOf('.') > s.lastIndexOf(',') ? '.' : ',';
+    if (count(last) > 1) return refuse('invalid');
+    // Ordre contraire à la convention de la locale (« 1,500.50 » en fr-MA) : lecture incertaine.
+    if ((sep.decimal === '.' || sep.decimal === ',') && last !== sep.decimal) return refuse('ambiguous');
+    decimalChar = last;
+  } else if (dots || commas) {
+    const c = dots ? '.' : ',';
+    const n = dots + commas;
+    const after = s.slice(s.lastIndexOf(c) + 1);
+    if (c === sep.decimal) {
+      // Séparateur décimal de la locale, répété : milliers à l'étrangère (« 1.234.567 » en en-US) ?
+      if (n > 1) return refuse(validGrouping(segments, sep) ? 'ambiguous' : 'invalid');
+      decimalChar = c;
+    } else if (c === sep.group) {
+      // Séparateur de milliers de la locale : groupes valides. Sinon, un séparateur unique derrière un
+      // entier écrit normalement (« 180.50 », « 0.500 » en fr-MA) peut aussi être une décimale :
+      // ambiguous ; zéros superflus (« 000.015 », « 01.500 ») ou séparateurs répétés : invalid.
+      if (!validGrouping(segments, sep)) {
+        const plainInteger = /^(0|[1-9]\d*)?$/.test(s.slice(0, s.lastIndexOf(c)).replace(/[ '٬]/g, ''));
+        return refuse(n === 1 && plainInteger ? 'ambiguous' : 'invalid');
+      }
+    } else if (n === 1) {
+      // Séparateur étranger à la locale (« . » en fr-FR) : décimal s'il ne peut pas grouper des milliers.
+      if (after.length === 3 && thousandsPrefix(s.slice(0, s.lastIndexOf(c)))) return refuse('ambiguous');
+      decimalChar = c;
+    }
+    // Séparateur étranger répété (« 1.234.567 » en fr-FR) : milliers, contrôlés ci-dessous.
+  }
+
+  // Partie entière (milliers contrôlés : un seul type de séparateur) et partie décimale.
+  const cut = decimalChar ? s.lastIndexOf(decimalChar) : -1;
+  const intText = cut >= 0 ? s.slice(0, cut) : s;
+  const fracText = cut >= 0 ? s.slice(cut + 1) : '';
+  if (!/^\d*$/.test(fracText)) return refuse('invalid');
+  // Trois chiffres après le séparateur, derrière un début de nombre valide : peut-être des milliers.
+  if (fracText.length > decimals) return refuse(fracText.length === 3 && decimalChar !== '٫' && thousandsPrefix(intText) ? 'ambiguous' : 'precision');
+  const groups = intText === '' ? ['0'] : intText.split(/[ '٬.,]/);
+  if (new Set(intText.replace(/\d/g, '')).size > 1 || !validGrouping(groups, sep)) return refuse('invalid');
+
+  const minor = BigInt(groups.join('')) * 10n ** BigInt(decimals) + (fracText ? BigInt(fracText.padEnd(decimals, '0')) : 0n);
+  if (minor > BigInt(Number.MAX_SAFE_INTEGER)) return refuse('tooLarge');
+  const n = Number(minor);
+  return { ok: true, value: negative && n !== 0 ? -n : n };
+}
+
+/** Texte de saisie d'un montant : chiffres latins, séparateur décimal de la locale, sans milliers. */
+export function formatAmountInput(minor: number, currency: CurrencyCode, locale: string): string {
+  const d = currencyDecimals(currency);
+  const plain = toPlainString(minor, currency, amountSeparators(locale).decimal);
+  // « 1500,00 » → « 1500 » : une partie décimale nulle n'est pas réécrite.
+  return d && /^0+$/.test(plain.slice(-d)) ? plain.slice(0, -(d + 1)) : plain;
+}
+
+/** Exemple de saisie conforme à la locale et à la devise (« 1.234,56 » en fr-MA, « 1,234.56 » en en-US). */
+export function amountInputExample(locale: string, currency: CurrencyCode): string {
+  const d = currencyDecimals(currency);
+  const sep = amountSeparators(locale);
+  const group = sep.group === ' ' ? '\u00a0' : sep.group;
+  return `1${group}234${d ? sep.decimal + '56789'.slice(0, d) : ''}`;
+}
+
+/** Message d'erreur d'une saisie refusée, avec un exemple au format de la locale. */
+export function amountIssueMessage(issue: AmountInputIssue, locale: string, currency: CurrencyCode): string {
+  const example = amountInputExample(locale, currency);
+  if (issue === 'ambiguous') return t('money.input.ambiguous', { example });
+  if (issue === 'precision') return t('money.input.precision', { decimals: currencyDecimals(currency), example });
+  if (issue === 'tooLarge') return t('money.input.tooLarge');
+  return t('money.input.invalid', { example });
+}
+
 /** Valeur décimale (pour affichage / graphiques uniquement, jamais pour calculer). */
 export function toMajor(minor: number, currency: CurrencyCode): number {
   return minor / 10 ** currencyDecimals(currency);

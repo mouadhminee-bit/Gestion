@@ -6,7 +6,7 @@ import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, EmptyState } from '@/components/ui/Misc';
 import { Dialog, useConfirm } from '@/components/ui/Dialog';
-import { Field, Input, MoneyInput, Select, Switch, Textarea } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Select, Switch, Textarea, useAmountGuard } from '@/components/ui/Field';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { ChartTooltip, useChart } from '@/components/charts/ChartKit';
 import { useBalances } from '@/features/hooks';
@@ -29,6 +29,8 @@ type Form = Omit<Account, 'id' | 'userId' | 'createdAt' | 'updatedAt'> & { id?: 
 export default function Accounts() {
   const { data, ctx, fmt, today, repo, settings } = useApp();
   const toast = useToast();
+  // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
+  const amounts = useAmountGuard();
   const confirm = useConfirm();
   const openForm = useTransactionForm();
   const balances = useBalances();
@@ -49,6 +51,7 @@ export default function Accounts() {
   const newForm = (): Form => ({ name: '', type: 'bank', currency: settings.baseCurrency, initialBalance: 0, initialBalanceDate: today, archived: false, includeInTotal: true, color: COLOR_SWATCHES[data.accounts.length % COLOR_SWATCHES.length], description: '', order: data.accounts.length });
 
   async function save() {
+    if (amounts.blocked) return void toast.error(tr('money.input.fixBeforeSave'));
     if (!form) return;
     try {
       if (form.id) await repo.updateAccount(form.id, form);
@@ -183,7 +186,7 @@ export default function Accounts() {
               </Select>
             </Field>
             <Field label={tr('acc.initialBalance')} error={errors.initialBalance} hint={tr('acc.initialBalanceHint')}>
-              <MoneyInput value={form.initialBalance} onChange={(v) => setForm({ ...form, initialBalance: v ?? 0 })} currency={form.currency} allowNegative />
+              <MoneyInput onIssue={amounts.track('m1')} value={form.initialBalance} onChange={(v) => setForm({ ...form, initialBalance: v ?? 0 })} currency={form.currency} allowNegative />
             </Field>
             <Field label={tr('acc.initialDate')} error={errors.initialBalanceDate} hint={tr('acc.initialDateHint')}>
               <Input type="date" value={form.initialBalanceDate} onChange={(e) => setForm({ ...form, initialBalanceDate: e.target.value })} />
