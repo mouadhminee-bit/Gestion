@@ -1,7 +1,9 @@
 # Decision Lab — moteur de simulation (V1)
 
-État : **étape E4** — moteur métier pur (E3) et persistance des simulations (E4), avec leurs tests.
-Aucune interface, aucune route, aucune traduction : rien n'est encore utilisé par un écran.
+État : **étape E5.4** — moteur métier pur (E3), persistance des simulations (E4), page « Mes
+simulations » (E5.1), situation financière initiale (E5.2), formulaires de décision (E5.3) et
+exécution, résultats, trajectoires et enregistrement des simulations (E5.4). Le comparateur de
+variantes (E5.5) n'est pas encore développé.
 
 ## 1. Fichiers
 
@@ -16,6 +18,17 @@ Aucune interface, aucune route, aucune traduction : rien n'est encore utilisé p
 | `src/features/decision/snapshot.ts` | Snapshot figé d'une simulation : création à partir du moteur, validation stricte |
 | `src/features/decision/store.ts` | Stockage `sessionStorage` dédié, versionné, limité à 50 simulations |
 | `src/features/decision/snapshot.test.ts`, `store.test.ts` | Tests de la persistance (§ 8) |
+| `src/pages/DecisionLab.tsx`, `DecisionLab.test.ts` | Page « Mes simulations » et ses tests (§ 9) |
+| `src/features/decision/situationDraft.ts` | Validation pure du brouillon de situation initiale (§ 10) |
+| `src/features/decision/SituationCard.tsx` | Carte « Situation initiale » : affichage, saisie, erreurs (§ 10) |
+| `src/features/decision/situationDraft.test.ts`, `SituationCard.test.ts` | Tests de la situation initiale (§ 10) |
+| `src/features/decision/decisionDraft.ts` | Formulaires de décision : champs, lecture des saisies, entrée du moteur (§ 11) |
+| `src/features/decision/DecisionBuilder.tsx` | Carte « Nouvelle décision » : choix du type, formulaire, récapitulatif (§ 11) |
+| `src/features/decision/decisionDraft.test.ts`, `DecisionBuilder.test.ts` | Tests des formulaires (§ 11) |
+| `src/features/decision/simulationRun.ts` | Exécution : horizon, moteur, snapshot ; séries et avertissements lus dans le snapshot (§ 12) |
+| `src/features/decision/SimulationPanel.tsx` | Carte « Simulation » : horizon, exécution, enregistrement (§ 12) |
+| `src/features/decision/SimulationResults.tsx` | Résultats : indicateurs, trajectoires, lecture factuelle, limites (§ 12) |
+| `src/features/decision/simulationRun.test.ts`, `SimulationPanel.test.ts` | Tests de l'exécution et du parcours complet (§ 12) |
 
 ## 2. Principes
 
@@ -234,3 +247,227 @@ refusée sans perte, enregistrement possible après suppression, stockage altér
 Contrôle par mutation, toutes détectées : écrasement d'un doublon, version future inscriptible, pas
 de quarantaine, pas de rétablissement après échec, snapshot non gelé, champs inconnus tolérés, limite
 non contrôlée, limite à 49, troncature à la lecture, quarantaine déclenchée par le seul dépassement.
+
+## 9. Interface — étape E5.1 : « Mes simulations »
+
+* **Navigation** : entrée « Decision Lab » (`src/app/nav.ts`) dans le groupe Intelligence, juste
+  après Prévisions. Les trois premières positions de `NAV` sont inchangées : la barre mobile
+  (construite par position dans `AppShell`) n'est pas décalée ; l'entrée apparaît dans « Plus ».
+* **Route** : `/decision-lab`, page `src/pages/DecisionLab.tsx` chargée à la demande (`lazy`).
+* **Page** : lit `loadSimulations()` et affiche les snapshots tels quels, du plus récent au plus
+  ancien — aucun recalcul, aucune lecture ni écriture des données financières réelles.
+  * avertissement permanent : simulations conservées dans l'onglet uniquement ;
+  * état vide ; compteur `n / 50` ;
+  * par simulation : nom, date de création, horizon, mois de départ, nombre de variantes ;
+    « Détails » : **hypothèses uniquement** — situation initiale (trésorerie, patrimoine, épargne
+    mensuelle de référence) et liste des variantes avec leur type de décision ; badge si le
+    snapshot provient d'une autre version du moteur. Aucun indicateur de résultat n'est affiché
+    (écarts, trésorerie minimale, premier mois négatif) : ils seront présentés, avec leur contexte,
+    par l'écran de résultats (E5.4). Les résultats restent stockés dans les snapshots ;
+  * suppression avec confirmation (`deleteSimulation`) ; en cas d'échec, message d'erreur et liste
+    relue depuis le stockage ;
+  * messages correspondant aux résultats du store : limite atteinte (aucune suppression
+    automatique), dépassement (`overLimit`), stockage indisponible, version plus récente, contenu
+    illisible, entrées ignorées (nombre). Afficher la page ne modifie jamais le stockage.
+* **Traductions** : 32 clés (`nav.decisionLab` et `dl.*`) dans les 24 langues. Parité exacte et
+  variables vérifiées par `src/i18n/i18n.test.ts` ; `DecisionLab.test.ts` vérifie en plus que
+  chaque clé utilisée par la page existe dans les 24 langues, sans figer leur nombre (les étapes
+  suivantes ajouteront leurs clés). Traductions produites par IA, **non relues par des locuteurs
+  natifs** (comme le reste de l'application) ; l'arabe et l'anglais ont fait l'objet d'une
+  vérification ciblée non native. « Decision Lab » est conservé tel quel dans toutes les langues.
+  Montants isolés par `<bdi>` pour les langues RTL.
+* **Tests** (`DecisionLab.test.ts`, jsdom) : position dans la navigation, route réelle de
+  l'application et chargement différé, liste vide, liste remplie, consultation (hypothèses
+  seules, aucun indicateur de résultat), suppression (annulation, confirmation, échec
+  d'écriture), limite atteinte, dépassement, stockage indisponible, entrées invalides, contenu
+  corrompu, version plus récente, clés de traduction utilisées.
+* **Contrôle visuel** (Chromium, hors suite de tests) : he, fa, ar, de, ru, zh, ja, hi ; 390 et
+  1440 px ; thèmes clair et sombre ; liste avec nom long, Détails ouvert, limite atteinte —
+  96 captures, aucun débordement, aucune troncature, compteur « n / 50 » dans le bon ordre en
+  RTL, aucune erreur console.
+* **Non développé à cette étape** : création d'une simulation (formulaires de décision), écran de
+  résultats détaillé, graphiques, comparateur.
+
+## 10. Interface — étape E5.2 : situation financière initiale
+
+### 10.1 Modèle
+
+Aucun modèle nouveau : la situation est exactement `InitialSituation` du moteur (§ 4.1), soit trois
+montants en centimes entiers de la devise de base.
+
+| Champ | Sens | Obligatoire | Zéro | Négatif | Limite |
+|---|---|---|---|---|---|
+| `cash` — Trésorerie | argent disponible aujourd'hui sur les comptes du périmètre | oui | admis | admis (découvert) | celle du moteur |
+| `netWorth` — Patrimoine net | tout ce qui est possédé moins les dettes | oui | admis | admis | celle du moteur |
+| `monthlySavings` — Épargne mensuelle | revenus − dépenses, par mois | oui | admis | admis | celle du moteur |
+
+* **Valeur initiale** : celle calculée en lecture seule par `buildInitialSituation` à partir des
+  données de l'utilisateur (aucune valeur par défaut inventée). Si ce calcul est impossible
+  (périmètre incohérent), un message l'indique et les trois montants doivent être saisis.
+* **Limite** : la seule borne est celle du moteur — la situation doit rester simulable sur
+  l'horizon maximal (`referenceTrajectory` sur 480 mois sans dépasser les entiers sûrs). Elle est
+  vérifiée en appelant le moteur, sans la recopier.
+* **Aucun calcul financier dans l'interface** : la saisie est convertie en centimes par
+  `MoneyInput` / `parseAmount` (sans flottant) ; la validation est dans `situationDraft.ts`.
+
+### 10.2 Validation (`validateSituationDraft`)
+
+| Code | Cas | Message (clé) |
+|---|---|---|
+| `required` | champ vide | `dl.situation.err.required` |
+| `invalid` | saisie non interprétable (« 1,2,3 », « - »), valeur non entière ou hors entiers sûrs | `dl.situation.err.invalid` |
+| `tooLarge` | situation non simulable sur 480 mois ; attribuée par le moteur à l'épargne, sinon au solde concerné | `dl.situation.err.tooLarge` |
+
+Une valeur invalide n'est jamais corrigée ni effacée : la saisie reste visible, l'erreur s'affiche
+sous le champ (dès la sortie du champ pour une saisie non interprétable, sinon à la validation) et
+rien n'est retenu. `tooLarge` n'est évalué que lorsque les trois montants sont interprétables.
+
+### 10.3 Parcours
+
+Carte « Situation initiale » en tête de la page Decision Lab :
+
+* **Affichage** : les trois montants avec leur explication et la devise ; badge « Calculée à partir
+  de vos données » ou « Ajustée manuellement » ; badge « données de démonstration » tant que les
+  valeurs calculées proviennent du jeu de démonstration ; notes de calcul (mois complets utilisés
+  pour l'épargne, ou avertissement si aucun ; comptes non comptés dans la trésorerie ; montants
+  non convertis).
+* **Modifier** : formulaire de trois champs obligatoires, préremplis ; **Valider la situation** ou
+  **Annuler** ; **Revenir aux valeurs calculées** après un ajustement. Valider des valeurs
+  identiques aux valeurs calculées n'est pas une modification.
+
+### 10.4 Persistance et sécurité
+
+* La situation ajustée est **temporaire** : elle vit dans l'état de la page et disparaît à la
+  navigation ou au rechargement (les valeurs calculées sont alors réaffichées). Elle sera figée
+  dans un snapshot à la création d'une simulation (`createSnapshot`, étape suivante), sans
+  évolution du contrat E4.
+* Rien n'est écrit : ni comptes, ni opérations, ni budgets, ni objectifs, ni base IndexedDB, ni
+  `sessionStorage` / `localStorage` (vérifié par test).
+
+### 10.5 Traductions et tests
+
+* 18 clés `dl.situation.*` ajoutées dans les 24 langues (produites par IA, non relues par des
+  locuteurs natifs).
+* `situationDraft.test.ts` : valeurs valides, zéro, négatives, champs manquants, valeurs non
+  entières, hors limites, précision au centime, cohérence avec le moteur et les snapshots.
+* `SituationCard.test.ts` (jsdom, horloge figée) : valeurs calculées et périmètre, démonstration,
+  montants non convertis, saisie valide, précision, champ vide, saisie non interprétable conservée,
+  hors limites, annulation, retour aux valeurs calculées, calcul impossible, arabe (RTL), absence
+  d'écriture dans les données et les stockages.
+
+## 11. Interface — étape E5.3 : formulaires de décision
+
+### 11.1 Champs (contrat du moteur, § 4)
+
+Les clés des champs sont les chemins d'erreur du moteur : une erreur de `validateDecision`
+s'affiche directement sous le champ concerné. * = obligatoire.
+
+| Type | Champs |
+|---|---|
+| Achat (`purchase`) | prix*, apport*, frais initiaux*, valeur du bien (vide : le prix) ; interrupteur « Financé par un crédit » → taux nominal annuel* (%), durée du crédit* (mois) ; assurance mensuelle, durée de l'assurance (vide : durée du crédit) |
+| Dépense récurrente (`recurring`) | montant mensuel*, premier mois (vide : 1), nombre de mois (vide : jusqu'à l'horizon) |
+| Objectif (`goal`) | méthode « délai fixé » (`effort`) : cible*, rendement effectif annuel* (%), délai* (mois) ; « versement fixé » (`contribution`) : cible*, rendement*, versement mensuel*, échéance souhaitée (facultative) |
+| Placement (`investment`) | capital initial*, versement mensuel*, nombre de versements (vide : jusqu'à l'horizon), rendement effectif annuel* (%) |
+
+Aucune valeur par défaut n'est inventée : les champs obligatoires partent vides ; un champ
+facultatif vide est **omis** de l'entrée (le moteur applique sa valeur par défaut documentée).
+
+### 11.2 Lecture des saisies et validation (`buildDecision`)
+
+1. **Lecture** (interface) : montants en centimes par `MoneyInput` (`allowNegative` : un négatif
+   n'est jamais converti en positif, `keepInvalidText` : une saisie non interprétable reste
+   visible) ; taux en % avec deux décimales au plus, convertis en points de base par lecture des
+   chiffres (7,25 % → 725 bp, sans virgule flottante) ; durées en mois entiers. Champ obligatoire
+   vide → `required` ; saisie non interprétable → `invalid`.
+2. **Règles du moteur**, une fois tous les champs lisibles : `validateDecision` avec l'horizon
+   maximal (480 mois), l'horizon de la simulation n'étant pas encore choisi. Bornes (taux 0–30 %,
+   durées ≤ 480 mois), zéro et négatifs, apport / crédit / assurance : codes du moteur inchangés.
+3. **Faisabilité** : `simulateDecision` sur un mois — crédit non amortissable (`notAmortizable`),
+   montants non représentables (`resultOutOfRange`, erreur globale du formulaire).
+
+Résultat : une entrée **exactement** du type du moteur (`PurchaseDecision`,
+`RecurringExpenseDecision`, `SavingsGoalDecision`, `InvestmentDecision`), sans champ supplémentaire.
+
+### 11.3 Parcours
+
+Carte « Nouvelle décision » sous la situation initiale : choix parmi les quatre types →
+formulaire → « Valider les hypothèses » → récapitulatif « Hypothèses valides » (les saisies,
+aucun résultat) → « Modifier » rouvre le formulaire avec les mêmes saisies. « Changer de type »
+revient au choix ; les brouillons des quatre types sont conservés pendant la visite de la page.
+L'entrée validée est transmise par `onValidated` à la page, qui affiche la carte « Simulation »
+(§ 12).
+
+### 11.4 Limites
+
+* `resultOutOfRange` n'est vérifié que sur un mois : un dépassement qui n'apparaîtrait qu'à un
+  horizon plus long est signalé à l'exécution, sur l'horizon réel (§ 12.1).
+* Les brouillons ne sont pas conservés après la navigation ou le rechargement (aucune persistance
+  supplémentaire).
+* 58 clés `dl.form.*`, `dl.f.*`, `dl.err.*` dans les 24 langues, produites par IA, non relues par
+  des locuteurs natifs.
+
+## 12. Interface — étape E5.4 : résultats et trajectoires
+
+### 12.1 Horizon et exécution (`runSimulation`)
+
+* L'**horizon** est saisi par l'utilisateur, en mois entiers, sans valeur imposée : aucune valeur par
+  défaut n'est justifiée par le contrat. Bornes : celles du moteur (1 à 480 mois, `validateDecision`
+  avec l'horizon réel). Le mois 0 est le mois en cours (`startMonth`).
+* Exécution : `createSnapshot` (moteur E3, contrat E4) avec la situation retenue (E5.2), la décision
+  validée (E5.3) et l'**horizon réel** ; `simulateDecision` sur le même horizon pour le détail
+  mensuel affiché. Un scénario qui échoue sur son horizon réel est **refusé** (erreur bloquante :
+  `resultOutOfRange`, horizon hors bornes, situation manquante) ; il n'est jamais validé sur un
+  autre horizon.
+* **Erreurs bloquantes** (aucun résultat) : nom, horizon, situation, échec du moteur.
+  **Avertissements** (résultat affiché) : trésorerie négative, objectif non atteint, atteint après
+  l'horizon ou après l'échéance souhaitée. **Notes** : crédit au-delà de l'horizon, remboursement
+  anticipé par l'arrondi.
+
+### 12.2 Résultats (lus dans le snapshot, aucun calcul)
+
+* Communs : trésorerie et patrimoine net — au départ (situation initiale), fin d'horizon avec et
+  sans la décision, écart dû à la décision ; trésorerie la plus basse et son mois ; premier mois de
+  trésorerie négative.
+* Par type, uniquement ce que fournit le moteur : **achat** — mensualité, dernière échéance, nombre
+  d'échéances, intérêts, total remboursé ; **objectif** — versement, mois d'atteinte, dernier
+  versement, total versé, intérêts, solde et manque à l'échéance, solde final ; **placement** —
+  valeur finale, total investi, intérêts ; **dépense récurrente** — indicateurs communs seuls.
+* Lecture factuelle (« Ce que montre le calcul ») : écarts signés et point bas, sans recommandation ;
+  avertissements distincts ; limites du calcul (devise de base, ni inflation, ni fiscalité, ni
+  frais ; référence à épargne constante non rémunérée ; achat : aucune dépréciation).
+
+### 12.3 Trajectoires
+
+* Trésorerie et patrimoine net, avec et sans la décision ; « avec » = référence + écart stocké
+  (définition de l'écart). Simulation en cours seulement : solde du compte dédié (objectif,
+  placement) ou capital restant dû (achat à crédit), lus dans le détail du moteur — non stockés,
+  donc absents de l'historique.
+* Une valeur par mois calculé (0 à l'horizon), tracé linéaire entre les points, aucune série
+  interpolée ou inventée ; valeurs exactes dans le tableau « Voir les valeurs mois par mois ».
+* Graphiques toujours de gauche à droite (axes numériques) ; montants isolés (`<bdi>` et marqueurs
+  d'isolation Unicode dans les phrases) pour les langues RTL.
+
+### 12.4 Enregistrement et historique (contrat E4 inchangé)
+
+* Le snapshot affiché est enregistré **tel quel** (`saveSimulation`) : horizon et mois de départ
+  sont déjà dans `hypotheses`, les résultats dans `results` ; aucune évolution du schéma E4.
+* Chaque exécution produit un nouvel identifiant ; « Enregistrer » est désactivé après succès ; un
+  snapshot existant n'est jamais remplacé. Limite de 50 atteinte : enregistrement refusé avec
+  explication, rien n'est supprimé.
+* Modifier la situation ou la décision efface le résultat affiché (il faut relancer).
+* Historique : « Détails » d'une simulation enregistrée affiche ses résultats figés, relus sans
+  recalcul (simulations à une variante ; plusieurs variantes : comparateur E5.5).
+
+### 12.5 Traductions et tests
+
+* 67 clés `dl.run.*` et `dl.res.*` dans les 24 langues (produites par IA, non relues par des
+  locuteurs natifs).
+* `simulationRun.test.ts` : quatre types × horizons 1, 12, 60 et 480 mois ; snapshot identique à
+  `createSnapshot`, détail identique à `simulateDecision`, séries identiques à `projectDecision` ;
+  horizon, nom et situation invalides ; montants élevés refusés sur l'horizon réel ; trésorerie
+  négative ; objectif atteint, après l'horizon, non atteint, en retard ; crédit au-delà de
+  l'horizon ; remboursement anticipé ; aucun appel aux fonctions de calcul depuis les composants.
+* `SimulationPanel.test.ts` : parcours complet dans la page, valeurs du référentiel E2 affichées
+  (placement 279 527,12 DH, mensualité 3 591,94 DH, effort 2 429,83 DH), enregistrement et
+  historique, limite atteinte, effacement après modification, arabe, absence d'écriture hors de la
+  clé dédiée.

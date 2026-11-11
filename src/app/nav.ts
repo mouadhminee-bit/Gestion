@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight, Bot, CalendarClock, Gauge, Landmark, LineChart, PieChart, Settings, Target, TrendingUp, Wallet, HandCoins, type LucideIcon,
+  ArrowLeftRight, Bot, CalendarClock, FlaskConical, Gauge, Landmark, LineChart, PieChart, Settings, Target, TrendingUp, Wallet, HandCoins, type LucideIcon,
 } from 'lucide-react';
 import { td } from '@/i18n/core';
 import { lazyLabels } from '@/i18n/labels';
@@ -24,6 +24,7 @@ export const NAV: NavItem[] = [
   { to: '/net-worth', key: 'netWorth', icon: Landmark, group: 'gestion' },
   { to: '/analytics', key: 'analytics', icon: LineChart, group: 'analyse', hasShort: true },
   { to: '/forecast', key: 'forecast', icon: TrendingUp, group: 'analyse' },
+  { to: '/decision-lab', key: 'decisionLab', icon: FlaskConical, group: 'analyse' },
   { to: '/assistant', key: 'assistant', icon: Bot, group: 'analyse' },
   { to: '/settings', key: 'settings', icon: Settings, group: 'systeme' },
 ];

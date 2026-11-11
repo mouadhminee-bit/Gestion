@@ -47,6 +47,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 /**
  * Saisie monétaire : clavier décimal sur mobile, conversion exacte en unités
  * minimales (sans flottant). `value` / `onChange` en unités minimales.
+ *
+ * À la sortie du champ, le texte est réécrit à partir de la valeur (mise en forme). Avec
+ * `keepInvalidText`, une saisie non interprétable (valeur `null`, texte non vide) est conservée
+ * telle quelle au lieu d'être effacée, pour que l'appelant puisse signaler l'erreur.
+ * Un `onBlur` fourni par l'appelant est appelé en plus de ce comportement, jamais à sa place.
  */
 export function MoneyInput({
   value,
@@ -54,8 +59,10 @@ export function MoneyInput({
   currency,
   invalid,
   allowNegative,
+  keepInvalidText = false,
   className,
   size = 'md',
+  onBlur,
   ...rest
 }: {
   value: number | null;
@@ -63,6 +70,8 @@ export function MoneyInput({
   currency: CurrencyCode;
   invalid?: boolean;
   allowNegative?: boolean;
+  /** Conserve une saisie non interprétable à la sortie du champ (par défaut : réécrite à partir de la valeur). */
+  keepInvalidText?: boolean;
   size?: 'md' | 'xl';
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'size'>) {
   const toText = (v: number | null) => (v == null ? '' : toPlainString(v, currency, ',').replace(/,00$/, ''));
@@ -92,8 +101,12 @@ export function MoneyInput({
           if (parsed != null && parsed < 0 && !allowNegative) parsed = Math.abs(parsed);
           onChange(t.trim() === '' ? null : parsed);
         }}
-        onBlur={() => setText(toText(value))}
         {...rest}
+        onBlur={(e) => {
+          const invalidText = value == null && text.trim() !== '';
+          if (!(keepInvalidText && invalidText)) setText(toText(value));
+          onBlur?.(e);
+        }}
       />
       <span className={cn('pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted', size === 'xl' && 'text-lg')}>{symbol}</span>
     </div>

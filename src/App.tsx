@@ -24,6 +24,7 @@ const NetWorth = lazy(() => import('@/pages/NetWorth'));
 const Analytics = lazy(() => import('@/pages/Analytics'));
 const Report = lazy(() => import('@/pages/Report'));
 const Forecast = lazy(() => import('@/pages/Forecast'));
+const DecisionLab = lazy(() => import('@/pages/DecisionLab'));
 const Assistant = lazy(() => import('@/pages/Assistant'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const Import = lazy(() => import('@/pages/Import'));
@@ -107,6 +108,7 @@ function Root() {
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/report" element={<Report />} />
                 <Route path="/forecast" element={<Forecast />} />
+                <Route path="/decision-lab" element={<DecisionLab />} />
                 <Route path="/assistant" element={<Assistant />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/import" element={<Import />} />
