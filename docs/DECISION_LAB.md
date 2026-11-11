@@ -1,9 +1,9 @@
 # Decision Lab — moteur de simulation (V1)
 
-État : **étape E5.4** — moteur métier pur (E3), persistance des simulations (E4), page « Mes
-simulations » (E5.1), situation financière initiale (E5.2), formulaires de décision (E5.3) et
-exécution, résultats, trajectoires et enregistrement des simulations (E5.4). Le comparateur de
-variantes (E5.5) n'est pas encore développé.
+État : **étape E5.5** — moteur métier pur (E3), persistance des simulations (E4), page « Mes
+simulations » (E5.1), situation financière initiale (E5.2), formulaires de décision (E5.3),
+exécution, résultats, trajectoires et enregistrement des simulations (E5.4) et comparateur
+multi-variantes (E5.5).
 
 ## 1. Fichiers
 
@@ -23,12 +23,17 @@ variantes (E5.5) n'est pas encore développé.
 | `src/features/decision/SituationCard.tsx` | Carte « Situation initiale » : affichage, saisie, erreurs (§ 10) |
 | `src/features/decision/situationDraft.test.ts`, `SituationCard.test.ts` | Tests de la situation initiale (§ 10) |
 | `src/features/decision/decisionDraft.ts` | Formulaires de décision : champs, lecture des saisies, entrée du moteur (§ 11) |
-| `src/features/decision/DecisionBuilder.tsx` | Carte « Nouvelle décision » : choix du type, formulaire, récapitulatif (§ 11) |
+| `src/features/decision/DecisionBuilder.tsx` | Carte « Nouvelle décision » : choix du mode (§ 13), du type, formulaire réutilisable `DecisionForm`, récapitulatif (§ 11) |
 | `src/features/decision/decisionDraft.test.ts`, `DecisionBuilder.test.ts` | Tests des formulaires (§ 11) |
 | `src/features/decision/simulationRun.ts` | Exécution : horizon, moteur, snapshot ; séries et avertissements lus dans le snapshot (§ 12) |
 | `src/features/decision/SimulationPanel.tsx` | Carte « Simulation » : horizon, exécution, enregistrement (§ 12) |
 | `src/features/decision/SimulationResults.tsx` | Résultats : indicateurs, trajectoires, lecture factuelle, limites (§ 12) |
 | `src/features/decision/simulationRun.test.ts`, `SimulationPanel.test.ts` | Tests de l'exécution et du parcours complet (§ 12) |
+| `src/features/decision/comparisonRun.ts` | Comparateur : exécution des variantes, indicateurs et écarts « variante − A » lus dans le snapshot (§ 13) |
+| `src/features/decision/ComparisonBuilder.tsx` | Saisie d'une comparaison : type commun, 2 à 4 variantes nommées et validées (§ 13) |
+| `src/features/decision/ComparisonPanel.tsx` | Carte « Comparaison » : nom, horizon commun, exécution, enregistrement (§ 13) |
+| `src/features/decision/ComparisonResults.tsx` | Résultats comparés : synthèse, indicateurs, écarts, trajectoires, limites (§ 13) |
+| `src/features/decision/comparisonRun.test.ts`, `ComparisonPanel.test.ts` | Tests du comparateur (§ 13) |
 
 ## 2. Principes
 
@@ -456,7 +461,7 @@ L'entrée validée est transmise par `onValidated` à la page, qui affiche la ca
   explication, rien n'est supprimé.
 * Modifier la situation ou la décision efface le résultat affiché (il faut relancer).
 * Historique : « Détails » d'une simulation enregistrée affiche ses résultats figés, relus sans
-  recalcul (simulations à une variante ; plusieurs variantes : comparateur E5.5).
+  recalcul (simulations à une variante ; plusieurs variantes : résultats comparés, § 13).
 
 ### 12.5 Traductions et tests
 
@@ -471,3 +476,90 @@ L'entrée validée est transmise par `onValidated` à la page, qui affiche la ca
   (placement 279 527,12 DH, mensualité 3 591,94 DH, effort 2 429,83 DH), enregistrement et
   historique, limite atteinte, effacement après modification, arabe, absence d'écriture hors de la
   clé dédiée.
+
+## 13. Interface — étape E5.5 : comparateur multi-variantes
+
+Aucune modification des contrats E2, E3 et E4 : le comparateur utilise `compareDecisions` (E3) au
+travers de `createSnapshot` (E4), qui acceptaient déjà 2 à 4 variantes.
+
+### 13.1 Règles métier (arbitrages validés)
+
+* Point d'entrée : choix « Simulation simple / Comparaison (2 à 4 variantes) » dans la carte
+  « Nouvelle décision ». Les deux modes restent montés : changer de mode ne perd aucune saisie ; la
+  carte de simulation simple n'est affichée qu'en mode simple, la carte « Comparaison » qu'en mode
+  comparaison.
+* **Un seul type de décision** par comparaison, choisi une fois pour toutes les variantes (changer
+  de type invalide toutes les variantes, les brouillons sont conservés) ; `runComparison` refuse en
+  plus des types mélangés (`mixedKinds`), règle que le moteur n'impose pas.
+* **2 à 4 variantes**, chacune avec un **nom modifiable** (obligatoire, 80 caractères au plus,
+  distinct des autres sans tenir compte de la casse) et ses propres hypothèses. Ajout, retrait (pas
+  sous 2), duplication (copie des saisies, à valider à son tour).
+* **Validation indépendante** de chaque variante (`buildDecision`, comme une simulation simple) ;
+  la carte « Comparaison » n'apparaît que lorsque toutes les variantes sont validées et nommées.
+* Objectif d'épargne : les variantes peuvent mélanger « délai fixé » et « versement fixé » (même
+  type de décision) ; une note le rappelle dans les résultats.
+* **Situation initiale commune** (celle de la page) et **horizon commun** saisi une fois ; même
+  référence sans décision, mêmes mois et mêmes unités pour toutes les variantes (garantis par le
+  moteur). Pas de comparaison de simulations déjà enregistrées : une comparaison est toujours créée
+  avec une situation et un horizon communs.
+
+### 13.2 Exécution (`runComparison`)
+
+* Contrôles : nom, situation, horizon (bornes du moteur), nombre de variantes, type unique, noms,
+  variantes validées ; puis `validateDecision` de chaque variante sur l'horizon réel.
+* Chaque variante est ensuite exécutée **seule** (`simulateDecision`) : une erreur du moteur sur
+  l'horizon réel (`resultOutOfRange`…) est attribuée à la variante concernée — `compareDecisions`
+  ne précise pas la variante en cause. Ces résultats forment le détail mensuel affiché (non
+  stocké).
+* Snapshot : `createSnapshot` avec les identifiants `A` à `D` (rang) et les noms saisis ; résultat
+  identique à `compareDecisions` et, variante par variante, à une simulation isolée (vérifié par
+  les tests).
+
+### 13.3 Écarts et indicateurs (aucun calcul financier dans l'interface)
+
+* **Règle de signe** : écart = valeur de la variante − valeur de la variante A (la première,
+  « base des écarts »). Positif : valeur plus élevée ; négatif : valeur plus faible. L'écart ne
+  qualifie pas la variante : affiché sans couleur de jugement, aucune variante n'est dite
+  « meilleure » ou « rentable ». Écart absent (« — ») si l'une des valeurs manque (pas de crédit,
+  cible non atteinte…) ou s'il sortirait des entiers exacts.
+* Indicateurs communs : trésorerie et patrimoine en fin d'horizon, écarts dus à la décision,
+  trésorerie la plus basse et son mois, premier mois de trésorerie négative. Par type, seulement ce
+  que fournit le moteur : achat (crédit : mensualité, dernière échéance, nombre d'échéances,
+  intérêts, total remboursé — affichés si au moins une variante est financée, « Sans crédit »
+  sinon) ; objectif (versement, mois d'atteinte, total versé, intérêts, manque à l'échéance, solde
+  final) ; placement (valeur finale, total investi, intérêts) ; dépense récurrente : indicateurs
+  communs seuls. Pas de « coût total » : le moteur ne le fournit pas.
+* Présentation : une synthèse par variante (écarts par rapport à la situation sans décision,
+  avertissements propres), puis une carte par indicateur (une ligne par variante) — lisible sur
+  mobile sans tableau large.
+
+### 13.4 Trajectoires, enregistrement, historique
+
+* Graphiques : trésorerie et patrimoine (référence + une courbe par variante), et, pour la
+  comparaison en cours, solde du compte dédié ou capital restant dû. Couleur et tracé distincts
+  par variante ; axes toujours de gauche à droite ; une valeur par mois calculé, sans
+  interpolation ; valeurs exactes dans le tableau (choix de la série, colonne « Mois » figée).
+* Enregistrement tel quel par le store E4 (une comparaison compte pour une simulation dans la
+  limite de 50) ; nouvel identifiant à chaque exécution ; refus explicite à la limite ou en cas
+  d'erreur de stockage. Modifier la situation, une variante ou un nom efface le résultat affiché.
+* Historique : badge « Comparaison » ; « Détails » affiche les résultats comparés relus sans
+  recalcul (séries non stockées absentes, signalé dans les limites).
+
+### 13.5 Traductions et tests
+
+* 62 clés `dl.mode.*` et `dl.cmp.*` dans les 24 langues (produites par IA, non relues par des
+  locuteurs natifs).
+* `comparisonRun.test.ts` : quatre types × 2, 3 et 4 variantes × horizons 1, 60 et 480 mois —
+  snapshot identique à `createSnapshot`, référence et résultats identiques à `compareDecisions` et
+  à des simulations isolées ; méthodes d'objectif mélangées ; erreurs (nombre de variantes, types
+  mélangés, nom, situation, horizon, noms de variantes, variante non validée, échec attribué à la
+  variante) ; avertissements par variante ; règle de signe et cohérence des écarts ; séries ;
+  limite de 50, erreur de stockage, cohabitation avec les simulations simples ; absence de calcul
+  et de qualificatif dans l'interface.
+* `ComparisonPanel.test.ts` : parcours complet dans la page (mode, ajout, retrait, duplication,
+  noms, validations, changement de type, objectif à méthodes mélangées, horizon, résultats avec
+  valeurs du référentiel E2, écarts, graphiques et valeurs exactes, modification et relance,
+  achat comptant contre crédit, 4 dépenses récurrentes, enregistrement, historique, limite,
+  stockage indisponible, simulation simple intacte, arabe et hébreu).
+* `DecisionLab.test.ts` : la consultation d'une simulation à plusieurs variantes affiche désormais
+  les résultats comparés (auparavant aucun résultat, en attendant E5.5).

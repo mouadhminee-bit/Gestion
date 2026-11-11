@@ -3,8 +3,8 @@
  *
  * Lit les snapshots figés du store dédié (`features/decision/store`, sessionStorage) et les affiche
  * tels quels : aucune simulation n'est recalculée ici et aucune donnée financière réelle n'est lue
- * ni modifiée. Les formulaires, la situation initiale, les graphiques et le comparateur relèvent
- * des étapes suivantes.
+ * ni modifiée. Situation initiale (E5.2), décision (E5.3), simulation (E5.4) et comparateur
+ * multi-variantes (E5.5) : rien n'est écrit dans les données financières.
  */
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, FlaskConical, Info, Trash2 } from 'lucide-react';
@@ -20,7 +20,10 @@ import { gregorian } from '@/domain/dates';
 import { deleteSimulation, loadSimulations, MAX_SIMULATIONS, type LoadResult } from '@/features/decision/store';
 import type { DecisionSnapshot } from '@/features/decision/snapshot';
 import { SituationCard } from '@/features/decision/SituationCard';
-import { DecisionBuilder } from '@/features/decision/DecisionBuilder';
+import { DecisionBuilder, type DecisionMode } from '@/features/decision/DecisionBuilder';
+import { ComparisonBuilder, type ComparisonSetup } from '@/features/decision/ComparisonBuilder';
+import { ComparisonPanel } from '@/features/decision/ComparisonPanel';
+import { ComparisonResults } from '@/features/decision/ComparisonResults';
 import { SimulationPanel } from '@/features/decision/SimulationPanel';
 import { SimulationResults } from '@/features/decision/SimulationResults';
 import { cn } from '@/lib/cn';
@@ -79,6 +82,11 @@ function SimulationCard({ sim, open, onToggle, onDelete }: { sim: DecisionSnapsh
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 break-words pt-1 text-sm font-semibold">
           <bdi>{sim.name}</bdi>
+          {h.variants.length > 1 && (
+            <Badge tone="violet" className="ms-2 align-middle">
+              <span data-testid="dl-comparison-badge">{t('dl.cmp.badge')}</span>
+            </Badge>
+          )}
         </h3>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button variant="ghost" size="sm" aria-expanded={open} aria-controls={panelId} onClick={onToggle} icon={<ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} aria-hidden />}>
@@ -142,12 +150,10 @@ function SimulationCard({ sim, open, onToggle, onDelete }: { sim: DecisionSnapsh
               ))}
             </ul>
           </section>
-          {/* Résultats enregistrés, relus tels quels (aucun recalcul). Plusieurs variantes : comparateur (E5.5). */}
-          {sim.results.variants.length === 1 && (
-            <div className="border-t border-line/10 pt-4 text-sm">
-              <SimulationResults snapshot={sim} />
-            </div>
-          )}
+          {/* Résultats enregistrés, relus tels quels (aucun recalcul) : simulation simple ou comparaison. */}
+          <div className="border-t border-line/10 pt-4 text-sm">
+            {sim.results.variants.length === 1 ? <SimulationResults snapshot={sim} /> : <ComparisonResults snapshot={sim} />}
+          </div>
         </div>
       )}
     </li>
@@ -173,6 +179,9 @@ export default function DecisionLab() {
   const [override, setOverride] = useState<InitialSituation | null>(null);
   // Décision validée par le formulaire (E5.3), simulée par la carte « Simulation » (E5.4).
   const [decision, setDecision] = useState<DecisionInput | null>(null);
+  // Comparaison prête (E5.5) : 2 à 4 variantes validées d'un même type, exécutées par la carte « Comparaison ».
+  const [mode, setMode] = useState<DecisionMode>('single');
+  const [comparison, setComparison] = useState<ComparisonSetup | null>(null);
   const situation: InitialSituation | null = override ?? (computed ? { cash: computed.cash, netWorth: computed.netWorth, monthlySavings: computed.monthlySavings } : null);
 
   async function remove(sim: DecisionSnapshot) {
@@ -198,9 +207,10 @@ export default function DecisionLab() {
 
       <SituationCard computed={computed} value={situation} onChange={setOverride} />
 
-      <DecisionBuilder onValidated={setDecision} />
+      <DecisionBuilder onValidated={setDecision} onModeChange={setMode} comparison={<ComparisonBuilder onChange={setComparison} />} />
 
-      {decision && <SimulationPanel situation={situation} decision={decision} onSaved={() => setState(loadSimulations())} />}
+      {mode === 'single' && decision && <SimulationPanel situation={situation} decision={decision} onSaved={() => setState(loadSimulations())} />}
+      {mode === 'compare' && comparison && <ComparisonPanel situation={situation} setup={comparison} onSaved={() => setState(loadSimulations())} />}
 
       <StoreNotices state={state} />
 

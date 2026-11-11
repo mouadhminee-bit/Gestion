@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Misc';
 import { Field, Input, MoneyInput, Segmented, Switch } from '@/components/ui/Field';
 import { useToast } from '@/components/ui/Toast';
-import { MAX_HORIZON_MONTHS, MAX_RATE_BPS, type DecisionInput } from '@/domain/calc/decision';
+import { MAX_HORIZON_MONTHS, MAX_RATE_BPS, MAX_VARIANTS, MIN_VARIANTS, type DecisionInput } from '@/domain/calc/decision';
 import { cn } from '@/lib/cn';
 import { t, td } from '@/i18n/core';
 import {
@@ -32,7 +32,7 @@ import {
   type GoalMode,
 } from './decisionDraft';
 
-const KIND_ICON: Record<DecisionKind, ReactNode> = {
+export const KIND_ICON: Record<DecisionKind, ReactNode> = {
   purchase: <ShoppingBag className="h-5 w-5" aria-hidden />,
   recurring: <CalendarClock className="h-5 w-5" aria-hidden />,
   goal: <PiggyBank className="h-5 w-5" aria-hidden />,
@@ -72,7 +72,23 @@ export function errorMessage(field: string, code: string): string {
   return known.includes(code) ? td(`dl.err.${code}`) : t('dl.err.invalid');
 }
 
-export function DecisionBuilder({ onValidated }: { onValidated?: (decision: DecisionInput | null) => void }) {
+export type DecisionMode = 'single' | 'compare';
+
+/**
+ * `comparison` : contenu du mode « Comparaison » (E5.5), fourni par la page. Sans lui, la carte ne
+ * propose que la simulation simple. Les deux modes restent montés : passer de l'un à l'autre ne perd
+ * aucune saisie.
+ */
+export function DecisionBuilder({
+  onValidated,
+  onModeChange,
+  comparison,
+}: {
+  onValidated?: (decision: DecisionInput | null) => void;
+  onModeChange?: (mode: DecisionMode) => void;
+  comparison?: ReactNode;
+}) {
+  const [mode, setMode] = useState<DecisionMode>('single');
   const { fmt, settings } = useApp();
   const toast = useToast();
   const currency = settings.baseCurrency;
@@ -88,13 +104,6 @@ export function DecisionBuilder({ onValidated }: { onValidated?: (decision: Deci
 
   const draft = kind ? drafts[kind] : null;
   const update = (fn: (d: DecisionDraft) => DecisionDraft) => kind && setDrafts((all) => ({ ...all, [kind]: fn(all[kind]) }));
-  const clearError = (...keys: string[]) =>
-    setErrors((e) => {
-      const next = { ...e };
-      for (const k of [...keys, FORM_LEVEL]) delete next[k];
-      return next;
-    });
-
   function invalidate() {
     if (ready) {
       setReady(null);
@@ -108,8 +117,7 @@ export function DecisionBuilder({ onValidated }: { onValidated?: (decision: Deci
     invalidate();
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  function submit() {
     if (!draft) return;
     const res = buildDecision(draft);
     if (!res.ok) {
@@ -140,7 +148,25 @@ export function DecisionBuilder({ onValidated }: { onValidated?: (decision: Deci
   );
 
   return (
-    <Card data-testid="dl-decision" title={t('dl.form.title')}>
+    <Card data-testid="dl-decision" data-mode={mode} title={t('dl.form.title')}>
+      {comparison && (
+        <div className="mb-4">
+          <Segmented<DecisionMode>
+            className="w-full sm:w-auto"
+            value={mode}
+            onChange={(m) => {
+              setMode(m);
+              onModeChange?.(m);
+            }}
+            options={[
+              { value: 'single', label: t('dl.mode.single') },
+              { value: 'compare', label: t('dl.mode.compare', { min: MIN_VARIANTS, max: MAX_VARIANTS }) },
+            ]}
+          />
+        </div>
+      )}
+      {comparison && <div hidden={mode !== 'compare'}>{comparison}</div>}
+      <div hidden={mode !== 'single'} data-testid="dl-single">
       {!kind && (
         <>
           <p className="mb-3 text-xs text-muted">{t('dl.form.choose')}</p>
@@ -181,7 +207,71 @@ export function DecisionBuilder({ onValidated }: { onValidated?: (decision: Deci
       )}
 
       {kind && draft && !ready && (
-        <form onSubmit={submit} noValidate data-testid={`dl-form-${kind}`} className="space-y-4">
+        <DecisionForm
+          kind={kind}
+          draft={draft}
+          errors={errors}
+          currency={currency}
+          onUpdate={update}
+          onErrors={setErrors}
+          onSubmit={submit}
+          header={header}
+          submitLabel={t('dl.form.validate')}
+        />
+      )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Formulaire d'une décision (saisie et erreurs) : utilisé par la simulation simple et par chaque
+ * variante du comparateur (`idPrefix` distinct par variante). Le brouillon et les erreurs restent
+ * dans l'état du composant parent ; la validation est faite par le parent (`buildDecision`).
+ */
+export function DecisionForm({
+  kind,
+  draft,
+  errors,
+  currency,
+  onUpdate,
+  onErrors,
+  onSubmit,
+  header,
+  submitLabel,
+  idPrefix = 'dl-f',
+  testId,
+}: {
+  kind: DecisionKind;
+  draft: DecisionDraft;
+  errors: DraftErrors;
+  currency: string;
+  onUpdate: (fn: (d: DecisionDraft) => DecisionDraft) => void;
+  onErrors: (fn: (e: DraftErrors) => DraftErrors) => void;
+  onSubmit: () => void;
+  header?: ReactNode;
+  submitLabel: string;
+  idPrefix?: string;
+  testId?: string;
+}) {
+  const update = onUpdate;
+  const setErrors = (next: DraftErrors | ((e: DraftErrors) => DraftErrors)) => onErrors(typeof next === 'function' ? next : () => next);
+  const clearError = (...keys: string[]) =>
+    setErrors((e) => {
+      const next = { ...e };
+      for (const k of [...keys, FORM_LEVEL]) delete next[k];
+      return next;
+    });
+  return (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+          noValidate
+          data-testid={testId ?? `dl-form-${kind}`}
+          className="space-y-4"
+        >
           {header}
           <p className="text-xs text-muted">{t('dl.form.legend', { currency })}</p>
 
@@ -212,24 +302,25 @@ export function DecisionBuilder({ onValidated }: { onValidated?: (decision: Deci
             const renderFields = (list: FieldSpec[]) => (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {list.map((f) => (
-              <DraftField
-                key={f.key}
-                spec={f}
-                kind={kind}
-                draft={draft}
-                currency={currency}
-                error={errors[f.key]}
-                onMoney={(v) => {
-                  update((d) => ({ ...d, money: { ...d.money, [f.key]: v } }));
-                  clearError(f.key);
-                }}
-                onMoneyText={(hasText) => update((d) => ({ ...d, moneyText: { ...d.moneyText, [f.key]: hasText } }))}
-                onText={(v) => {
-                  update((d) => ({ ...d, text: { ...d.text, [f.key]: v } }));
-                  clearError(f.key);
-                }}
-                onInvalidBlur={() => setErrors((e) => ({ ...e, [f.key]: 'invalid' }))}
-              />
+                  <DraftField
+                    key={f.key}
+                    spec={f}
+                    kind={kind}
+                    draft={draft}
+                    currency={currency}
+                    idPrefix={idPrefix}
+                    error={errors[f.key]}
+                    onMoney={(v) => {
+                      update((d) => ({ ...d, money: { ...d.money, [f.key]: v } }));
+                      clearError(f.key);
+                    }}
+                    onMoneyText={(hasText) => update((d) => ({ ...d, moneyText: { ...d.moneyText, [f.key]: hasText } }))}
+                    onText={(v) => {
+                      update((d) => ({ ...d, text: { ...d.text, [f.key]: v } }));
+                      clearError(f.key);
+                    }}
+                    onInvalidBlur={() => setErrors((e) => ({ ...e, [f.key]: 'invalid' }))}
+                  />
                 ))}
               </div>
             );
@@ -239,7 +330,7 @@ export function DecisionBuilder({ onValidated }: { onValidated?: (decision: Deci
                 {kind === 'purchase' && (
                   <div data-testid="dl-field-loan">
                     <Switch
-                      id="dl-financed"
+                      id={idPrefix === 'dl-f' ? 'dl-financed' : `${idPrefix}-financed`}
                       checked={draft.financed}
                       onChange={(v) => {
                         update((d) => ({ ...d, financed: v }));
@@ -267,11 +358,9 @@ export function DecisionBuilder({ onValidated }: { onValidated?: (decision: Deci
           )}
 
           <Button type="submit" variant="primary">
-            {t('dl.form.validate')}
+            {submitLabel}
           </Button>
         </form>
-      )}
-    </Card>
   );
 }
 
@@ -280,6 +369,7 @@ function DraftField({
   kind,
   draft,
   currency,
+  idPrefix,
   error,
   onMoney,
   onMoneyText,
@@ -290,6 +380,7 @@ function DraftField({
   kind: DecisionKind;
   draft: DecisionDraft;
   currency: string;
+  idPrefix: string;
   error?: string;
   onMoney: (v: number | null) => void;
   /** Présence d'un texte dans le champ monétaire (indépendante de la valeur interprétée). */
@@ -297,7 +388,7 @@ function DraftField({
   onText: (v: string) => void;
   onInvalidBlur: () => void;
 }) {
-  const id = `dl-f-${spec.key.replace('.', '-')}`;
+  const id = `${idPrefix}-${spec.key.replace('.', '-')}`;
   const hk = hintKey(kind, spec.key);
   return (
     <div data-testid={`dl-field-${spec.key}`}>
@@ -341,7 +432,7 @@ function DraftField({
 }
 
 /** Récapitulatif de l'entrée validée : les hypothèses saisies, aucun résultat. */
-function Recap({ decision, fmt, currency }: { decision: DecisionInput; fmt: ReturnType<typeof useApp>['fmt']; currency: string }) {
+export function Recap({ decision, fmt, currency }: { decision: DecisionInput; fmt: ReturnType<typeof useApp>['fmt']; currency: string }) {
   const values = flattenDecision(decision);
   const rows = fieldsOf(draftFromDecision(decision)).filter((f) => values[f.key] !== undefined);
   return (

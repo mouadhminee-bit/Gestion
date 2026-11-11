@@ -171,11 +171,12 @@ describe('Decision Lab — Mes simulations', () => {
     expect(q('dl-limit-reached')).toBeNull();
   });
 
-  it('consultation : hypothèses et métadonnées du snapshot uniquement (résultats réservés à E5.4)', async () => {
+  it('consultation d\'une comparaison : hypothèses du snapshot, puis résultats comparés relus sans recalcul (E5.5)', async () => {
     const snap = car();
     saveSimulation(snap);
     await renderPage();
     expect(q('dl-details')).toBeNull();
+    expect(q('dl-comparison-badge')!.textContent).toBe('Comparaison');
     await click(button('Détails'));
     const details = q('dl-details')!;
     expect(details.textContent).toContain('Situation initiale');
@@ -188,16 +189,18 @@ describe('Decision Lab — Mes simulations', () => {
     expect(variants[1].textContent).toContain('comptant'); // sans libellé : identifiant
     expect(variants[1].textContent).toContain('Achat');
     expect(details.textContent).toContain('+4.000,00'); // épargne mensuelle de référence
-    // Aucun indicateur de résultat : ni écarts, ni trésorerie minimale, ni premier mois négatif.
-    for (const label of ['Écart de trésorerie', 'Écart de patrimoine', 'Trésorerie la plus basse', 'Premier mois de trésorerie négative', 'Jamais']) {
-      expect(details.textContent, label).not.toContain(label);
-    }
+    // Résultats comparés : lus dans le snapshot (aucun moteur appelé), une synthèse par variante.
+    const results = details.querySelector<HTMLElement>('[data-testid="dl-cmp-results"]')!;
+    expect(results.textContent).toContain('Comparaison sur 60 mois');
+    expect(all('dl-cmp-summary').map((el) => el.dataset.variant)).toEqual(['A', 'B']);
+    expect(details.querySelector('[data-testid="dl-results"]')).toBeNull(); // pas l'affichage d'une simulation simple
     const fmt = (c: number) => (Math.abs(c) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     for (const v of snap.results.variants) {
-      for (const amount of [v.endOfHorizon.cashDelta, v.endOfHorizon.netWorthDelta, v.lowestCash.value]) {
-        if (Math.abs(amount) !== 5_000_000 && Math.abs(amount) !== 30_000_000) expect(details.textContent).not.toContain(fmt(amount));
-      }
+      for (const amount of [v.endOfHorizon.cashDelta, v.endOfHorizon.netWorthDelta, v.lowestCash.value]) expect(results.textContent).toContain(fmt(amount));
     }
+    // Séries d'un snapshot enregistré : pas de détail mensuel du moteur (capital restant dû non stocké).
+    expect(details.querySelector('[data-testid="dl-cmp-chart-extra"]')).toBeNull();
+    expect(q('dl-cmp-limits')!.textContent).toContain('le capital restant dû mois par mois ne le sont pas');
     await click(button('Détails'));
     expect(q('dl-details')).toBeNull();
   });
