@@ -3,6 +3,11 @@
  * 1 fichier → 2 aperçu → 3 colonnes → 4 dates → 5 montants → 6 catégories →
  * 7 erreurs (corrigeables) → 8 doublons potentiels → 9 confirmation → 10 rapport.
  * Les étapes 4-5 et 7-8 partagent un écran pour rester rapides.
+ *
+ * Montants : la convention des nombres (virgule ou point décimal) est déterminée sur l'ensemble du
+ * fichier (`detectNumberFormat`), jamais d'après la locale de l'interface ni un montant isolé. Si elle
+ * ne peut pas l'être (montants ambigus comme « 1.500 », conventions mélangées), l'utilisateur la
+ * choisit avant de continuer ; un montant incompatible avec le format retenu n'est pas importé.
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -15,7 +20,8 @@ import { Field, Input, Segmented, Select } from '@/components/ui/Field';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import type { Delimiter, ImportDateFormat } from '@/domain/csv';
-import { detectDateFormat, detectDelimiter, IMPORT_DATE_FORMATS, parseCSV, parseDateWithFormat, parseImportAmount } from '@/domain/csv';
+import { detectDateFormat, detectDelimiter, IMPORT_DATE_FORMATS, parseCSV, parseDateWithFormat } from '@/domain/csv';
+import { detectNumberFormat, IMPORT_NUMBER_FORMATS, numberFormatExample, parseImportAmountWithFormat, type ImportAmountIssue, type ImportNumberFormat } from '@/domain/importAmounts';
 import { findDuplicates, normalizeLabel } from '@/domain/duplicates';
 import { formatAmountInput, parseAmountInput } from '@/domain/money';
 import type { TransactionDraft } from '@/domain/validation';
@@ -29,12 +35,23 @@ const COL_KEYS: ColKey[] = ['date', 'label', 'amount', 'debit', 'credit', 'categ
 /** Format de date affiché avec les lettres de la langue (ex. JJ/MM/AAAA en français). */
 const displayFormat = (f: string) => f.replace(/[DMY]/g, (c) => td(`imp.letter.${c}`));
 
+/**
+ * Valeur du fichier citée dans un message : isolée du texte qui l'entoure (U+2068…U+2069), pour que
+ * son signe et ses séparateurs restent à leur place dans une phrase de droite à gauche (« -4.000,00 »
+ * et non « 4.000,00- » en arabe).
+ */
+const isolate = (value: string) => `\u2068${value}\u2069`;
+
 interface Row {
   idx: number;
   include: boolean;
   date: string | null;
   label: string;
   amount: number | null; // signé : < 0 dépense, > 0 revenu
+  /** Montant tel qu'écrit dans le fichier (débit / crédit en mode colonnes séparées). */
+  rawAmount: string;
+  /** Motif précis d'un montant non interprété (ambigu, incompatible avec le format…). */
+  amountError?: string;
   catRaw: string;
   payee: string;
   notes: string;
@@ -74,6 +91,8 @@ export default function Import() {
   const [cols, setCols] = useState<Partial<Record<ColKey, number>>>({});
   const [amountMode, setAmountMode] = useState<'signed' | 'split' | 'all_expenses'>('signed');
   const [dateFormat, setDateFormat] = useState<ImportDateFormat>('DD/MM/YYYY');
+  /** Convention des nombres : détectée sur le fichier (auto) ou choisie explicitement. */
+  const [numberChoice, setNumberChoice] = useState<'auto' | ImportNumberFormat>('auto');
   const [accountId, setAccountId] = useState(data.accounts.find((a) => !a.archived)?.id ?? '');
   const [catMap, setCatMap] = useState<Record<string, string>>({});
   const [rows, setRows] = useState<Row[]>([]);
@@ -98,6 +117,7 @@ export default function Import() {
     const t = parseCSV(content, d);
     if (t.length < 1) return toast.error(tr('imp.empty'));
     setFileName(file.name);
+    setNumberChoice('auto');
     setText(content);
     setDelimiter(d);
     const guessed = guessColumns(t[0]);
@@ -107,16 +127,39 @@ export default function Import() {
     setStep(1);
   }
 
-  function amountOf(r: string[]): number | null {
+  /** Cellules de montant du fichier (colonne montant, ou débit et crédit) : base de la détection. */
+  const amountCells = (r: string[]): string[] => (amountMode === 'split' ? [cols.debit, cols.credit] : [cols.amount]).map((c) => (c != null ? r[c] ?? '' : ''));
+  const numberDetection = useMemo(() => detectNumberFormat(body.flatMap(amountCells)), [body, amountMode, cols.amount, cols.debit, cols.credit]);
+  const numberFormat: ImportNumberFormat | null = numberChoice === 'auto' ? numberDetection.format : numberChoice;
+  /** Convention indéterminable sans l'utilisateur : la suite de l'import attend son choix. */
+  const numberChoiceRequired = numberChoice === 'auto' && (numberDetection.status === 'uncertain' || numberDetection.status === 'conflict');
+
+  function amountIssueText(issue: ImportAmountIssue, value: string): string {
+    const raw = isolate(value);
+    if (issue === 'unresolved') return tr('imp.err.amountAmbiguous', { raw });
+    if (issue === 'ambiguous') return tr('imp.err.amountFormat', { raw });
+    return tr('imp.err.amountRaw', { raw });
+  }
+
+  /** Montant signé d'une ligne, selon la convention retenue ; motif précis s'il n'est pas interprété. */
+  function amountOf(r: string[]): { value: number | null; raw: string; error?: string } {
+    const read = (raw: string) => parseImportAmountWithFormat(raw, currency, numberFormat);
     if (amountMode === 'split') {
-      const d = cols.debit != null ? parseImportAmount(r[cols.debit] ?? '', currency) : null;
-      const c = cols.credit != null ? parseImportAmount(r[cols.credit] ?? '', currency) : null;
-      if (d == null && c == null) return null;
-      return (c ? Math.abs(c) : 0) - (d ? Math.abs(d) : 0);
+      const rawD = cols.debit != null ? r[cols.debit] ?? '' : '';
+      const rawC = cols.credit != null ? r[cols.credit] ?? '' : '';
+      const raw = [rawD, rawC].map((x) => x.trim()).filter(Boolean).join(' / ');
+      const d = read(rawD);
+      const c = read(rawC);
+      if (!d.ok) return { value: null, raw, error: amountIssueText(d.issue, rawD.trim()) };
+      if (!c.ok) return { value: null, raw, error: amountIssueText(c.issue, rawC.trim()) };
+      if (d.value == null && c.value == null) return { value: null, raw };
+      return { value: (c.value ? Math.abs(c.value) : 0) - (d.value ? Math.abs(d.value) : 0), raw };
     }
-    const v = cols.amount != null ? parseImportAmount(r[cols.amount] ?? '', currency) : null;
-    if (v == null) return null;
-    return amountMode === 'all_expenses' ? -Math.abs(v) : v;
+    const raw = (cols.amount != null ? r[cols.amount] ?? '' : '').trim();
+    const v = read(raw);
+    if (!v.ok) return { value: null, raw, error: amountIssueText(v.issue, raw) };
+    if (v.value == null) return { value: null, raw };
+    return { value: amountMode === 'all_expenses' ? -Math.abs(v.value) : v.value, raw };
   }
 
   const rawCategories = useMemo(() => {
@@ -139,10 +182,11 @@ export default function Import() {
   function buildRows() {
     const built: Row[] = body.map((r, idx) => {
       const date = cols.date != null ? parseDateWithFormat(r[cols.date] ?? '', dateFormat) : null;
-      const amount = amountOf(r);
+      const parsed = amountOf(r);
+      const amount = parsed.value;
       const errors: string[] = [];
       if (!date) errors.push(tr('imp.err.date'));
-      if (amount == null) errors.push(tr('imp.err.amount'));
+      if (amount == null) errors.push(parsed.error ?? tr('imp.err.amount'));
       else if (amount === 0) errors.push(tr('imp.err.zero'));
       return {
         idx,
@@ -150,6 +194,8 @@ export default function Import() {
         date,
         label: (cols.label != null ? r[cols.label] : '')?.slice(0, 140) ?? '',
         amount,
+        rawAmount: parsed.raw,
+        amountError: parsed.error,
         catRaw: cols.category != null ? (r[cols.category] ?? '').trim() : '',
         payee: cols.payee != null ? r[cols.payee] ?? '' : '',
         notes: cols.notes != null ? r[cols.notes] ?? '' : '',
@@ -180,9 +226,11 @@ export default function Import() {
     setRows((list) => {
       const next = [...list];
       const r = { ...next[i], ...patch };
+      // Montant corrigé à la main : le motif d'origine ne s'applique plus.
+      if ('amount' in patch) r.amountError = undefined;
       r.errors = [];
       if (!r.date) r.errors.push(tr('imp.err.date'));
-      if (r.amount == null) r.errors.push(tr('imp.err.amount'));
+      if (r.amount == null) r.errors.push(r.amountError ?? tr('imp.err.amount'));
       else if (r.amount === 0) r.errors.push(tr('imp.err.zero'));
       if (r.errors.length) r.include = false;
       else if (patch.include === undefined && list[i].errors.length) r.include = true;
@@ -235,7 +283,10 @@ export default function Import() {
   const includeCount = rows.filter((r) => r.include && !r.errors.length).length;
   const visible = rows.map((r, i) => ({ r, i })).filter(({ r }) => (filter === 'errors' ? r.errors.length > 0 : filter === 'duplicates' ? !!r.duplicate : true));
   const colsValid = cols.date != null && (amountMode === 'split' ? cols.debit != null || cols.credit != null : cols.amount != null);
-  const previewParsed = body.slice(0, 6).map((r) => ({ date: cols.date != null ? parseDateWithFormat(r[cols.date] ?? '', dateFormat) : null, raw: cols.date != null ? r[cols.date] : '', amount: amountOf(r) }));
+  const previewParsed = body.slice(0, 6).map((r) => {
+    const a = amountOf(r);
+    return { date: cols.date != null ? parseDateWithFormat(r[cols.date] ?? '', dateFormat) : null, raw: cols.date != null ? r[cols.date] : '', amount: a.value, rawAmount: a.raw, amountError: a.error };
+  });
 
   return (
     <div>
@@ -318,21 +369,54 @@ export default function Import() {
             <Field label={tr('imp.dateFormat')} hint={tr('imp.dateFormat.hint')}>
               <Select value={dateFormat} onChange={(e) => setDateFormat(e.target.value as ImportDateFormat)}>{IMPORT_DATE_FORMATS.map((f) => <option key={f} value={f}>{displayFormat(f)}</option>)}</Select>
             </Field>
-            <Field label={tr('imp.amounts')} hint={tr('imp.amounts.hint', { currency })}>
-              <div className="flex h-11 items-center text-sm text-muted">{tr('imp.decimalAuto')}</div>
+            <Field label={tr('imp.numberFormat')} hint={tr('imp.amounts.hint', { currency })}>
+              <Select data-testid="imp-number-format" value={numberChoice} invalid={numberChoiceRequired} onChange={(e) => setNumberChoice(e.target.value as 'auto' | ImportNumberFormat)}>
+                <option value="auto">{tr('imp.numberFormat.auto')}</option>
+                {IMPORT_NUMBER_FORMATS.map((f) => (
+                  <option key={f} value={f}>{tr(f === 'decimalComma' ? 'imp.numberFormat.comma' : 'imp.numberFormat.point')}</option>
+                ))}
+              </Select>
             </Field>
           </div>
+          {/* Convention des nombres du fichier : état de la détection, ou choix requis. */}
+          <p
+            data-testid="imp-number-status"
+            data-status={numberChoice === 'auto' ? numberDetection.status : 'chosen'}
+            role={numberChoiceRequired ? 'alert' : 'status'}
+            className={cn('mt-3 flex gap-2 rounded-xl border px-3 py-2 text-xs', numberChoiceRequired ? 'border-warning/30 bg-warning/10' : 'border-line/15 bg-surface-2/50 text-muted')}
+          >
+            {numberChoiceRequired && <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />}
+            <span>
+              {numberChoice !== 'auto'
+                ? tr('imp.numberFormat.chosen', { example: isolate(numberFormatExample(numberChoice)) })
+                : numberDetection.status === 'detected'
+                  ? tr('imp.numberFormat.detected', { example: isolate(numberFormatExample(numberDetection.format!)) })
+                  : numberDetection.status === 'conflict'
+                    ? tr('imp.numberFormat.conflict', { a: isolate(numberDetection.samples.decimalComma ?? ''), b: isolate(numberDetection.samples.decimalPoint ?? '') })
+                    : numberDetection.status === 'uncertain'
+                      ? tr('imp.numberFormat.uncertain', { sample: isolate(numberDetection.samples.ambiguous ?? '') })
+                      : tr('imp.numberFormat.notNeeded')}
+            </span>
+          </p>
           <table className="mt-4 w-full text-xs">
-            <thead><tr className="text-start text-muted"><th className="py-1.5">{tr('imp.th.raw')}</th><th>{tr('imp.th.date')}</th><th className="text-end">{tr('imp.th.amount')}</th></tr></thead>
-            <tbody className="divide-y divide-line/5">
+            <thead><tr className="text-start text-muted"><th className="py-1.5">{tr('imp.th.raw')}</th><th>{tr('imp.th.date')}</th><th className="text-end">{tr('imp.th.rawAmount')}</th><th className="text-end">{tr('imp.th.amount')}</th></tr></thead>
+            <tbody className="divide-y divide-line/5" data-testid="imp-preview">
               {previewParsed.map((p, i) => (
-                <tr key={i}><td className="py-1.5">{p.raw}</td><td className={cn(!p.date && 'text-negative')}>{p.date ? fmt.date(p.date) : tr('imp.invalid')}</td><td className={cn('text-end num', p.amount == null ? 'text-negative' : p.amount > 0 ? 'text-positive' : '')}>{p.amount == null ? tr('imp.invalid') : fmt.money(p.amount, currency, { sign: true, force: true })}</td></tr>
+                <tr key={i}>
+                  <td className="py-1.5">{p.raw}</td>
+                  <td className={cn(!p.date && 'text-negative')}>{p.date ? fmt.date(p.date) : tr('imp.invalid')}</td>
+                  <td className="text-end num" dir="ltr">{p.rawAmount}</td>
+                  <td className={cn('text-end num', p.amount == null ? 'text-negative' : p.amount > 0 ? 'text-positive' : '')} title={p.amountError}>
+                    {/* Montant isolé (<bdi>) : en arabe, le signe reste à gauche du nombre (« -245,30 DH », pas « DH 245,30- »). */}
+                    {p.amount == null ? tr('imp.invalid') : <bdi data-testid="imp-preview-amount">{fmt.money(p.amount, currency, { sign: true, force: true })}</bdi>}
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
           <div className="mt-5 flex justify-between">
             <Button variant="ghost" onClick={() => setStep(1)}>{tr('common.back')}</Button>
-            <Button variant="primary" icon={<ArrowRight className="h-4 w-4 rtl:-scale-x-100" />} onClick={goCategories}>{tr('imp.continue')}</Button>
+            <Button variant="primary" disabled={numberChoiceRequired} icon={<ArrowRight className="h-4 w-4 rtl:-scale-x-100" />} onClick={goCategories}>{tr('imp.continue')}</Button>
           </div>
         </Card>
       )}
@@ -385,6 +469,8 @@ export default function Import() {
                       {/* Correction saisie à la main : séparateurs de la locale ; une saisie ambiguë ou non valide
                           n'est pas convertie (montant absent : la ligne passe en erreur et n'est pas importée). */}
                       <Input className="h-8 w-[120px] text-end text-xs num" defaultValue={r.amount == null ? '' : formatAmountInput(r.amount, currency, settings.locale)} onBlur={(e) => { const p = parseAmountInput(e.target.value, currency, settings.locale); updateRow(i, { amount: p.ok ? p.value : null }); }} />
+                      {/* Valeur d'origine du fichier, conservée sous le montant interprété. */}
+                      {r.rawAmount && <span data-testid="imp-raw-amount" className="mt-0.5 block text-end text-[10px] text-muted">{tr('imp.rawAmount', { raw: isolate(r.rawAmount) })}</span>}
                     </td>
                     <td className="ps-3">
                       {r.errors.length ? <span className="text-negative">{r.errors.join(', ')}</span> : r.duplicate ? <span className="inline-flex items-center gap-1 text-warning"><AlertTriangle className="h-3 w-3" />{r.duplicate}</span> : <span className="text-positive">{tr('imp.ok')}</span>}

@@ -5,7 +5,7 @@ import { useApp } from '@/app/AppContext';
 import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, EmptyState } from '@/components/ui/Misc';
-import { Field, Input, MoneyInput, Select } from '@/components/ui/Field';
+import { Field, Input, MoneyInput, Select, useAmountGuard } from '@/components/ui/Field';
 import { InfoTip } from '@/components/ui/Tooltip';
 import { ChartTooltip, SERIES, useChart } from '@/components/charts/ChartKit';
 import { useBalances } from '@/features/hooks';
@@ -20,6 +20,10 @@ import { daysInMonth, formatMonth, monthKey, parseISO } from '@/domain/dates';
 import { cn } from '@/lib/cn';
 import { t } from '@/i18n/core';
 
+/** Champs montant du simulateur (unités minimales), dans `ScenarioInput`. */
+type MoneyField = 'incomeChangeAmount' | 'rentIncrease' | 'newRecurringExpense' | 'oneOffPurchase' | 'extraSavings';
+const EMPTY_MONEY_FIELDS: Record<MoneyField, number | null> = { incomeChangeAmount: null, rentIncrease: null, newRecurringExpense: null, oneOffPurchase: null, extraSavings: null };
+
 export default function Forecast() {
   const { data, ctx, fmt, today, settings, uiLocale } = useApp();
   const chart = useChart();
@@ -27,6 +31,13 @@ export default function Forecast() {
   const f = useMemo(() => forecastMonth(ctx, data, today), [ctx, data, today]);
   const baseline = useMemo(() => computeBaseline(ctx, data, today), [ctx, data, today]);
   const [input, setInput] = useState<ScenarioInput>(EMPTY_SCENARIO);
+  // Montants du simulateur tels que saisis : null = champ vide, 0 = zéro saisi (affiché). Le scénario,
+  // lui, reçoit 0 pour un champ vide ; un montant refusé (ambigu, non valide…) suspend le résultat
+  // au lieu d'être remplacé par 0 (`amounts.blocked`).
+  const [moneyFields, setMoneyFields] = useState<Record<MoneyField, number | null>>(EMPTY_MONEY_FIELDS);
+  const amounts = useAmountGuard();
+  /** Change à chaque réinitialisation : les champs sont recréés (texte refusé compris). */
+  const [resetKey, setResetKey] = useState(0);
   const rent = data.categories.find((c) => c.key === 'rent');
   const { y, m } = parseISO(today);
   const result = useMemo(
@@ -47,6 +58,23 @@ export default function Forecast() {
   );
   const changed = JSON.stringify(input) !== JSON.stringify(EMPTY_SCENARIO);
   const setI = <K extends keyof ScenarioInput>(k: K, v: ScenarioInput[K]) => setInput((p) => ({ ...p, [k]: v }));
+  const moneyField = (k: MoneyField, allowNegative = false) => (
+    <MoneyInput
+      allowNegative={allowNegative}
+      value={moneyFields[k]}
+      onChange={(v) => {
+        setMoneyFields((p) => ({ ...p, [k]: v }));
+        setI(k, v ?? 0);
+      }}
+      onIssue={amounts.track(k)}
+      currency={settings.baseCurrency}
+    />
+  );
+  function resetScenario() {
+    setInput(EMPTY_SCENARIO);
+    setMoneyFields(EMPTY_MONEY_FIELDS);
+    setResetKey((k) => k + 1);
+  }
   const methodLabel = { history: t('fc.method.history', { days: f.variableHistoryDays }), month: t('fc.method.month', { days: f.variableMonthDays }), insufficient: t('fc.method.insufficient') }[f.variableMethod];
 
   // Cascade : chaque barre flotte entre le solde avant et après l'étape.
@@ -156,20 +184,20 @@ export default function Forecast() {
         </Card>
       </div>
 
-      <Card className="mt-5" title={<span className="flex items-center gap-1.5"><FlaskConical className="h-4 w-4 text-violet" /> {t('fc.simulator')}</span>} info={t('fc.simulator.info')} actions={changed && <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => setInput(EMPTY_SCENARIO)}>{t('fc.reset')}</Button>}>
+      <Card className="mt-5" title={<span className="flex items-center gap-1.5"><FlaskConical className="h-4 w-4 text-violet" /> {t('fc.simulator')}</span>} info={t('fc.simulator.info')} actions={(changed || amounts.blocked) && <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={resetScenario}>{t('fc.reset')}</Button>}>
         {!result.sufficientData ? (
           <EmptyState title={t('fc.insufficient.title')} description={t('fc.insufficient.description')} />
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <div className="space-y-3 lg:col-span-2">
               <p className="text-xs text-muted">{t('fc.base', { count: baseline.monthsWithData, months: baseline.months.map((x) => formatMonth(x, uiLocale)).join(', ') })}</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div key={resetKey} className="grid grid-cols-2 gap-3">
                 <Field label={t('fc.in.incomePct')}><Input type="number" inputMode="decimal" value={input.incomeChangePct || ''} placeholder={t('fc.in.incomePctPlaceholder')} onChange={(e) => setI('incomeChangePct', Number(e.target.value) || 0)} /></Field>
-                <Field label={t('fc.in.incomeAmount')}><MoneyInput allowNegative value={input.incomeChangeAmount || null} onChange={(v) => setI('incomeChangeAmount', v ?? 0)} currency={settings.baseCurrency} /></Field>
-                <Field label={t('fc.in.rent')}><MoneyInput value={input.rentIncrease || null} onChange={(v) => setI('rentIncrease', v ?? 0)} currency={settings.baseCurrency} /></Field>
-                <Field label={t('fc.in.newRecurring')}><MoneyInput value={input.newRecurringExpense || null} onChange={(v) => setI('newRecurringExpense', v ?? 0)} currency={settings.baseCurrency} /></Field>
-                <Field label={t('fc.in.oneOff')}><MoneyInput value={input.oneOffPurchase || null} onChange={(v) => setI('oneOffPurchase', v ?? 0)} currency={settings.baseCurrency} /></Field>
-                <Field label={t('fc.in.extraSavings')}><MoneyInput value={input.extraSavings || null} onChange={(v) => setI('extraSavings', v ?? 0)} currency={settings.baseCurrency} /></Field>
+                <Field label={t('fc.in.incomeAmount')}>{moneyField('incomeChangeAmount', true)}</Field>
+                <Field label={t('fc.in.rent')}>{moneyField('rentIncrease')}</Field>
+                <Field label={t('fc.in.newRecurring')}>{moneyField('newRecurringExpense')}</Field>
+                <Field label={t('fc.in.oneOff')}>{moneyField('oneOffPurchase')}</Field>
+                <Field label={t('fc.in.extraSavings')}>{moneyField('extraSavings')}</Field>
               </div>
               <div>
                 <div className="mb-1.5 text-xs font-medium text-muted">{t('fc.reduce')}</div>
@@ -186,6 +214,14 @@ export default function Forecast() {
               </div>
             </div>
             <div className="min-w-0 lg:col-span-3">
+              {amounts.blocked ? (
+                // Aucun résultat calculé avec un montant substitué : le scénario attend la correction.
+                <p role="alert" data-testid="fc-sim-blocked" className="flex gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
+                  <span>{t('fc.sim.blocked')}</span>
+                </p>
+              ) : (
+              <div data-testid="fc-sim-result">
               <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm [&_td+td]:ps-3 [&_th+th]:ps-3">
                 <thead><tr className="text-start text-xs text-muted"><th className="py-1.5">{t('fc.col.monthlyAvg')}</th><th className="text-end">{t('fc.col.current')}</th><th className="text-end">{t('fc.col.scenario')}</th><th className="text-end">{t('rep.col.gap')}</th></tr></thead>
@@ -226,6 +262,8 @@ export default function Forecast() {
                 </div>
               )}
               {!changed && <p className="mt-4 text-xs text-muted">{t('fc.hint')}</p>}
+              </div>
+              )}
             </div>
           </div>
         )}
