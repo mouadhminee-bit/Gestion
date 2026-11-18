@@ -6,9 +6,10 @@
  *
  *  - `local` (défaut : variable absente ou vide) : base IndexedDB `nexora`, comportement
  *    inchangé ;
- *  - `supabase` : la configuration Cloud est lue et validée, mais le cloud N'EST PAS ACTIVÉ
- *    dans cette version (ni authentification, ni lecture, ni écriture) : le backend effectif
- *    reste `local` ;
+ *  - `supabase` : la configuration Cloud est lue et validée ; l'application impose
+ *    l'authentification Supabase (V2.5, `features/auth/CloudApp.tsx`) et n'ouvre JAMAIS la
+ *    base locale. Les données Cloud ne sont pas encore activées (ni lecture, ni écriture) ;
+ *    une configuration absente ou invalide bloque l'accès (aucun repli silencieux) ;
  *  - toute autre valeur : refusée explicitement, backend `local`.
  *
  * La lecture de la configuration ne lève jamais d'exception : une configuration absente,
@@ -42,7 +43,10 @@ export type SupabaseConfigStatus =
 export interface BackendSelection {
   /** Backend demandé par `VITE_DATA_BACKEND` (`unknown` : valeur non reconnue). */
   readonly requested: DataBackend | 'unknown';
-  /** Backend réellement utilisé : toujours `local` tant que le cloud n'est pas activé. */
+  /**
+   * Backend de DONNÉES : toujours `local` tant que les données Cloud ne sont pas activées.
+   * En mode `supabase`, aucun repository n'est créé (barrière d'authentification seule).
+   */
   readonly effective: 'local';
   readonly supabase: SupabaseConfigStatus;
   /** Diagnostics, sans aucune valeur de configuration. */
@@ -136,10 +140,11 @@ export function selectBackend(env: BackendEnv): BackendSelection {
   const notices: string[] = [];
   if (requested === 'unknown') notices.push(`VITE_DATA_BACKEND : valeur non reconnue (admises : local, supabase) — ${LOCAL_USED}.`);
   if (requested === 'supabase') {
-    if (supabase.status === 'ok') notices.push(`Backend « supabase » demandé : configuration Cloud valide, mais le cloud n’est pas encore activé dans cette version — ${LOCAL_USED}.`);
-    else if (supabase.status === 'absent') notices.push(`Backend « supabase » demandé sans configuration Cloud (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) — ${LOCAL_USED}.`);
-    else if (supabase.status === 'incomplete') notices.push(`Backend « supabase » demandé : configuration Cloud incomplète (manquant : ${supabase.missing.join(', ')}) — ${LOCAL_USED}.`);
-    else notices.push(`Backend « supabase » demandé : configuration Cloud invalide (${supabase.problems.join(' ; ')}) — ${LOCAL_USED}.`);
+    const BLOCKED = 'accès bloqué';
+    if (supabase.status === 'ok') notices.push('Backend « supabase » : authentification requise ; les données Cloud ne sont pas encore activées dans cette version (aucune lecture ni écriture).');
+    else if (supabase.status === 'absent') notices.push(`Backend « supabase » demandé sans configuration Cloud (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) — ${BLOCKED}.`);
+    else if (supabase.status === 'incomplete') notices.push(`Backend « supabase » demandé : configuration Cloud incomplète (manquant : ${supabase.missing.join(', ')}) — ${BLOCKED}.`);
+    else notices.push(`Backend « supabase » demandé : configuration Cloud invalide (${supabase.problems.join(' ; ')}) — ${BLOCKED}.`);
   }
   return { requested, effective: 'local', supabase, notices };
 }
@@ -166,8 +171,8 @@ export function getBackendSelection(): BackendSelection {
 let reported = false;
 
 /**
- * Repository de l'application selon la sélection. Le backend effectif est toujours `local`
- * dans cette version : même construction qu'avant V2.4 (base `nexora`, utilisateur local).
+ * Repository du mode local (backend `local` ou valeur inconnue) : même construction qu'avant
+ * V2.4 (base `nexora`, utilisateur local). Jamais appelé en mode `supabase` (`App.tsx`).
  * Les diagnostics éventuels sont signalés une seule fois dans la console.
  */
 export function createRepository(selection: BackendSelection = getBackendSelection()): NexoraRepository {

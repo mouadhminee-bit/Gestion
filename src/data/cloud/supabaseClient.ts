@@ -1,14 +1,15 @@
 /**
- * Client Supabase centralisé (V2.4 : PRÉPARÉ, NON UTILISÉ par l'application).
+ * Client Supabase centralisé (V2.4 ; utilisé depuis V2.5 pour l'AUTHENTIFICATION seule,
+ * par `features/auth/CloudApp.tsx`).
  *
  *  - Créé à la demande seulement (jamais à l'import), en un seul exemplaire.
  *  - Construit uniquement à partir de la configuration validée par `getBackendSelection()` :
  *    URL du projet et clé PUBLIQUE (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) ; aucune
  *    clé `service_role`, aucune valeur codée en dur.
  *  - Refusé si le backend demandé n'est pas `supabase` ou si la configuration n'est pas valide.
- *  - La création n'émet aucune requête. Rien dans l'application n'appelle encore ce module :
- *    authentification, lectures et écritures cloud relèvent des phases suivantes
- *    (`CloudRepository` garde `DisabledTransport`).
+ *  - La création n'émet aucune requête. Session : mécanismes natifs du SDK (conservation dans
+ *    le stockage du navigateur, rafraîchissement automatique). Lectures et écritures de données
+ *    Cloud : phases suivantes (`CloudRepository` garde `DisabledTransport`).
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getBackendSelection, type BackendSelection } from '../backend';

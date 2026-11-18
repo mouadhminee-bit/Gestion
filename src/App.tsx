@@ -12,7 +12,10 @@ import { Onboarding } from '@/pages/Onboarding';
 import { I18nProvider, useI18n } from '@/i18n/I18nProvider';
 import { isLang } from '@/i18n/languages';
 import { t } from '@/i18n/core';
+import { getBackendSelection } from '@/data/backend';
 
+// Mode Cloud (VITE_DATA_BACKEND=supabase) : chargé à la demande ; le mode local ne charge ni ce module ni le SDK.
+const CloudApp = lazy(() => import('@/features/auth/CloudApp'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Transactions = lazy(() => import('@/pages/Transactions'));
 const Budgets = lazy(() => import('@/pages/Budgets'));
@@ -71,18 +74,22 @@ function RoutedBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>;
 }
 
+function Splash() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center">
+      <div className="animate-pulse">
+        <Logo />
+      </div>
+    </div>
+  );
+}
+
 function Root() {
   const repo = useRepository();
   const snapshot = useSnapshot(repo);
   const { lang, changeLanguage } = useI18n();
   if (snapshot === undefined) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <div className="animate-pulse">
-          <Logo />
-        </div>
-      </div>
-    );
+    return <Splash />;
   }
   if (snapshot?.settings.onboarded && snapshot.settings.language !== lang && isLang(snapshot.settings.language)) {
     // Langue enregistrée différente (ex : sauvegarde restaurée) : on l'applique.
@@ -132,7 +139,14 @@ export function App() {
               {/* Filet global : une donnée inattendue dans AppProvider / AppShell (hors pages)
                   affiche un écran d'erreur au lieu d'une page blanche. */}
               <ErrorBoundary>
-                <Root />
+                {getBackendSelection().requested === 'supabase' ? (
+                  // Mode Cloud : barrière d'authentification ; la base locale n'est jamais ouverte.
+                  <Suspense fallback={<Splash />}>
+                    <CloudApp />
+                  </Suspense>
+                ) : (
+                  <Root />
+                )}
               </ErrorBoundary>
             </ConfirmProvider>
           </ToastProvider>
