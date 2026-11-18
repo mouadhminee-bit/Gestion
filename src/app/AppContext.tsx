@@ -7,10 +7,9 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getDB } from '@/data/db';
-import { LocalRepository } from '@/data/repository';
+import { createRepository } from '@/data/backend';
 import type { NexoraRepository } from '@/data/contracts';
-import { LOCAL_USER_ID, normalizeSettings } from '@/domain/settings';
+import { normalizeSettings } from '@/domain/settings';
 import type { DataSnapshot, UserSettings } from '@/domain/types';
 import type { LedgerContext } from '@/domain/calc/ledger';
 import { buildContext } from '@/domain/calc/ledger';
@@ -73,8 +72,9 @@ export function makeFormatters(settings: UserSettings): Formatters {
   };
 }
 
+/** Repository selon `VITE_DATA_BACKEND` (`data/backend.ts`) : mode local par défaut. */
 export function useRepository(): NexoraRepository {
-  return useMemo(() => new LocalRepository(getDB(), LOCAL_USER_ID), []);
+  return useMemo(() => createRepository(), []);
 }
 
 /** Recalcule « aujourd'hui » chaque minute (changement de jour à minuit). */
