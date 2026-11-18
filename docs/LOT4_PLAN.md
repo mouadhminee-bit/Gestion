@@ -5,6 +5,20 @@
 > exploratoires sur PostgreSQL éphémère ; décisions en attente, § 7.11), non commitée.
 > Étapes 4.5 à 4.7 non commencées. Aucun projet Supabase hébergé, migrations 1 à 7
 > inchangées, aucune donnée réelle touchée.
+>
+> **Mise à jour (14/11/2026, Lot 0)** : étapes 4.5 et 4.6 réalisées sur PostgreSQL 16 et sur
+> la pile Supabase locale, sans écart ; un défaut de la migration 8 corrigé (clé canonique).
+> Modifications en attente de validation ; qualification hébergée non réalisée. Résultats,
+> décisions D4-9 à D4-13 et critères de passage : `docs/LOT0_QUALIFICATION.md`. Les tableaux
+> ci-dessous (§ 7.10 « anciennes suites », § 7.11) décrivent l'état AVANT ce travail.
+>
+> **Précisions (remédiation documentaire du Lot 0)** : le paragraphe du 01/11 ci-dessus est
+> conservé tel quel ; l'étape 4.4 a depuis été commitée (`b9eb5db`, marquée « wip »), puis
+> corrigée au Lot 0 (contrôle de clé canonique, § 7.3, non commité). Les qualifications
+> locales des étapes 4.5 / 4.6 ont été reproduites à l'identique dans le Codespace
+> (SQL 1 847 / 1 847, HTTP 302 / 302, PostgreSQL 17.11 ; comparaison des signatures réalisée
+> par le responsable du projet, `docs/LOT0_QUALIFICATION.md` § 10). La qualification sur un projet
+> Supabase **hébergé** n'est pas réalisée : aucune étape de ce lot n'est close.
 
 Références : `docs/AUDIT_LOT1_CLOUD.md` (§ C.3, C.4, F), `docs/LOT2_REPOSITORY.md`,
 `docs/LOT3_PLAN.md`, `docs/LOT3B_CLOTURE.md`, `docs/SUIVI_TECHNIQUE.md` (R1–R3, P1–P11).
@@ -31,9 +45,9 @@ Références : `docs/AUDIT_LOT1_CLOUD.md` (§ C.3, C.4, F), `docs/LOT2_REPOSITOR
 | 4.1 | Atomicité R2 : `saveAsset` + valorisation initiale, `resetToEmpty` | **Réalisée** (§ 4) |
 | 4.2 | Mapping TypeScript ↔ SQL (`src/data/cloud/mapping.ts`) | **Réalisée** (§ 5) |
 | 4.3 | Protocole `ChangeSet` versionné (versions attendues, `changesetId`, conflit) | **Réalisée** (§ 6) |
-| 4.4 | Fonction SQL `apply_changeset` (nouvelles migrations) | **Implémentée, en attente de validation** (§ 7) |
-| 4.5 | Tests PostgreSQL 16 / 17 éphémères | À faire |
-| 4.6 | Qualification HTTP (Codespaces, par le responsable du projet) | À faire |
+| 4.4 | Fonction SQL `apply_changeset` (nouvelles migrations) | **Implémentée** (§ 7), commitée (`b9eb5db`, « wip ») ; corrigée au Lot 0 (clé canonique, non commitée) ; **en attente de validation** |
+| 4.5 | Tests PostgreSQL 16 / 17 éphémères | **Partiellement réalisée, à valider** : PostgreSQL 16.15 éphémère (1 793 / 1 793, profils standard et « supabase-like ») ; PostgreSQL 17 couvert par l'image 17.11 de la pile Supabase locale (étape 4.6), mais le profil **PostgreSQL 17 éphémère** prévu (binaires du paquet npm, comme à l'étape 3b) **n'a pas été exécuté** (`docs/LOT0_QUALIFICATION.md`) |
+| 4.6 | Qualification HTTP (Codespaces, par le responsable du projet) | **Réalisée sur la pile Supabase locale** (session cloud, puis reproduite à l'identique dans le Codespace selon la comparaison du responsable du projet), **à valider** ; hébergé non réalisé |
 | 4.7 | Clôture et archivage | À faire |
 
 **Exclus** : transport réseau et `@supabase/supabase-js`, récupération des changements et
@@ -566,6 +580,12 @@ conversion inverse. Aucune seconde définition du protocole.
    `null` ; clé = exactement les colonnes de la clé primaire ; une opération par clé ; `put` :
    ligne = exactement les colonnes écrites, **aucune métadonnée serveur**, clé cohérente ;
    `delete` sans ligne ; propriétaire de la clé et de la ligne = utilisateur authentifié.
+   **Clé canonique (ajout du Lot 0)** : la clé est relue à travers les types de la table
+   (`jsonb_populate_record`, conversion de types seule, aucune lecture) et doit être
+   strictement identique à la clé reçue — UUID en minuscules, date `AAAA-MM-JJ`, texte pour
+   une clé texte — sinon `invalid_key`. Sans ce contrôle, deux écritures d'une même ligne
+   (ex. UUID en minuscules puis en majuscules) échappaient à la règle « une opération par
+   clé », qui compare les clés telles que reçues. Le mapping client produit déjà cette forme.
 5. **Phase 2 — versions** : chaque ligne visée est lue `FOR UPDATE` ; **toutes** les versions
    sont comparées avant la première écriture ; un seul écart → `version_conflict` (liste
    complète des écarts), rien n'est écrit.
@@ -770,9 +790,12 @@ viennent uniquement de D4-1.
 
 ### 7.12 Limites et reports
 
-* Non qualifié : 4.5 (suites SQL adaptées, PG 16/17, référence) et 4.6 (HTTP, deux
+* ~~Non qualifié : 4.5 (suites SQL adaptées, PG 16/17, référence) et 4.6 (HTTP, deux
   utilisateurs réels, `statement_timeout`, taille de requête, rôle `nexora_writer` sur la
-  pile Supabase) restent à faire.
+  pile Supabase) restent à faire.~~ **Mis à jour (Lot 0)** : 4.5 partiellement réalisée et
+  4.6 réalisée sur la pile Supabase **locale** (voir le tableau du § 2) ; restent le profil
+  PostgreSQL 17 éphémère et toute la qualification sur un projet **hébergé**
+  (`statement_timeout`, taille de requête et rôle `nexora_writer` sur la plateforme réelle).
 * Premier `ensureUser` : la ligne `profiles` existe déjà (déclencheur) → `version_conflict`
   tant que la récupération initiale (Lot 5) n'a pas fourni sa version.
 * Table de suivi : croît d'une ligne par lot ; purge à définir (Lot 8, avec P5).

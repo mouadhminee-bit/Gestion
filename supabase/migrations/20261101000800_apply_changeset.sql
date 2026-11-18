@@ -151,6 +151,7 @@ declare
   v_spec private.changeset_tables%rowtype;
   v_specs jsonb := '{}'::jsonb;          -- table → spécification (cache)
   v_cols text[];
+  v_canon jsonb;                         -- clé relue à travers les types de la table
   v_type text;
   v_exp jsonb;
   v_expected bigint;
@@ -264,6 +265,21 @@ begin
        or (select array_agg(k order by k) from jsonb_object_keys(v_op -> 'key') k) is distinct from (select array_agg(k order by k) from unnest(v_spec.key_cols) k)
        or exists (select 1 from jsonb_each(v_op -> 'key') e where jsonb_typeof(e.value) not in ('string', 'number')) then
       perform private.changeset_error('invalid_key', jsonb_build_object('op', v_i, 'table', v_spec.sql_table, 'expected', to_jsonb(v_spec.key_cols)));
+    end if;
+    -- Clé sous forme CANONIQUE (celle des types de la table : UUID en minuscules, date
+    -- AAAA-MM-JJ, texte pour une clé texte), comme l'impose déjà le mapping client. Sans cela,
+    -- deux écritures d'une même ligne (ex. UUID en minuscules puis en majuscules) échappent au
+    -- contrôle « une opération par clé » ci-dessus, qui compare les clés telles que reçues.
+    -- Conversion de types uniquement : aucune lecture de table.
+    begin
+      execute format('select to_jsonb(k) from (select %s from jsonb_populate_record(null::public.%I, $1)) k',
+        (select string_agg(format('%I', k), ', ') from unnest(v_spec.key_cols) k), v_spec.sql_table)
+        into v_canon using v_op -> 'key';
+    exception when invalid_text_representation or invalid_datetime_format or datetime_field_overflow or numeric_value_out_of_range then
+      perform private.changeset_error('invalid_key', jsonb_build_object('op', v_i, 'table', v_spec.sql_table, 'reason', 'valeur de clé invalide'));
+    end;
+    if v_canon is distinct from v_op -> 'key' then
+      perform private.changeset_error('invalid_key', jsonb_build_object('op', v_i, 'table', v_spec.sql_table, 'reason', 'clé non canonique'));
     end if;
     if v_type = 'delete' then
       if v_op ? 'row' then

@@ -4,6 +4,10 @@ NEXORA est une application Vite statique (React + TypeScript), sans backend : le
 vivent dans IndexedDB, **dans le navigateur, pour l’origine (l’URL) de la page**. Aucune
 variable d’environnement ni aucun secret n’est nécessaire pour la lancer.
 
+Le backend Supabase (schéma, RLS, `apply_changeset`) est **préparé mais non connecté** à
+l’application : il sert uniquement aux qualifications décrites au § 8, qui sont distinctes
+du fonctionnement de l’application (§ 1 à § 7).
+
 ## 1. Ouvrir le Codespace
 
 1. Sur GitHub : **Code → Codespaces → Create codespace on `<branche>`**.
@@ -79,3 +83,44 @@ développement et la prévisualisation n’en dépendent plus. Attention : tant 
 relié au dépôt, **un push sur la branche de production déclenche un build Netlify** ; pour
 l’éviter, mettre les builds en pause dans Netlify (*Site configuration → Build & deploy →
 Continuous deployment → Stop builds*) avant de pousser.
+
+## 8. Qualification du backend Supabase (indépendante de l’application)
+
+Ces opérations ne concernent pas l’application : elles vérifient le schéma Supabase, la RLS et
+le protocole d’écriture. Elles n’utilisent que des données fictives (`@example.test`).
+
+| Besoin | Commande | Prérequis |
+|---|---|---|
+| Qualification sur la **pile Supabase locale** (SQL + HTTP, deux utilisateurs réels) | `bash scripts/qualify-supabase.sh local` | Docker (fonctionnalité `docker-in-docker` du conteneur), Node 22, réseau vers le registre d’images |
+| Contrôle des preuves (secrets, cohérence, complétude) | `node scripts/check-qualification-evidence.mjs docs/qualification lot4-local` | Node 22 |
+| Tests du contrôleur de preuves | `node --test scripts/check-qualification-evidence.test.mjs` | Node 22 |
+| Suites SQL sur PostgreSQL éphémère | `npm run test:db` | binaires **serveur** PostgreSQL 16 (`PG_BIN`, défaut `/usr/lib/postgresql/16/bin`) |
+| Contrôles de sécurité par mutation | `node scripts/security-mutations/run.mjs` | idem `npm run test:db` |
+
+À savoir :
+
+* **Pile Supabase locale** : le script démarre la pile du CLI Supabase (version épinglée),
+  applique toutes les migrations, exécute les suites, écrit le rapport puis **détruit** la pile
+  et ses volumes, même en cas d’échec. Il refuse toute autre cible que la pile locale ; le mode
+  hébergé est désactivé.
+* **Preuves** : le script écrit `docs/qualification/<préfixe>-report.md`, `-sql.json`,
+  `-http.json` (préfixe `EVIDENCE`, défaut `lot4-local`). Ces fichiers **remplacent** les preuves
+  du même préfixe : en copier une sauvegarde avant de relancer, ou utiliser un autre préfixe.
+  Le préfixe `3b-local` est refusé (preuves historiques). Le rapport indique l’environnement,
+  le commit testé et l’empreinte des migrations.
+* **Registre d’images** : si le registre par défaut du CLI n’est pas joignable, définir
+  `SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io` (le rapport le consigne).
+* **PostgreSQL 16** : vérifier `ls /usr/lib/postgresql/` ; s’il est absent, installer les
+  binaires serveur PostgreSQL 16 (dépôt PGDG) avant `npm run test:db` ou les mutations.
+* **Secrets** : aucun pour la pile locale (ses clés sont des valeurs locales par défaut, non
+  secrètes, masquées dans les rapports). La qualification du projet hébergé **NEXORA-DEV**
+  utilise les secrets Codespaces `SUPABASE_ANON_KEY` et `SUPABASE_DB_PASSWORD` ; ses accès ne
+  doivent jamais être placés dans le dépôt ni dans un fichier `.env` versionné. Un secret
+  ajouté n’est injecté qu’au prochain démarrage du Codespace.
+* **Fichiers temporaires** : `/tmp` (dont le dossier temporaire de Claude Code) est effacé aux
+  redémarrages du Codespace. Les éléments de qualification hébergée à conserver (certificat
+  racine Supabase, blocs d’exécution) sont rangés **hors du dépôt**, dans `/workspaces/nexora-n2/`
+  (droits `700`).
+* **Accès SSH** : le conteneur inclut la fonctionnalité `sshd` (connexion SSH au Codespace, par
+  exemple `gh codespace ssh`). Sa version n’est pas encore épinglée (`latest`) ; l’épinglage est
+  prévu après vérification de compatibilité.

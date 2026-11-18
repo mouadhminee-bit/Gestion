@@ -1,8 +1,14 @@
 -- =============================================================================
 -- 02 — Matrice d'isolation entre utilisateurs (générée depuis le catalogue)
 --
--- Pour CHAQUE table portant user_id : lecture, modification, suppression, TRUNCATE,
--- insertion au nom d'autrui, changement de propriétaire, upsert sur la clé d'autrui.
+-- État final (migration 8, D4-1) : `authenticated` LIT ses lignes et n'écrit QUE par
+-- public.apply_changeset. Pour CHAQUE table portant user_id :
+--  * lecture : B ne voit que ses lignes ;
+--  * écritures directes (UPDATE, INSERT, DELETE, TRUNCATE) : refusées par privilège, même
+--    sur ses propres lignes ;
+--  * par le protocole : B ne peut ni modifier, ni supprimer, ni écraser une ligne de A, ni
+--    écrire au nom de A, ni lui transférer une ligne ; les lignes de A restent strictement
+--    inchangées (contrôle positif : B écrit sa propre ligne).
 -- Pour CHAQUE clé étrangère composite : impossible de référencer la ligne d'autrui
 -- (contrôle positif : sa propre ligne est acceptée).
 -- Rôle anon : aucun accès.
@@ -28,6 +34,9 @@ declare
   nb bigint;
   pkc text[];
   ins text;
+  r jsonb;
+  va bigint;
+  vb bigint;
 begin
   for t in select * from tests.user_tables order by name loop
     perform tests.as_admin();
@@ -44,28 +53,56 @@ begin
     perform tests.eq(n, 0::bigint, format('%s : B ne lit aucune ligne de A', t.name));
     execute format('select count(*) from public.%I', t.name) into n;
     perform tests.eq(n, nb, format('%s : B voit exactement ses propres lignes', t.name));
-    -- Modification
-    perform tests.eq(tests.affected(format('update public.%I set deleted_at = now() where user_id = %L', t.name, ua)), 0::bigint,
-      format('%s : B ne modifie aucune ligne de A', t.name));
+    -- Écritures directes : refusées par privilège (D4-1), sur les lignes de A comme sur les siennes
+    perform tests.throws(format('update public.%I set deleted_at = now() where user_id = %L', t.name, ua),
+      format('%s : UPDATE direct refusé à B sur les lignes de A', t.name), '42501');
+    perform tests.throws(format('update public.%I set deleted_at = now() where user_id = %L', t.name, ub),
+      format('%s : UPDATE direct refusé même sur ses lignes', t.name), '42501');
+    perform tests.throws(format(ins, tests.with_new_pk(t.relid, row_b)), format('%s : INSERT direct refusé même pour sa propre ligne', t.name), '42501');
     -- Suppression physique et TRUNCATE
     perform tests.throws(format('delete from public.%I where user_id = %L', t.name, ua), format('%s : DELETE refusé à B', t.name), '42501');
     perform tests.throws(format('delete from public.%I where user_id = %L', t.name, ub), format('%s : DELETE refusé même sur ses lignes', t.name), '42501');
     perform tests.throws(format('truncate public.%I', t.name), format('%s : TRUNCATE refusé', t.name), '42501');
-    -- Insertion au nom de A (copie d'une ligne de A, nouvelle clé)
-    perform tests.throws(format(ins, tests.with_new_pk(t.relid, row_a)), format('%s : B ne peut pas insérer au nom de A', t.name), '42501');
-    -- Contrôle positif : B insère une copie de sa propre ligne (sauf table à une ligne par utilisateur)
-    if t.name <> 'user_settings' then
-      perform tests.lives(format(ins, tests.with_new_pk(t.relid, row_b)), format('%s : B insère sa propre ligne (contrôle positif)', t.name));
+
+    -- Par le protocole (seule voie d'écriture) -----------------------------------------
+    va := (row_a ->> 'version')::bigint;
+    vb := (row_b ->> 'version')::bigint;
+    if 'user_id' = any (pkc) then
+      -- La clé porte l'utilisateur : viser la ligne de A, c'est se déclarer A.
+      perform tests.cs_throws(tests.cs(ub, jsonb_build_array(tests.cs_put(t.relid, row_a, va))),
+        format('%s : B ne modifie pas la ligne de A (protocole)', t.name), 'unauthorized');
+      perform tests.cs_throws(tests.cs(ub, jsonb_build_array(tests.cs_del(t.relid, row_a, va))),
+        format('%s : B ne supprime pas la ligne de A (protocole)', t.name), 'unauthorized');
+    else
+      -- Même clé, ligne déclarée au nom de B : la ligne de A est INVISIBLE (vue comme inexistante).
+      -- (keep = true : une tentative qui réussirait à tort resterait écrite et serait détectée
+      -- par la comparaison avant / après des lignes de A, en fin de boucle.)
+      r := tests.cs_try(tests.cs(ub, jsonb_build_array(tests.cs_put(t.relid, jsonb_set(row_a, '{user_id}', to_jsonb(ub)), va))), true);
+      perform tests.ok(r ->> 'code' = 'version_conflict' and r -> 'detail' -> 'conflicts' -> 0 -> 'actualVersion' = 'null'::jsonb,
+        format('%s : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)', t.name), left(r::text, 300));
+      r := tests.cs_try(tests.cs(ub, jsonb_build_array(tests.cs_del(t.relid, row_a, va))), true);
+      perform tests.ok(r ->> 'code' = 'version_conflict' and r -> 'detail' -> 'conflicts' -> 0 -> 'actualVersion' = 'null'::jsonb,
+        format('%s : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)', t.name), left(r::text, 300));
+      -- Création sur la clé d'une ligne de A (ne doit jamais l'écraser)
+      r := tests.cs_try(tests.cs(ub, jsonb_build_array(tests.cs_put(t.relid, jsonb_set(row_a, '{user_id}', to_jsonb(ub)), null))), true);
+      perform tests.ok(r ->> 'code' = 'duplicate_key' and r -> 'detail' ->> 'sqlstate' is null and r -> 'detail' -> 'conflicts' is null,
+        format('%s : B ne crée pas de ligne sur la clé d''une ligne de A (duplicate_key, aucun détail)', t.name), left(r::text, 300));
     end if;
+    -- Écriture au nom de A (copie d'une ligne de A, nouvelle clé)
+    perform tests.cs_throws(tests.cs(ub, jsonb_build_array(tests.cs_put(t.relid, tests.with_new_pk(t.relid, row_a), null))),
+      format('%s : B ne peut pas écrire au nom de A', t.name), 'unauthorized');
+    -- Lot annoncé au nom de A par B
+    perform tests.cs_throws(tests.cs(ua, jsonb_build_array(tests.cs_put(t.relid, row_a, va))),
+      format('%s : B ne peut pas soumettre un lot au nom de A', t.name), 'unauthorized');
     -- Changement de propriétaire de sa propre ligne
-    perform tests.throws(format('update public.%I set user_id = %L where %s', t.name, ua, tests.where_pk(t.relid, row_b)),
-      format('%s : B ne peut pas transférer sa ligne à A (user_id immuable)', t.name), '42501');
-    -- Upsert sur la clé primaire d'une ligne de A (ne doit jamais l'écraser)
-    if not ('user_id' = any (pkc)) then
-      perform tests.throws(
-        format('insert into public.%I select * from jsonb_populate_record(null::public.%I, %L) on conflict (%s) do update set deleted_at = now()',
-          t.name, t.name, jsonb_set(row_a, '{user_id}', to_jsonb(ub)), array_to_string(pkc, ', ')),
-        format('%s : upsert de B sur la clé d''une ligne de A refusé', t.name), '42501');
+    perform tests.cs_throws(tests.cs(ub, jsonb_build_array(tests.cs_put(t.relid, jsonb_set(row_b, '{user_id}', to_jsonb(ua)), vb))),
+      format('%s : B ne peut pas transférer sa ligne à A', t.name), 'unauthorized');
+    -- Contrôles positifs : B écrit ses propres lignes
+    perform tests.cs_lives(tests.cs(ub, jsonb_build_array(tests.cs_put(t.relid, row_b, vb))),
+      format('%s : B modifie sa propre ligne (contrôle positif)', t.name));
+    if t.name <> 'user_settings' then
+      perform tests.cs_lives(tests.cs(ub, jsonb_build_array(tests.cs_put(t.relid, tests.with_new_pk(t.relid, row_b), null))),
+        format('%s : B crée sa propre ligne (contrôle positif)', t.name));
     end if;
 
     perform tests.as_admin();
@@ -84,7 +121,6 @@ declare
   row_b jsonb;
   parent_a uuid;
   parent_b uuid;
-  stmt text;
 begin
   for k in
     select c.conname, c.conrelid::regclass as child, rc.relname::text as child_name, c.confrelid::regclass as parent,
@@ -102,17 +138,19 @@ begin
 
     perform tests.as_user(ub);
     if k.child_name = 'recurring_occurrences' and k.col = 'rule_id' then
-      -- rule_id fait partie de la clé (immuable) : test par insertion.
-      stmt := format('insert into public.recurring_occurrences select * from jsonb_populate_record(null::public.recurring_occurrences, %L)',
-        jsonb_set(jsonb_set(row_b, '{rule_id}', to_jsonb(parent_a)), '{due_date}', '"2099-12-31"'));
-      perform tests.throws(stmt, format('%s : B ne peut pas référencer la ligne de A', k.conname), '23503');
-      stmt := format('insert into public.recurring_occurrences select * from jsonb_populate_record(null::public.recurring_occurrences, %L)',
-        jsonb_set(jsonb_set(row_b, '{rule_id}', to_jsonb(parent_b)), '{due_date}', '"2099-12-31"'));
-      perform tests.lives(stmt, format('%s : B référence sa propre ligne (contrôle positif)', k.conname));
-    else
-      perform tests.throws(format('update %s set %I = %L where %s', k.child, k.col, parent_a, tests.where_pk(k.child, row_b)),
+      -- rule_id fait partie de la clé (immuable) : test par création.
+      perform tests.cs_throws(tests.cs(ub, jsonb_build_array(tests.cs_put(k.child,
+          jsonb_set(jsonb_set(row_b, '{rule_id}', to_jsonb(parent_a)), '{due_date}', '"2099-12-31"'), null))),
         format('%s : B ne peut pas référencer la ligne de A', k.conname), '23503');
-      perform tests.lives(format('update %s set %I = %L where %s', k.child, k.col, parent_b, tests.where_pk(k.child, row_b)),
+      perform tests.cs_lives(tests.cs(ub, jsonb_build_array(tests.cs_put(k.child,
+          jsonb_set(jsonb_set(row_b, '{rule_id}', to_jsonb(parent_b)), '{due_date}', '"2099-12-31"'), null))),
+        format('%s : B référence sa propre ligne (contrôle positif)', k.conname));
+    else
+      perform tests.cs_throws(tests.cs(ub, jsonb_build_array(tests.cs_put(k.child,
+          jsonb_set(row_b, array[k.col], to_jsonb(parent_a)), (row_b ->> 'version')::bigint))),
+        format('%s : B ne peut pas référencer la ligne de A', k.conname), '23503');
+      perform tests.cs_lives(tests.cs(ub, jsonb_build_array(tests.cs_put(k.child,
+          jsonb_set(row_b, array[k.col], to_jsonb(parent_b)), (row_b ->> 'version')::bigint))),
         format('%s : B référence sa propre ligne (contrôle positif)', k.conname));
     end if;
   end loop;
@@ -130,6 +168,11 @@ begin
     perform tests.throws(format('update public.%I set deleted_at = now()', t.name), format('%s : anon ne peut pas modifier', t.name), '42501');
     perform tests.as_admin();
   end loop;
+  -- … ni au protocole d'écriture.
+  perform tests.as_anon();
+  perform tests.throws('select public.apply_changeset(''{}''::jsonb)', 'anon ne peut pas appeler apply_changeset', '42501');
+  perform tests.throws('select public.resolve_changeset(''00000000-0000-4000-8000-000000000000'')', 'anon ne peut pas appeler resolve_changeset', '42501');
+  perform tests.as_admin();
 end $$;
 
 -- Un utilisateur authentifié sans revendication « sub » ne voit rien.
@@ -141,12 +184,16 @@ begin
   perform set_config('role', 'authenticated', true);
   select count(*) into n from public.transactions;
   perform tests.eq(n, 0::bigint, 'authenticated sans identifiant (auth.uid() null) : aucune ligne visible');
+  perform tests.cs_throws(tests.cs((select a from iso), jsonb_build_array(
+      tests.cs_del('public.accounts', (select to_jsonb(x) from public.accounts x limit 1), 1))),
+    'authenticated sans identifiant : aucune écriture par le protocole', 'unauthorized');
   perform tests.as_admin();
 end $$;
 
--- Existence d'un identifiant d'autrui : une insertion qui réutilise l'UUID d'une ligne de A
--- échoue par collision de clé primaire (23505). Fuite limitée à l'existence d'un UUID
--- aléatoire (non devinable) ; documentée dans le rapport.
+-- Existence d'un identifiant d'autrui (P7) : depuis D4-1, une insertion directe est refusée par
+-- privilège (plus aucune sonde possible par cette voie) ; par le protocole, réutiliser l'UUID
+-- d'une ligne de A donne duplicate_key (vérifié table par table ci-dessus), sans aucun détail.
+-- Fuite limitée à l'existence d'un UUID aléatoire (non devinable).
 do $$
 declare
   ua uuid := (select a from iso);
@@ -156,6 +203,6 @@ begin
   select to_jsonb(x) into r from public.accounts x where user_id = ua limit 1;
   perform tests.as_user(ub);
   perform tests.throws(format('insert into public.accounts select * from jsonb_populate_record(null::public.accounts, %L)',
-    jsonb_set(r, '{user_id}', to_jsonb(ub))), 'accounts : réutiliser l''UUID d''une ligne de A → collision 23505 (sans accès aux données)', '23505');
+    jsonb_set(r, '{user_id}', to_jsonb(ub))), 'accounts : insertion directe avec l''UUID d''une ligne de A → refus de privilège (42501)', '42501');
   perform tests.as_admin();
 end $$;

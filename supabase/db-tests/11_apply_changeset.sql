@@ -520,6 +520,42 @@ begin
     'PT413', 'plus de 4 Mio : changeset_too_large (HTTP 413)');
 end $$;
 
+-- Forme canonique des clés : une même ligne ne peut pas être visée deux fois dans un lot sous
+-- deux écritures de sa clé (UUID en majuscules, date non normalisée, nombre pour une clé
+-- texte) — sinon la règle « une opération par clé » serait contournée (deux écritures, deux
+-- versions pour un seul lot).
+do $$
+declare
+  a uuid := pg_temp.u('a');
+  nid uuid := gen_random_uuid();
+  up text := upper(nid::text);
+  r jsonb;
+begin
+  perform tests.as_user(a);
+  r := pg_temp.try(pg_temp.cs(a, jsonb_build_array(pg_temp.put('accounts', pg_temp.k(nid), null, pg_temp.acc(a, nid)))));
+  perform tests.eq(r -> 'ok' ->> 'status', 'applied', 'clé canonique : création de la ligne de référence');
+  r := pg_temp.try(pg_temp.cs(a, jsonb_build_array(
+    pg_temp.put('accounts', pg_temp.k(nid), 1, pg_temp.acc(a, nid, 'op1')),
+    jsonb_build_object('table', 'accounts', 'type', 'put', 'key', jsonb_build_object('id', up), 'expectedVersion', 1,
+      'row', pg_temp.acc(a, nid, 'op2') || jsonb_build_object('id', up)))));
+  perform tests.eq(r ->> 'code', 'invalid_key', 'même ligne visée deux fois (clé en minuscules puis en majuscules) : lot refusé');
+  perform tests.as_admin();
+  perform tests.eq(pg_temp.state('accounts', nid) -> 'version', '1'::jsonb, 'même ligne visée deux fois : aucune écriture (version 1 conservée)');
+  perform tests.eq((select name from public.accounts where id = nid), 'Compte', 'même ligne visée deux fois : contenu inchangé');
+  perform tests.as_user(a);
+  perform tests.eq(pg_temp.try(pg_temp.cs(a, jsonb_build_array(jsonb_build_object('table', 'accounts', 'type', 'delete',
+    'key', jsonb_build_object('id', up), 'expectedVersion', 1)))) ->> 'code', 'invalid_key', 'clé : UUID en majuscules refusé (forme canonique exigée)');
+  perform tests.eq(pg_temp.try(pg_temp.cs(a, jsonb_build_array(jsonb_build_object('table', 'recurring_occurrences', 'type', 'delete',
+    'key', jsonb_build_object('rule_id', pg_temp.id('rule'), 'due_date', '2026-3-31'), 'expectedVersion', 1)))) ->> 'code', 'invalid_key',
+    'clé : date non normalisée refusée (forme canonique exigée)');
+  perform tests.eq(pg_temp.try(pg_temp.cs(a, jsonb_build_array(jsonb_build_object('table', 'notification_states', 'type', 'delete',
+    'key', jsonb_build_object('user_id', a, 'id', 5), 'expectedVersion', 1)))) ->> 'code', 'invalid_key',
+    'clé : nombre pour une clé texte refusé (forme canonique exigée)');
+  r := pg_temp.try(pg_temp.cs(a, jsonb_build_array(pg_temp.del('accounts', pg_temp.k(nid), 1))));
+  perform tests.eq(r -> 'ok' ->> 'status', 'applied', 'clé canonique : acceptée (contrôle positif)');
+  perform tests.as_admin();
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 6. Concurrence (deux sessions réelles, dblink)
 -- ---------------------------------------------------------------------------

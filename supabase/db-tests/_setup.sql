@@ -278,6 +278,107 @@ begin
   return out_row;
 end $$;
 
+-- -----------------------------------------------------------------------------
+-- Écritures par le protocole ChangeSet (migration 8, décision D4-1) : `authenticated` n'a
+-- plus aucun droit d'écriture directe ; les suites écrivent donc comme l'application, par
+-- public.apply_changeset. Fonctions SECURITY INVOKER : elles n'ajoutent aucun privilège
+-- (l'appel s'exécute avec le rôle et l'identité posés par tests.as_user).
+-- -----------------------------------------------------------------------------
+-- Colonnes écrites par le client = colonnes de la table sans métadonnées serveur
+-- (profiles : sans created_at). Dérivé du catalogue : aucun accès au schéma private.
+create function tests.cs_cols(rel regclass) returns text[] language sql stable as $$
+  select array_agg(a.attname::text order by a.attnum) from pg_attribute a
+  where a.attrelid = rel and a.attnum > 0 and not a.attisdropped
+    and a.attname not in ('version', 'sync_txid', 'server_updated_at', 'deleted_at')
+    and not (rel = 'public.profiles'::regclass and a.attname = 'created_at')
+$$;
+
+-- Ligne au format du protocole : exactement les colonnes écrites (absentes = null). Aucune
+-- conversion : une valeur invalide doit être refusée par le SERVEUR, pas par l'outillage.
+create function tests.cs_row(rel regclass, r jsonb) returns jsonb language sql stable as $$
+  select jsonb_object_agg(c, coalesce(r -> c, 'null'::jsonb)) from unnest(tests.cs_cols(rel)) c
+$$;
+
+create function tests.cs_key(rel regclass, r jsonb) returns jsonb language sql stable as $$
+  select jsonb_object_agg(c, r -> c) from unnest(tests.pk_cols(rel)) c
+$$;
+
+-- Opérations : `expected` = version serveur attendue (null = création d'une clé inconnue).
+create function tests.cs_put(rel regclass, r jsonb, expected bigint default null) returns jsonb language sql stable as $$
+  select jsonb_build_object('table', (select relname from pg_class where oid = rel), 'type', 'put',
+    'key', tests.cs_key(rel, r), 'expectedVersion', expected, 'row', tests.cs_row(rel, r))
+$$;
+
+create function tests.cs_del(rel regclass, r jsonb, expected bigint) returns jsonb language sql stable as $$
+  select jsonb_build_object('table', (select relname from pg_class where oid = rel), 'type', 'delete',
+    'key', tests.cs_key(rel, r), 'expectedVersion', expected)
+$$;
+
+-- Enveloppe du protocole v1 (identifiant de lot neuf à chaque appel).
+create function tests.cs(uid uuid, ops jsonb) returns jsonb language sql as $$
+  select jsonb_build_object('protocol', 1, 'changesetId', gen_random_uuid(), 'userId', uid, 'ops', ops)
+$$;
+
+-- Applique un lot comme une requête de l'API : contraintes différées vérifiées aussitôt
+-- (comme à la validation de la requête). Renvoie {"ok": <confirmation>} ou
+-- {"state": SQLSTATE, "code": message, "detail": JSON}. En cas d'erreur, rien n'est conservé ;
+-- en cas de succès, les effets sont conservés seulement si keep = true.
+create function tests.cs_try(p jsonb, keep boolean default false) returns jsonb
+language plpgsql as $$
+declare
+  r jsonb;
+  d text;
+begin
+  begin
+    r := public.apply_changeset(p);
+    set constraints all immediate;
+    set constraints all deferred;
+    if not keep then
+      raise exception using errcode = 'P0098', message = r::text;
+    end if;
+    return jsonb_build_object('ok', r);
+  exception when others then
+    if sqlstate = 'P0098' then
+      return jsonb_build_object('ok', sqlerrm::jsonb);
+    end if;
+    get stacked diagnostics d = pg_exception_detail;
+    return jsonb_build_object('state', sqlstate, 'code', sqlerrm, 'detail', case when d ~ '^\{' then d::jsonb end);
+  end;
+end $$;
+
+-- Le lot doit être appliqué (effets annulés, sauf keep = true).
+create function tests.cs_lives(p jsonb, name text, keep boolean default false) returns void
+language plpgsql as $$
+declare
+  r jsonb := tests.cs_try(p, keep);
+begin
+  perform tests.ok(r -> 'ok' ->> 'status' = 'applied', name, case when r ? 'ok' then null else left(r::text, 300) end);
+end $$;
+
+-- Le lot doit être refusé. `expected` : code du protocole (ex. invalid_row, unauthorized) ou
+-- SQLSTATE natif d'une contrainte différée (ex. 23503, 23P01) ; `origin` : SQLSTATE d'origine
+-- rapporté par le serveur dans details.sqlstate (ex. 23514 pour un CHECK).
+-- keep = true : un lot refusé n'écrit rien ; s'il était appliqué À TORT, ses effets seraient
+-- CONSERVÉS et donc visibles des contrôles d'intégrité qui suivent (« lignes de A inchangées »).
+create function tests.cs_throws(p jsonb, name text, expected text, origin text default null) returns void
+language plpgsql as $$
+declare
+  r jsonb := tests.cs_try(p, true);
+begin
+  perform tests.ok(not (r ? 'ok') and (r ->> 'code' = expected or r ->> 'state' = expected)
+      and (origin is null or r -> 'detail' ->> 'sqlstate' = origin),
+    name, left(r::text, 300));
+end $$;
+
+-- Version serveur d'une ligne (lecture avec le rôle courant, donc sous RLS pour un utilisateur).
+create function tests.version_of(rel regclass, r jsonb) returns bigint language plpgsql as $$
+declare
+  v bigint;
+begin
+  execute format('select version from %s where %s', rel, tests.where_pk(rel, r)) into v;
+  return v;
+end $$;
+
 grant execute on all functions in schema tests to anon, authenticated;
 
 -- Suppression d'un utilisateur fictif (auth.users : utilisateur de session uniquement).

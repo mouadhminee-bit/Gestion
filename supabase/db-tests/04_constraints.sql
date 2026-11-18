@@ -1,10 +1,12 @@
 -- =============================================================================
 -- 04 — Compatibilité avec le domaine : AUCUNE contrainte plus stricte que lui
 --
--- Chaque cas part d'une ligne valide de l'utilisateur, modifie un champ et l'insère
--- (copie, nouvelle clé) ou la met à jour (user_settings, debts).
---   'ok'    : donnée acceptée par le domaine actuel → DOIT être acceptée ;
---   SQLSTATE : donnée exclue par les types / règles du domaine → DOIT être refusée.
+-- Chaque cas part d'une ligne valide de l'utilisateur, modifie un champ et l'écrit PAR LE
+-- PROTOCOLE (public.apply_changeset, seule voie d'écriture depuis la migration 8) : création
+-- d'une copie (nouvelle clé) ou modification de la ligne (user_settings, debts).
+--   'ok'    : donnée acceptée par le domaine actuel → DOIT être appliquée ;
+--   SQLSTATE : donnée exclue par les types / règles du domaine → DOIT être refusée
+--              (invalid_row, avec ce SQLSTATE d'origine dans details.sqlstate).
 -- =============================================================================
 \set ON_ERROR_STOP on
 
@@ -118,28 +120,26 @@ declare
   ids jsonb := tests.seed(u);
   c record;
   base jsonb;
-  stmt text;
+  rel regclass;
+  lot jsonb;
   label text;
 begin
   for c in select * from cases order by n loop
+    rel := format('public.%I', c.tbl)::regclass;
     -- ligne de référence : pour transactions, la dépense (pas la ligne de dette)
     execute format('select to_jsonb(x) from public.%I x where user_id = $1 %s limit 1', c.tbl,
       case when c.tbl = 'transactions' then 'and type = ''expense''' else '' end) into base using u;
     if c.mode = 'copy' then
-      stmt := format('insert into public.%I select * from jsonb_populate_record(null::public.%I, %L)', c.tbl, c.tbl,
-        tests.with_new_pk(format('public.%I', c.tbl)::regclass, base) || c.patch);
+      lot := tests.cs(u, jsonb_build_array(tests.cs_put(rel, tests.with_new_pk(rel, base) || c.patch, null)));
     else
-      stmt := format('update public.%I x set %s where %s', c.tbl,
-        (select string_agg(format('%I = (jsonb_populate_record(null::public.%I, %L)).%I', k, c.tbl, c.patch, k), ', ')
-         from jsonb_object_keys(c.patch) k),
-        tests.where_pk(format('public.%I', c.tbl)::regclass, base));
+      lot := tests.cs(u, jsonb_build_array(tests.cs_put(rel, base || c.patch, (base ->> 'version')::bigint)));
     end if;
     label := format('%s — %s', c.tbl, c.label);
     perform tests.as_user(u);
     if c.expect = 'ok' then
-      perform tests.lives(stmt, 'ACCEPTÉ : ' || label);
+      perform tests.cs_lives(lot, 'ACCEPTÉ : ' || label);
     else
-      perform tests.throws(stmt, 'REFUSÉ : ' || label, c.expect);
+      perform tests.cs_throws(lot, 'REFUSÉ : ' || label, 'invalid_row', c.expect);
     end if;
     perform tests.as_admin();
   end loop;

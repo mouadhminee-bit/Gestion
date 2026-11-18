@@ -37,7 +37,8 @@ const rows = chain.map((c) => {
   const sqlExact = sql(`set extra_float_digits = 1; select ${ident(c.column)}::text ${where}`);
   const losses = [];
   if (stored !== c.bits_js) losses.push('écriture/stockage');
-  if (c.write_bits !== c.bits_js) losses.push('sérialisation (réponse d\'écriture)');
+  // Écriture par /rpc/apply_changeset : la réponse ne contient que les versions, pas la valeur.
+  if (c.write_returns_value !== false && c.write_bits !== c.bits_js) losses.push('sérialisation (réponse d\'écriture)');
   if (c.read_bits !== c.bits_js) losses.push('sérialisation (réponse de lecture)');
   return { ...c, stored, sqlSession, sqlExact, verdict: losses.length ? `PERTE : ${losses.join(', ')}` : 'exact de bout en bout' };
 });

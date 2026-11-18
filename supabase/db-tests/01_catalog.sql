@@ -22,7 +22,17 @@ begin
     foreach priv in array array['DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] loop
       perform tests.ok(not has_table_privilege('authenticated', t.relid, priv),
         format('%s : authenticated n''a pas %s (suppression physique impossible)', t.name, priv));
+      perform tests.ok(not has_table_privilege('nexora_writer', t.relid, priv),
+        format('%s : nexora_writer n''a pas %s (suppression physique impossible)', t.name, priv));
     end loop;
+    -- D4-1 (migration 8) : authenticated lit, mais n'écrit plus directement (ni table, ni colonne).
+    perform tests.ok(has_table_privilege('authenticated', t.relid, 'SELECT'), format('%s : authenticated conserve SELECT', t.name));
+    foreach priv in array array['INSERT', 'UPDATE'] loop
+      perform tests.ok(not has_table_privilege('authenticated', t.relid, priv) and not has_any_column_privilege('authenticated', t.relid, priv),
+        format('%s : authenticated n''a pas %s (écriture par apply_changeset uniquement)', t.name, priv));
+    end loop;
+    perform tests.ok(not exists (select 1 from aclexplode((select relacl from pg_class where oid = t.relid)) a where a.grantee = 0),
+      format('%s : aucun privilège accordé à PUBLIC', t.name));
     -- Métadonnées serveur
     for c in select * from (values ('version', 'bigint'), ('sync_txid', 'xid8'),
                                    ('server_updated_at', 'timestamp with time zone'), ('deleted_at', 'timestamp with time zone')) v(col, typ) loop
@@ -58,17 +68,35 @@ begin
       format('%s : aucune politique de suppression ni « for all »', t.name));
   end loop;
 
-  -- Toute politique cible exclusivement authenticated et filtre sur auth.uid()
+  -- Toute politique cible UN seul rôle : authenticated (lecture ; ses politiques d'écriture sont
+  -- inertes depuis la révocation D4-1) ou nexora_writer (rôle d'exécution d'apply_changeset).
+  -- Chacune filtre sur l'utilisateur de la requête : auth.uid() / private.request_uid().
   for c in select p.polname, p.polrelid::regclass::text as tbl, p.polroles, pg_get_expr(p.polqual, p.polrelid) as q,
                   pg_get_expr(p.polwithcheck, p.polrelid) as w
            from pg_policy p join pg_class r on r.oid = p.polrelid join pg_namespace s on s.oid = r.relnamespace
            where s.nspname = 'public' loop
-    perform tests.ok(c.polroles = array['authenticated'::regrole::oid], format('politique %s.%s : rôle authenticated seul', c.tbl, c.polname));
-    perform tests.ok(coalesce(c.q, '') || coalesce(c.w, '') like '%auth.uid()%', format('politique %s.%s : filtre auth.uid()', c.tbl, c.polname));
+    perform tests.ok(c.polroles = array['authenticated'::regrole::oid] or c.polroles = array['nexora_writer'::regrole::oid],
+      format('politique %s.%s : un seul rôle, authenticated ou nexora_writer', c.tbl, c.polname));
+    perform tests.ok(coalesce(c.q, '') || coalesce(c.w, '') like
+        case when c.polroles = array['nexora_writer'::regrole::oid] then '%private.request_uid()%' else '%auth.uid()%' end,
+      format('politique %s.%s : filtre sur l''utilisateur de la requête', c.tbl, c.polname));
   end loop;
   select count(*) into n from pg_policy p join pg_class r on r.oid = p.polrelid join pg_namespace s on s.oid = r.relnamespace
+    where s.nspname = 'public' and p.polroles = array['authenticated'::regrole::oid];
+  perform tests.eq(n, 17 * 3 + 2, 'politiques authenticated : 3 par table métier + 2 pour profiles');
+  select count(*) into n from pg_policy p join pg_class r on r.oid = p.polrelid join pg_namespace s on s.oid = r.relnamespace
+    where s.nspname = 'public' and p.polroles = array['nexora_writer'::regrole::oid];
+  perform tests.eq(n, 17 * 3 + 2, 'politiques nexora_writer : 3 par table métier + 2 pour profiles');
+  select count(*) into n from pg_policy p join pg_class r on r.oid = p.polrelid join pg_namespace s on s.oid = r.relnamespace
     where s.nspname = 'public';
-  perform tests.eq(n, 17 * 3 + 2, 'nombre de politiques : 3 par table métier + 2 pour profiles');
+  perform tests.eq(n, 2 * (17 * 3 + 2), 'aucune autre politique dans public');
+  -- Le rôle d'écriture n'insère pas de profil et n'en modifie que le nom.
+  perform tests.ok(not has_table_privilege('nexora_writer', 'public.profiles', 'INSERT')
+      and not has_table_privilege('nexora_writer', 'public.profiles', 'UPDATE')
+      and has_column_privilege('nexora_writer', 'public.profiles', 'display_name', 'UPDATE')
+      and not has_column_privilege('nexora_writer', 'public.profiles', 'id', 'UPDATE')
+      and not has_column_privilege('nexora_writer', 'public.profiles', 'created_at', 'UPDATE'),
+    'profiles : nexora_writer ne crée aucun profil et ne modifie que display_name');
 
   -- Clés étrangères : toute référence entre tables publiques est composite (user_id en
   -- tête des deux côtés) et différée.
@@ -90,8 +118,11 @@ begin
   select count(*) into n from pg_class r join pg_namespace s on s.oid = r.relnamespace
     where s.nspname = 'public' and r.relkind in ('v', 'm');
   perform tests.eq(n, 0, 'aucune vue dans public (une vue contournerait la RLS)');
-  select count(*) into n from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public';
-  perform tests.eq(n, 0, 'aucune fonction dans public (aucun appel RPC exposé)');
+  -- Seules fonctions exposées (RPC) : les deux portes d'entrée du protocole ChangeSet.
+  perform tests.eq((select string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')', ', ' order by p.proname)
+                    from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public'),
+    'apply_changeset(p_changeset jsonb), resolve_changeset(p_changeset_id text)',
+    'fonctions de public : exactement apply_changeset et resolve_changeset (aucun autre appel RPC exposé)');
   perform tests.ok(not has_schema_privilege('authenticated', 'private', 'USAGE'), 'schéma private inaccessible à authenticated');
   perform tests.ok(not has_schema_privilege('anon', 'private', 'USAGE'), 'schéma private inaccessible à anon');
 end $$;

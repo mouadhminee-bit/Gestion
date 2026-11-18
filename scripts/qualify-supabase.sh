@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
 # =============================================================================
-# NEXORA — étape 3b : qualification du schéma sur la VRAIE pile Supabase LOCALE.
+# NEXORA — qualification du schéma sur la VRAIE pile Supabase LOCALE
+# (étape 3b : migrations 1 à 7 ; étapes 4.5 / 4.6 : état final avec la migration 8).
 #
 # À lancer dans GitHub Codespaces (Docker requis) :   bash scripts/qualify-supabase.sh local
 #
 #  1. vérifie l'environnement et REFUSE toute cible autre que la pile locale « nexora » ;
 #  2. démarre la pile Supabase locale (PostgreSQL, GoTrue/Auth, PostgREST, Kong, …) :
 #     toutes les migrations de supabase/migrations/ sont appliquées par le CLI Supabase ;
-#  3. exécute les suites SQL (01…08 + contrôles plateforme) sur la base Supabase ;
+#  3. exécute les suites SQL (toutes les suites numérotées + contrôles plateforme) sur la
+#     base Supabase ;
 #  4. exécute la suite HTTP : deux utilisateurs réellement authentifiés via GoTrue ;
-#  5. compare avec la référence PostgreSQL 16 et écrit le rapport dans docs/qualification/ ;
+#  5. compare avec la référence PostgreSQL 16 et écrit le rapport dans docs/qualification/
+#     (fichiers <EVIDENCE>-report.md, -sql.json, -http.json ; les preuves « 3b-local-* » de
+#     l'étape 3b, obtenues sur les migrations 1 à 7, ne sont jamais écrasées) ;
 #  6. arrête la pile et SUPPRIME ses données (supabase stop --no-backup), même en cas d'échec.
 #
 # Mode « hosted » : DÉSACTIVÉ (étape 3b-4 reportée). Aucune connexion distante.
 # Données : uniquement des comptes et des lignes fictifs (@example.test).
-# Variables : KEEP_STACK=1 pour ne pas arrêter la pile (diagnostic).
+# Variables : KEEP_STACK=1 pour ne pas arrêter la pile (diagnostic) ;
+#             EVIDENCE=<préfixe> des fichiers de preuve (défaut : lot4-local) ;
+#             SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io si le registre par défaut du CLI
+#             (public.ecr.aws) n'est pas joignable depuis l'environnement.
 # =============================================================================
 set -euo pipefail
 
@@ -40,6 +47,11 @@ EXPECTED_DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 # Identifiants LOCAUX par défaut de la pile Supabase de développement (non secrets).
 LOCAL_DSN_TAIL="port=5432 dbname=postgres user=postgres password=postgres"
 OUT="$ROOT/docs/qualification"
+EVIDENCE="${EVIDENCE:-lot4-local}"
+case "$EVIDENCE" in
+  3b-local) echo "REFUS : le préfixe « 3b-local » est réservé aux preuves archivées de l'étape 3b (migrations 1 à 7)." >&2; exit 3 ;;
+  *[!A-Za-z0-9-]*|"") echo "REFUS : préfixe de preuve invalide « ${EVIDENCE} »." >&2; exit 3 ;;
+esac
 RUN="$(mktemp -d /tmp/nexora-qualif.XXXXXX)"
 STARTED=0
 
@@ -77,6 +89,16 @@ grep -Eq '^project_id = "nexora"$' supabase/config.toml || refuse "supabase/conf
 [ ! -e supabase/.temp/project-ref ] || refuse "ce dépôt est lié à un projet Supabase hébergé (supabase/.temp/project-ref) : supprimez ce lien avant la qualification locale."
 ls supabase/migrations/*.sql >/dev/null || refuse "aucune migration trouvée."
 echo "Docker OK, Node $(node -v), CLI Supabase ${SUPABASE_CLI_VERSION}, projet local « ${PROJECT_ID} »."
+
+# Traçabilité du code testé (consignée dans le rapport, vérifiée par check-qualification-evidence.mjs) :
+# commit, modifications non commitées, empreinte des migrations (SHA-256 de la sortie de
+# « sha256sum *.sql », tri par nom), environnement et registre d'images. Aucun secret.
+TRACE_COMMIT="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo inconnu)"
+TRACE_DIRTY="$(git -C "$ROOT" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+TRACE_MIGRATIONS="$(cd "$ROOT/supabase/migrations" && LC_ALL=C sha256sum $(LC_ALL=C ls *.sql) | sha256sum | cut -d' ' -f1)"
+if [ "${CODESPACES:-}" = "true" ]; then TRACE_ENV="GitHub Codespaces"; else TRACE_ENV="hors Codespaces (hôte non identifié)"; fi
+TRACE_REGISTRY="${SUPABASE_INTERNAL_IMAGE_REGISTRY:-défaut du CLI Supabase}"
+echo "Code testé : commit ${TRACE_COMMIT}, ${TRACE_DIRTY} fichier(s) modifié(s) ou non suivi(s), migrations ${TRACE_MIGRATIONS:0:16}…"
 
 # -----------------------------------------------------------------------------
 step "2. Démarrage de la pile Supabase locale (applique les migrations)"
@@ -165,16 +187,20 @@ node supabase/db-tests/compare-results.mjs supabase/db-tests/baseline/pg16.json 
 
 mkdir -p "$OUT"
 mask() { sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[jeton masqué]/g; s/sb_(publishable|secret)_[A-Za-z0-9_-]+/[clé masquée]/g'; }
-mask < "$RUN/sql.json" > "$OUT/3b-local-sql.json"
-mask < "$RUN/http.json" > "$OUT/3b-local-http.json"
+mask < "$RUN/sql.json" > "$OUT/${EVIDENCE}-sql.json"
+mask < "$RUN/http.json" > "$OUT/${EVIDENCE}-http.json"
 IMAGES="$(docker ps --filter "label=com.supabase.cli.project=${PROJECT_ID}" --format '| `{{.Names}}` | `{{.Image}}` |' | sort)"
 {
-  echo "# NEXORA — étape 3b : résultats bruts de la qualification sur la pile Supabase locale"
+  echo "# NEXORA — résultats bruts de la qualification sur la pile Supabase locale (${EVIDENCE})"
   echo
   echo "*Généré par \`scripts/qualify-supabase.sh local\` le $(date -u +%Y-%m-%dT%H:%M:%SZ) (UTC). Données fictives uniquement ; jetons et clés masqués.*"
   echo
   echo "| Élément | Valeur |"
   echo "|---|---|"
+  echo "| Environnement | ${TRACE_ENV} |"
+  echo "| Commit testé | \`${TRACE_COMMIT}\` (${TRACE_DIRTY} fichier(s) modifié(s) ou non suivi(s) au lancement) |"
+  echo "| Empreinte des migrations | \`${TRACE_MIGRATIONS}\` |"
+  echo "| Registre d'images | ${TRACE_REGISTRY} |"
   echo "| Serveur | \`${SERVER_VERSION}\` |"
   echo "| CLI Supabase | \`${SUPABASE_CLI_VERSION}\` |"
   echo "| Migrations appliquées | \`${APPLIED}\` |"
@@ -199,7 +225,7 @@ IMAGES="$(docker ps --filter "label=com.supabase.cli.project=${PROJECT_ID}" --fo
   node -e '
     const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
     for (const r of j.results ?? []) if (r.name.startsWith("CONSTAT") || r.name.startsWith("Q")) console.log(`| ${r.ok ? "" : "❌ "}${r.name.replaceAll("|", "/")} | ${String(r.detail ?? "").replaceAll("|", "/")} |`);
-  ' "$OUT/3b-local-sql.json"
+  ' "$OUT/${EVIDENCE}-sql.json"
   echo
   cat "$RUN/chain.md"
   echo
@@ -208,8 +234,8 @@ IMAGES="$(docker ps --filter "label=com.supabase.cli.project=${PROJECT_ID}" --fo
   echo '```'
   mask < "$RUN/http.log"
   echo '```'
-} > "$OUT/3b-local-report.md"
-echo "Rapport : docs/qualification/3b-local-report.md (+ 3b-local-sql.json, 3b-local-http.json)"
+} > "$OUT/${EVIDENCE}-report.md"
+echo "Rapport : docs/qualification/${EVIDENCE}-report.md (+ ${EVIDENCE}-sql.json, ${EVIDENCE}-http.json)"
 
 if [ -n "$SQL_ERRORS" ] || [ "$HTTP_STATUS" != "0" ] || [ "$CHAIN_STATUS" != "0" ] || [ "$CMP_STATUS" != "0" ]; then
   echo "QUALIFICATION : ÉCARTS DÉTECTÉS (voir le rapport)."

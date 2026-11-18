@@ -71,6 +71,26 @@ begin
     perform tests.ok(not has_table_privilege('anon', r.oid, 'SELECT') and not has_table_privilege('anon', r.oid, 'INSERT'),
       format('Q5 %s : invisible pour anon (API REST et GraphQL)', r.relname));
   end loop;
-  perform tests.ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                               where n.nspname = 'public'), 'Q5 aucune fonction RPC dans public');
+  -- RPC exposées : exactement les deux portes du protocole ChangeSet (migration 8), exécutables
+  -- par authenticated seulement (ni anon, ni service_role, ni PUBLIC — malgré les privilèges
+  -- par défaut de la plateforme sur les fonctions de public).
+  perform tests.eq((select string_agg(p.proname, ', ' order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'),
+    'apply_changeset, resolve_changeset', 'Q5 fonctions RPC dans public : apply_changeset et resolve_changeset uniquement');
+  for r in select p.oid, p.proname, p.proacl, pg_get_userbyid(p.proowner) as owner from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' loop
+    perform tests.ok(has_function_privilege('authenticated', r.oid, 'EXECUTE') and not has_function_privilege('anon', r.oid, 'EXECUTE')
+        and not has_function_privilege('service_role', r.oid, 'EXECUTE')
+        and not exists (select 1 from aclexplode(r.proacl) a where a.grantee = 0),
+      format('Q5 %s : exécutable par authenticated seulement', r.proname), r.proacl::text);
+    perform tests.eq(r.owner, 'nexora_writer', format('Q5 %s : propriétaire nexora_writer (rôle créé par la migration sur cette plateforme)', r.proname));
+  end loop;
+  -- P13 : rôle d'écriture et limites d'exécution de la plateforme (constats).
+  select format('superuser=%s, bypassrls=%s, login=%s, inherit=%s', rolsuper, rolbypassrls, rolcanlogin, rolinherit) into v from pg_roles where rolname = 'nexora_writer';
+  perform tests.ok(true, 'CONSTAT P13 rôle nexora_writer', v);
+  perform tests.ok((select not rolsuper and not rolbypassrls and not rolcanlogin from pg_roles where rolname = 'nexora_writer'),
+    'P13 nexora_writer : ni superutilisateur, ni BYPASSRLS, ni connexion');
+  perform tests.ok(not pg_has_role('authenticator', 'nexora_writer', 'MEMBER') and not pg_has_role('authenticated', 'nexora_writer', 'MEMBER')
+      and not pg_has_role('anon', 'nexora_writer', 'MEMBER'), 'P13 ni authenticator, ni authenticated, ni anon ne sont membres de nexora_writer');
+  select coalesce(string_agg(format('%s : %s', rolname, array_to_string(rolconfig, ', ')), ' ; ' order by rolname), 'aucun') into v
+    from pg_roles where rolname in ('anon', 'authenticated', 'authenticator', 'service_role', 'nexora_writer') and rolconfig is not null;
+  perform tests.ok(true, 'CONSTAT P13 réglages des rôles de l''API (statement_timeout, lock_timeout…)', v);
 end $$;
