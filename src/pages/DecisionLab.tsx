@@ -20,7 +20,7 @@ import { gregorian } from '@/domain/dates';
 import { deleteSimulation, loadSimulations, MAX_SIMULATIONS, type LoadResult } from '@/features/decision/store';
 import type { DecisionSnapshot } from '@/features/decision/snapshot';
 import { SituationCard } from '@/features/decision/SituationCard';
-import { DecisionBuilder, type DecisionMode } from '@/features/decision/DecisionBuilder';
+import { DecisionBuilder, Recap, type DecisionMode } from '@/features/decision/DecisionBuilder';
 import { ComparisonBuilder, type ComparisonSetup } from '@/features/decision/ComparisonBuilder';
 import { ComparisonPanel } from '@/features/decision/ComparisonPanel';
 import { ComparisonResults } from '@/features/decision/ComparisonResults';
@@ -73,7 +73,7 @@ function StoreNotices({ state }: { state: LoadResult }) {
 }
 
 function SimulationCard({ sim, open, onToggle, onDelete }: { sim: DecisionSnapshot; open: boolean; onToggle: () => void; onDelete: () => void }) {
-  const { fmt, uiLocale } = useApp();
+  const { fmt, uiLocale, settings } = useApp();
   const created = new Intl.DateTimeFormat(gregorian(uiLocale), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(sim.createdAt));
   const h = sim.hypotheses;
   const panelId = `dl-details-${sim.id}`;
@@ -141,11 +141,15 @@ function SimulationCard({ sim, open, onToggle, onDelete }: { sim: DecisionSnapsh
           </section>
           <section>
             <h4 className="label mb-2">{t('dl.field.variants')}</h4>
-            <ul className="space-y-1.5">
+            <ul className="space-y-3">
               {h.variants.map((v) => (
-                <li key={v.id} data-testid="dl-variant" className="flex flex-wrap items-center gap-2 font-semibold">
-                  <bdi>{v.label ?? v.id}</bdi>
-                  <Badge tone="cyan">{td(`dl.kind.${v.decision.kind}`)}</Badge>
+                <li key={v.id} data-testid="dl-variant" data-variant={v.id}>
+                  <div className="flex flex-wrap items-center gap-2 font-semibold">
+                    <bdi>{v.label ?? v.id}</bdi>
+                    <Badge tone="cyan">{td(`dl.kind.${v.decision.kind}`)}</Badge>
+                  </div>
+                  {/* Hypothèses enregistrées de la variante, relues telles quelles (aucun recalcul). */}
+                  <Recap decision={v.decision} fmt={fmt} currency={settings.baseCurrency} showKind={false} testId="dl-variant-hypotheses" />
                 </li>
               ))}
             </ul>

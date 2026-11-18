@@ -441,12 +441,17 @@ function DraftField({
   );
 }
 
-/** Récapitulatif de l'entrée validée : les hypothèses saisies, aucun résultat. */
-export function Recap({ decision, fmt, currency }: { decision: DecisionInput; fmt: ReturnType<typeof useApp>['fmt']; currency: string }) {
+/**
+ * Récapitulatif d'une entrée valide : les hypothèses saisies, aucun résultat. Sert aussi à relire les
+ * hypothèses d'une simulation enregistrée (lues dans le snapshot, jamais recalculées) ; un champ
+ * facultatif absent n'est pas affiché. `showKind` : badge du type de décision (masqué quand le type
+ * est déjà indiqué à côté).
+ */
+export function Recap({ decision, fmt, currency, showKind = true, testId = 'dl-decision-recap' }: { decision: DecisionInput; fmt: ReturnType<typeof useApp>['fmt']; currency: string; showKind?: boolean; testId?: string }) {
   const values = flattenDecision(decision);
   const rows = fieldsOf(draftFromDecision(decision)).filter((f) => values[f.key] !== undefined);
   return (
-    <dl data-testid="dl-decision-recap" className="mt-4 grid grid-cols-1 gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
+    <dl data-testid={testId} className={cn('grid grid-cols-1 gap-x-4 gap-y-2 text-xs sm:grid-cols-2', showKind ? 'mt-4' : 'mt-2')}>
       {decision.kind === 'goal' && (
         <div>
           <dt className="text-muted">{t('dl.form.goalMode')}</dt>
@@ -467,9 +472,11 @@ export function Recap({ decision, fmt, currency }: { decision: DecisionInput; fm
           </dd>
         </div>
       ))}
-      <div className="sm:col-span-2">
-        <Badge tone="cyan">{td(`dl.kind.${decision.kind}`)}</Badge>
-      </div>
+      {showKind && (
+        <div className="sm:col-span-2">
+          <Badge tone="cyan">{td(`dl.kind.${decision.kind}`)}</Badge>
+        </div>
+      )}
     </dl>
   );
 }

@@ -23,7 +23,11 @@ import { DECISION_ENGINE_VERSION, type DecisionInput } from '@/domain/calc/decis
 import { LOCAL_USER_ID } from '@/domain/settings';
 import { createSnapshot, type DecisionSnapshot } from '@/features/decision/snapshot';
 import { DECISION_QUARANTINE_KEY, DECISION_STORE_FORMAT, DECISION_STORE_KEY, loadSimulations, MAX_SIMULATIONS, saveSimulation } from '@/features/decision/store';
+import { activateMessages } from '@/i18n/core';
+import ar from '@/i18n/locales/ar';
+import en from '@/i18n/locales/en';
 import fr from '@/i18n/locales/fr';
+import type { DataSnapshot } from '@/domain/types';
 import { emptySnapshot, UID } from '@/test/fixtures';
 import DecisionLab from './DecisionLab';
 
@@ -47,6 +51,7 @@ afterEach(() => {
   container?.remove();
   root = null;
   vi.restoreAllMocks();
+  activateMessages('fr', fr);
   sessionStorage.clear();
   localStorage.clear();
   window.location.hash = '';
@@ -89,8 +94,9 @@ const car = (): DecisionSnapshot =>
 const seedRaw = (simulations: unknown[], formatVersion: unknown = DECISION_STORE_FORMAT) => sessionStorage.setItem(DECISION_STORE_KEY, JSON.stringify({ formatVersion, simulations }));
 
 /** Page seule, dans les mêmes fournisseurs que l'application (données financières fictives, figées). */
-async function renderPage() {
-  const data = emptySnapshot();
+async function renderPage(settings: Partial<DataSnapshot['settings']> = {}) {
+  const base = emptySnapshot();
+  const data = { ...base, settings: { ...base.settings, ...settings } };
   const repo = new LocalRepository(new NexoraDB(`dl-${++seq}`), UID);
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -212,6 +218,138 @@ describe('Decision Lab — Mes simulations', () => {
     expect(items).toHaveLength(2);
     expect(items.find((el) => el.dataset.id === 'sim-001')!.textContent).toContain('Calculée avec une autre version du moteur');
     expect(items.find((el) => el.dataset.id === 'sim-002')!.textContent).not.toContain('Calculée avec une autre version du moteur');
+  });
+});
+
+describe('Decision Lab — hypothèses des simulations enregistrées', () => {
+  const situation = { cash: 5_000_000, netWorth: 30_000_000, monthlySavings: 400_000 };
+  /** Achat de 180 000 DH : apport 30 000, frais 1 500, crédit à 7 % sur 48 mois, assurance 120 DH/mois. */
+  const vehicle: DecisionInput = { kind: 'purchase', price: 18_000_000, downPayment: 3_000_000, fees: 150_000, loan: { nominalRateBps: 700, months: 48 }, insuranceMonthly: 12_000 };
+  const single = (id: string, decision: DecisionInput, k: number, horizonMonths = 60): DecisionSnapshot =>
+    createSnapshot({ name: `Simulation ${id}`, situation, horizonMonths, startMonth: '2026-11', variants: [{ id: 'decision', decision }], id, createdAt: stamp(k) });
+  const clean = (s: string | null) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim();
+  /** Hypothèses affichées d'une variante : libellé → valeur. */
+  const hypotheses = (variant: Element) =>
+    Object.fromEntries([...variant.querySelectorAll('[data-testid="dl-variant-hypotheses"] dt')].map((dt) => [clean(dt.textContent), clean(dt.nextElementSibling!.textContent)]));
+  const openDetails = (id: string) => click(document.querySelector(`[data-id="${id}"] button[aria-controls]`));
+  const variantsOf = (id: string) => [...document.querySelectorAll(`[data-id="${id}"] [data-testid="dl-variant"]`)];
+
+  it('simulation simple : prix 180 000, apport, frais, taux 7 %, durée 48 mois et assurance affichés', async () => {
+    saveSimulation(single('vehicule', vehicle, 1));
+    const raw = sessionStorage.getItem(DECISION_STORE_KEY);
+    await renderPage();
+    expect(q('dl-variant-hypotheses')).toBeNull(); // repliée : rien d'affiché
+    await openDetails('vehicule');
+    const [v] = variantsOf('vehicule');
+    expect(hypotheses(v)).toEqual({
+      'Prix du bien': '180.000,00 DH',
+      Apport: '30.000,00 DH',
+      'Frais initiaux': '1.500,00 DH',
+      'Taux nominal annuel du crédit': '7 %',
+      'Durée du crédit (mois)': '48',
+      'Assurance mensuelle': '120,00 DH',
+    });
+    // Type de décision indiqué une seule fois, à côté du nom.
+    expect(v.textContent!.match(/Achat/g)).toHaveLength(1);
+    // Les résultats restent affichés sous les hypothèses ; afficher ne modifie pas le stockage.
+    expect(q('dl-details')!.querySelector('[data-testid="dl-results"]')).not.toBeNull();
+    expect(sessionStorage.getItem(DECISION_STORE_KEY)).toBe(raw);
+  });
+
+  it('comparaison : les hypothèses propres à chaque variante, séparément', async () => {
+    saveSimulation(
+      createSnapshot({
+        name: 'Véhicule : trois financements',
+        situation,
+        horizonMonths: 60,
+        startMonth: '2026-11',
+        variants: [
+          { id: 'A', label: 'Crédit 48 mois', decision: vehicle },
+          { id: 'B', label: 'Crédit 60 mois', decision: { kind: 'purchase', price: 18_000_000, downPayment: 2_000_000, fees: 150_000, assetValue: 16_000_000, loan: { nominalRateBps: 850, months: 60 }, insuranceMonthly: 10_000, insuranceMonths: 60 } },
+          { id: 'C', label: 'Comptant', decision: { kind: 'purchase', price: 18_000_000, downPayment: 18_000_000, fees: 0 } },
+        ],
+        id: 'trois',
+        createdAt: stamp(2),
+      }),
+    );
+    await renderPage();
+    await openDetails('trois');
+    const variants = variantsOf('trois');
+    expect(variants.map((v) => (v as HTMLElement).dataset.variant)).toEqual(['A', 'B', 'C']);
+    expect(variants.map((v) => v.querySelectorAll('[data-testid="dl-variant-hypotheses"]').length)).toEqual([1, 1, 1]);
+    expect(hypotheses(variants[0])).toMatchObject({ 'Prix du bien': '180.000,00 DH', Apport: '30.000,00 DH', 'Taux nominal annuel du crédit': '7 %', 'Durée du crédit (mois)': '48' });
+    expect(hypotheses(variants[1])).toEqual({
+      'Prix du bien': '180.000,00 DH',
+      Apport: '20.000,00 DH',
+      'Frais initiaux': '1.500,00 DH',
+      'Valeur du bien': '160.000,00 DH',
+      'Taux nominal annuel du crédit': '8,5 %',
+      'Durée du crédit (mois)': '60',
+      'Assurance mensuelle': '100,00 DH',
+      "Durée de l'assurance (mois)": '60',
+    });
+    // Achat comptant : aucun taux ni durée de crédit.
+    expect(hypotheses(variants[2])).toEqual({ 'Prix du bien': '180.000,00 DH', Apport: '180.000,00 DH', 'Frais initiaux': '0,00 DH' });
+    expect(variants[0].textContent).toContain('Crédit 48 mois');
+    expect(variants[2].textContent).toContain('Comptant');
+  });
+
+  it('anciens snapshots et champs facultatifs absents : chaque type relu sans erreur, seuls les champs enregistrés affichés', async () => {
+    const goalOld = JSON.parse(JSON.stringify(single('objectif-ancien', { kind: 'goal', mode: 'contribution', target: 6_000_000, effectiveRateBps: 300, monthlyContribution: 250_000 }, 3, 24)));
+    // Format d'avant la correction A2 : totaux de l'horizon absents (relus par compatibilité).
+    for (const k of ['contributedToHorizon', 'interestToHorizon', 'contributionsToReach']) delete goalOld.results.variants[0].details[k];
+    const cashLoanNull = JSON.parse(JSON.stringify(single('comptant-null', { kind: 'purchase', price: 1_000_000, downPayment: 1_000_000, fees: 0 }, 4, 12)));
+    cashLoanNull.hypotheses.variants[0].decision.loan = null; // crédit explicitement nul (forme admise par le contrat)
+    seedRaw([
+      goalOld,
+      cashLoanNull,
+      single('depense', { kind: 'recurring', monthlyAmount: 50_000 }, 5, 12),
+      single('depense-bornee', { kind: 'recurring', monthlyAmount: 50_000, startMonth: 3, months: 12 }, 6, 24),
+      single('effort', { kind: 'goal', mode: 'effort', target: 6_000_000, effectiveRateBps: 0, months: 24 }, 7, 24),
+      single('placement', { kind: 'investment', initialCapital: 2_000_000, monthlyContribution: 150_000, effectiveRateBps: 600 }, 8, 120),
+    ]);
+    await renderPage();
+    expect(all('dl-simulation')).toHaveLength(6);
+    expect(q('dl-ignored')).toBeNull();
+    const expected: Record<string, Record<string, string>> = {
+      'objectif-ancien': { Méthode: 'Versement fixé', 'Montant cible': '60.000,00 DH', 'Rendement annuel effectif': '3 %', 'Versement mensuel': '2.500,00 DH' },
+      'comptant-null': { 'Prix du bien': '10.000,00 DH', Apport: '10.000,00 DH', 'Frais initiaux': '0,00 DH' },
+      depense: { 'Montant mensuel': '500,00 DH' },
+      'depense-bornee': { 'Montant mensuel': '500,00 DH', 'Premier mois de dépense': '3', 'Nombre de mois': '12' },
+      effort: { Méthode: 'Délai fixé', 'Montant cible': '60.000,00 DH', 'Rendement annuel effectif': '0 %', 'Délai (mois)': '24' },
+      placement: { 'Capital initial': '20.000,00 DH', 'Versement mensuel': '1.500,00 DH', 'Rendement annuel effectif': '6 %' },
+    };
+    for (const [id, values] of Object.entries(expected)) {
+      await openDetails(id); // une seule simulation dépliée à la fois
+      expect(hypotheses(variantsOf(id)[0]), id).toEqual(values);
+    }
+  });
+
+  it('anglais (en-US) et arabe (ar-MA) : libellés traduits, montants et taux au format de la langue, valeurs isolées', async () => {
+    saveSimulation(single('vehicule', vehicle, 1));
+    activateMessages('en', en);
+    await renderPage({ language: 'en', locale: 'en-US' });
+    await openDetails('vehicule');
+    expect(hypotheses(variantsOf('vehicule')[0])).toEqual({
+      [en['dl.f.price'] as string]: '180,000.00 DH',
+      [en['dl.f.downPayment'] as string]: '30,000.00 DH',
+      [en['dl.f.fees'] as string]: '1,500.00 DH',
+      [en['dl.f.loanRate'] as string]: '7%',
+      [en['dl.f.loanMonths'] as string]: '48',
+      [en['dl.f.insurance'] as string]: '120.00 DH',
+    });
+    act(() => root?.unmount());
+    container?.remove();
+
+    activateMessages('ar', ar);
+    await renderPage({ language: 'ar', locale: 'ar-MA' });
+    await openDetails('vehicule');
+    const v = variantsOf('vehicule')[0];
+    const shown = hypotheses(v);
+    expect(Object.keys(shown)).toEqual((['dl.f.price', 'dl.f.downPayment', 'dl.f.fees', 'dl.f.loanRate', 'dl.f.loanMonths', 'dl.f.insurance'] as const).map((k) => ar[k] as string));
+    expect(Object.values(shown)).toEqual(['180.000,00 DH', '30.000,00 DH', '1.500,00 DH', '7%', '48', '120,00 DH']);
+    // Chaque valeur est isolée (<bdi>) : ordre des chiffres et du symbole conservé dans une page de droite à gauche.
+    for (const dd of v.querySelectorAll('[data-testid="dl-variant-hypotheses"] dd')) expect(dd.querySelector('bdi')).not.toBeNull();
   });
 });
 
