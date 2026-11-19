@@ -55,7 +55,7 @@ migrations ; les suivants les indiquent (`scripts/qualify-supabase.sh`).
 | P12 | Les suites SQL du Lot 3 (01–10) et la suite HTTP `rls.mjs` reposent sur des écritures directes d'`authenticated` et sur des invariants que la migration 8 rend faux (politiques du rôle d'écriture, 2 RPC dans `public`) : adaptation à décider (D4-9) avant la qualification 4.5 / 4.6. **Traité (Lot 0, en attente de validation)** : suites adaptées à l'état final, 1 793 / 1 793 sur PG 16, 1 847 / 1 847 et HTTP 302 / 302 sur la pile Supabase locale (`docs/LOT0_QUALIFICATION.md`) | 4.5–4.6 |
 | P13 | Rôle `nexora_writer` : création et transfert de propriété des fonctions par `postgres`, `statement_timeout` d'`authenticated` et taille maximale des requêtes de la passerelle à vérifier sur la pile Supabase (D4-10, D4-12). **Vérifié sur la pile Supabase locale (Lot 0)** : rôle créé et propriété transférée par `postgres` non superutilisateur ; `statement_timeout` d'`authenticated` = 8 s, lot de 5 000 opérations appliqué en 2,2 s ; lot > 4 Mio refusé par la fonction (413). **Reste ouvert : projet hébergé** | 4.6 |
 | P14 | Croissance de `private.changesets` (une ligne par lot) : purge à définir | 8 |
-| P15 | Écarts `MemoryTransport` / serveur (périmètre de `changesetId`, création de profil, `changeset_pending`, codes d'erreur, **clé canonique exigée par le serveur depuis le Lot 0**) : aligner avec le transport HTTP (D4-13) | 5 |
+| P15 | Écarts `MemoryTransport` / serveur (périmètre de `changesetId`, création de profil, `changeset_pending`, codes d'erreur, **clé canonique exigée par le serveur depuis le Lot 0**) : aligner avec le transport HTTP (D4-13). **Livré en V3.3 (plan directeur V1, 19/11/2026) ; levée complète conditionnée à la suppression du mode `legacy`.** `MemoryTransport` est aligné sur le serveur par défaut (lots propres à chaque utilisateur, identité de session, profil créé à l'inscription, clés canoniques, codes d'erreur du serveur, `changeset_pending`, clés primaires globales). Suite de contrat commune `src/data/cloud/transportContract.test.ts` : **12 scénarios exécutés sur les deux transports** (`MemoryTransport` aligné ; `HttpTransport` jusqu'à un serveur PostgREST simulé), **24 / 24**. Limites de couverture : la branche « création de profil interdite » n'est pas exercée (inatteignable pour un utilisateur inscrit) ; `changeset_too_large` n'est vérifié que par les tests HTTP. **Dérogation jusqu'à V3.4** : les cinq anciennes suites (`protocol.test.ts`, `contract.test.ts`, `backup.test.ts`, `undo.test.ts`, `historicalV1.test.ts`) restent temporairement en `{ legacy: true }` (comportement d'avant V3.3, attentes inchangées), pour ne pas anticiper V3.4 — en mode aligné : 96 / 171 échecs, dont 90 `invalid_key` (identifiants fictifs non canoniques), et création du profil par `ensureUser` sans version connue. **Suppression du mode `legacy` obligatoire avant V3.5.** Conditions de levée : (1) V3.4 a fourni le chargement initial et la version du profil ; (2) les cinq anciennes suites utilisent des UUID canoniques et des horodatages valides ; (3) leurs attentes sont alignées sur les codes d'erreur du serveur ; (4) la branche `legacy` et les mécanismes historiques associés (`IsolationViolationError`, identifiants de lot globaux) sont supprimés ; (5) tous les tests passent en mode aligné | V3.3 : livré ; levée avant V3.5 |
 
 ## Points ouverts ajoutés par le correctif Backup / Restore v2 (`docs/BACKUP_RESTORE.md`)
 
@@ -64,13 +64,13 @@ migrations ; les suivants les indiquent (`scripts/qualify-supabase.sh`).
 | P16 | Les liens historiques orphelins (avertissements non bloquants à la restauration : règle → compte supprimé, objectif → compte lié, etc.) sont acceptés en local et par `MemoryTransport`, mais le schéma PostgreSQL les refuse (clés étrangères différées, sauf `attachment_id`) : une restauration cloud serait rejetée en bloc. À traiter avec P3 (détection / réparation) avant toute restauration vers le cloud | 7 (avec P3) |
 | P17 | Sauvegardes volumineuses : pièces jointes en base64 dans le JSON (+33 %), fichier lu intégralement en mémoire (limite d'interface 100 Mo). Format d'archive (ZIP : JSON + fichiers) proposé, non implémenté | 7 |
 | P18 | La sauvegarde de sécurité est téléchargée avant le remplacement ; son enregistrement effectif sur le disque ne peut pas être vérifié par le navigateur. **Atténué (en attente de validation)** : annulation immédiate, sauvegarde de sécurité conservée en mémoire de l'onglet (`docs/BACKUP_RESTORE.md` § 6.1, tests Local + Cloud, jsdom et E2E). Reste ouvert : perte de l'annulation au rechargement / à la fermeture de l'onglet (le fichier téléchargé est alors le seul recours) | atténué |
-| P19 | Constat de revue A1 : le protocole `ChangeSet` (étape 4.3) transmet la ligne complète ; avec `MemoryTransport`, le `blob` des pièces jointes est transmis et stocké (préexistant, `addAttachment` compris). Le futur transport HTTP doit appliquer `toCloudRow()` / `serializeRow()` pour que le fichier ne quitte jamais l'appareil (`docs/BACKUP_RESTORE.md` § 5). **Requalifié (Lot 0)** : rattaché initialement à « 4.5–4.6 », non traité au Lot 0 car aucun transport réseau n'existe ; il relève de l'écriture du transport HTTP | transport HTTP (Lot 5 du dépôt) |
+| P19 | Constat de revue A1 : le protocole `ChangeSet` (étape 4.3) transmet la ligne complète ; avec `MemoryTransport`, le `blob` des pièces jointes est transmis et stocké (préexistant, `addAttachment` compris). Le futur transport HTTP doit appliquer `toCloudRow()` / `serializeRow()` pour que le fichier ne quitte jamais l'appareil (`docs/BACKUP_RESTORE.md` § 5). **Requalifié (Lot 0)** : rattaché initialement à « 4.5–4.6 », non traité au Lot 0 car aucun transport réseau n'existe ; il relève de l'écriture du transport HTTP. **Réalisé en V3.3 (plan directeur V1, 19/11/2026)** : `HttpTransport` convertit chaque ligne par le mapping (`serializeRow()`) ; le fichier joint (`blob`, champ local) n'est jamais transmis par le transport HTTP (tests validés : contenu du fichier absent de toutes les requêtes, colonnes envoyées = colonnes SQL de `attachments`). **Ne couvre pas le stockage distant des pièces jointes**, prévu ultérieurement (V5 / migration M10, avec P23). `MemoryTransport`, double de test, conserve la ligne TS complète | transport HTTP (V3.3) : réalisé ; stockage distant : V5 / M10 |
 
 ## Points ouverts ajoutés au Lot 0 (`docs/LOT0_QUALIFICATION.md`)
 
 | # | Point | Lot |
 |---|---|---|
-| P20 | Dans `apply_changeset`, toute erreur survenant pendant les écritures d'un lot (hors conflit et erreurs du protocole) est rapportée `invalid_row`, donc comme un refus définitif, y compris une erreur transitoire (ressources, verrou) ; le SQLSTATE d'origine figure dans `details.sqlstate`. Le transport HTTP devra distinguer ces cas, ou la fonction limiter `invalid_row` aux classes 22 / 23 et au refus du déclencheur | transport HTTP |
+| P20 | Dans `apply_changeset`, toute erreur survenant pendant les écritures d'un lot (hors conflit et erreurs du protocole) est rapportée `invalid_row`, donc comme un refus définitif, y compris une erreur transitoire (ressources, verrou) ; le SQLSTATE d'origine figure dans `details.sqlstate`. Le transport HTTP devra distinguer ces cas, ou la fonction limiter `invalid_row` aux classes 22 / 23 et au refus du déclencheur. **Réalisé en V3.3 (plan directeur V1, 19/11/2026)**, côté transport (fonction serveur inchangée) : `HttpTransport` distingue les erreurs temporaires des refus définitifs — `invalid_row` dont `details.sqlstate` est passager (classes 08, 40, 53, 58 ; `55P03`, `55006`, `57014`, `57P01` à `57P03`) et HTTP 429 → `CloudTransientRejectionError` (lot refusé, rien appliqué, soumissible à nouveau) ; réseau, délai dépassé, HTTP 5xx, `changeset_pending` et réponse illisible → issue inconnue (`CloudTransportError`, lot résolu ensuite). Aucune nouvelle tentative automatique non prévue (`retry(false)`, une seule requête par appel) | transport HTTP (V3.3) : réalisé |
 | P21 | **Corrigé au Lot 0 (en attente de validation)** : un lot pouvait écrire deux fois la même ligne sous deux écritures de sa clé (UUID en majuscules, date non normalisée, nombre pour une clé texte). `apply_changeset` exige désormais la forme canonique de la clé (`invalid_key`) ; 8 assertions dans la suite 11 | corrigé |
 | P22 | Qualification hébergée : projet de développement **NEXORA-DEV** disponible ; niveaux 1 et 2 (lecture seule) réalisés les 17 et 18/11/2026 (`docs/LOT0_QUALIFICATION.md` § 13). Restent les écritures, les migrations et les suites ; P9, P10, P11, P13 restent ouverts | avant le Lot 1 |
 
@@ -91,7 +91,7 @@ ils sont consignés pour être traités dans le lot indiqué.
 | P30 | Délai d'exécution (`statement_timeout` d'`authenticated` = 8 s) : lot de 5 000 opérations appliqué en 3,09 s sur la pile locale du Codespace (2,2 s dans la session cloud) ; mesure hébergée manquante (voir P13) | partiellement traité | qualification hébergée |
 | P31 | Quotas et purge : aucun quota par utilisateur ; purges des lignes supprimées (P5) et de `private.changesets` (P14) non définies | ouvert, à traiter avant l'ouverture publique | Lot 8 |
 
-Les erreurs transitoires classées comme refus définitifs restent suivies par P20 (transport HTTP).
+Les erreurs transitoires classées comme refus définitifs restent suivies par P20 (transport HTTP) — réalisé en V3.3, voir P20.
 
 ## Points ouverts ajoutés par la qualification hébergée (17 et 18/11/2026)
 
@@ -100,3 +100,31 @@ Les erreurs transitoires classées comme refus définitifs restent suivies par P
 | P32 | Déclencheur d'événement `ensure_rls` de NEXORA-DEV (`public.rls_auto_enable()`, `SECURITY DEFINER`, propriétaire `postgres`) : active la RLS, sans la forcer, sur les tables créées dans `public` uniquement ; erreurs interceptées et seulement journalisées. Compatible avec les migrations 1 à 8 (la migration 6 active et force la RLS ; `private` et `tests` non concernés) | constaté, compatible | Niveau 4 (à observer) |
 | P33 | Migration 7 : `postgres` détient l'option ADMIN sur `anon`, `authenticated`, `service_role`, mais ces rôles sont réservés par `supautils` et `extra_float_digits` n'est pas dans `supautils.privileged_role_allowed_configs` ; l'hébergé a `extra_float_digits = 0` (P11 confirmé). Réussite de la migration 7 incertaine | ouvert | Niveau 4 |
 | P34 | Privilèges par défaut de NEXORA-DEV plus restrictifs que la pile locale (tables créées par `postgres` : `Dxtm` seulement pour `anon`, `authenticated`, `service_role` ; fonctions et séquences réservées à `postgres`). Les migrations procèdent par `revoke all` puis par des droits explicites ; l'effet sur les assertions des suites (notamment `service_role`) reste à vérifier | ouvert | Niveau 3 |
+
+## Plan directeur V1 — V3.3 : transport HTTP vers les fonctions d'écriture (19/11/2026)
+
+Périmètre (ligne V3.3 du plan directeur V1) : `HttpTransport` vers `apply_changeset` et
+`resolve_changeset` (P19, P20), tests de contrat communs avec `MemoryTransport` (P15).
+Aucun branchement dans l'application (V3.4 et V3.5 non commencées).
+
+| Contrôle | Résultat |
+|---|---|
+| Suite complète (tests simulés) | 1 669 / 1 669 |
+| Contrat commun `MemoryTransport` / `HttpTransport` (P15, simulé) | 24 / 24 (12 scénarios × 2 transports) |
+| Tests du transport HTTP `src/data/cloud/HttpTransport.test.ts` (simulé) | 41 / 41 |
+| Défauts introduits volontairement (contrôle par mutation) | 6 / 6 détectés |
+| TypeScript et build | réussis |
+| **Essais réels sur NEXORA-DEV — refus uniquement** | 10 / 10 ; 13 requêtes ; les 9 appels des fonctions refusés (409, 403, 400, 401), aucune écriture ; ligne `accounts` du compte de test B relue identique (versions comprises) ; session Auth du compte B ouverte puis fermée |
+| Schéma, migrations, RLS, configuration Auth | aucun changement |
+| Git | aucun commit ni push à la date de cette clôture documentaire |
+
+Rapport des essais réels (hors dépôt, sans secret) :
+`/workspaces/nexora-n2/v3-3/resultats/transport-dev-20261119T122258Z.json`,
+SHA-256 `04009962781f55bf49ef7f946775b58d932a9c6fbefbe91d67e7acc1d1475a6b`.
+
+Réserves de V3.3 : **P15** (levée complète conditionnée à la suppression du mode `legacy`,
+obligatoire avant V3.5) et **P35** ci-dessous.
+
+| # | Point | Statut | Lot |
+|---|---|---|---|
+| P35 | **Chemin de succès non validé réellement sur NEXORA-DEV** : V3.3 n'a exécuté sur DEV que des refus (décision du 19/11/2026 : aucune donnée des comptes de test modifiée) ; le chemin de succès n'est couvert qu'en simulation et **ne doit pas être considéré comme acquis**. Critère restant : exécuter réellement un `apply_changeset` accepté ; appeler ensuite `resolve_changeset` sur le même lot ; vérifier le résultat `replayed` ; vérifier que les données persistées correspondent exactement au lot soumis | ouvert | au plus tard V3.5 ou V3.7 |

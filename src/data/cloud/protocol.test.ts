@@ -118,7 +118,7 @@ async function expectVersionsConsistent(userId: string, cache: CloudCacheDB, ser
 
 describe('protocole v1 : forme du lot', () => {
   it('protocol 1, changesetId UUID unique par lot, userId, au plus une opération par clé, version attendue', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo } = device(u, server);
     await repo.ensureUser('Test');
@@ -143,7 +143,7 @@ describe('protocole v1 : forme du lot', () => {
   });
 
   it('une clé créée puis supprimée dans la même transaction n’est pas transmise', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const { repo, storage } = device(uid(), server);
     await repo.ensureUser('Test');
     const before = server.commits.length;
@@ -158,7 +158,7 @@ describe('protocole v1 : forme du lot', () => {
 
 describe('protocole v1 : versions (création, modification, suppression, réactivation)', () => {
   it('création → version 1 ; modification avec la bonne version → v + 1 (serveur et cache)', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage } = device(u, server);
     await repo.ensureUser('Test');
@@ -177,7 +177,7 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
   });
 
   it('suppression logique : version + 1, ligne conservée côté serveur, retirée du cache, version conservée', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -193,7 +193,7 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
   });
 
   it('réactivation : réécrire une clé supprimée porte la version de la ligne supprimée → v + 1, active', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -210,7 +210,7 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
   });
 
   it('une création sur une clé déjà connue du serveur (même supprimée) est un conflit', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, server);
     await a.repo.ensureUser('Test');
@@ -230,7 +230,7 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
 
 describe('protocole v1 : conflits entre clients', () => {
   it('scénario de référence : deux appareils, même version initiale ; le second est refusé en entier, rien n’est perdu', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, server);
     await a.repo.ensureUser('Test');
@@ -265,7 +265,7 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('deux écritures concurrentes sur la même clé (deux appareils) : une acceptée, l’autre en conflit', async () => {
-    const mem = new MemoryTransport();
+    const mem = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, mem);
     await a.repo.ensureUser('Test');
@@ -287,7 +287,7 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('même cache partagé (deux onglets) : la version attendue est celle de la LECTURE, pas celle du moment de l’envoi', async () => {
-    const mem = new MemoryTransport();
+    const mem = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, mem);
     await a.repo.ensureUser('Test');
@@ -308,7 +308,7 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('lecture HORS transaction puis écriture : un autre onglet écrit entre les deux → conflit, pas d’écrasement', async () => {
-    const mem = new MemoryTransport();
+    const mem = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, mem);
     await a.repo.ensureUser('Test');
@@ -330,7 +330,7 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('lot multi-tables : un seul conflit (objectif modifié ailleurs) → la contribution n’est pas créée non plus', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, server);
     await a.repo.ensureUser('Test');
@@ -348,7 +348,7 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('clé déterministe créée sur deux appareils (état de notification) : le second est en conflit', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, server);
     await a.repo.ensureUser('Test');
@@ -367,7 +367,7 @@ describe('protocole v1 : conflits entre clients', () => {
 
 describe('protocole v1 : atomicité et idempotence', () => {
   it('lot multi-tables accepté : toutes les lignes et toutes les versions appliquées ensemble', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -380,7 +380,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('rejeu idempotent : même changesetId et même contenu → résultat d’origine, aucune seconde modification', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo } = device(u, server);
     await repo.ensureUser('Test');
@@ -401,7 +401,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('réutilisation frauduleuse d’un changesetId : autre contenu ou autre utilisateur → refus, rien appliqué', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo } = device(u, server);
     await repo.ensureUser('Test');
@@ -418,7 +418,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('lots mal formés refusés en entier (protocole, identifiant, doublon de clé, clé incohérente, version)', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const row = { id: 'k1', userId: u, ...account('A'), createdAt: 'x', updatedAt: 'x' };
     const base = (): ChangeSet => ({ protocol: 1, changesetId: globalThis.crypto.randomUUID(), userId: u, ops: [{ table: 'accounts', type: 'put', key: 'k1', expectedVersion: null, row }] });
@@ -441,7 +441,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('échec avant confirmation : rien dans le cache ; résolu (abandonné) avant l’écriture suivante ; jamais appliqué ensuite', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -468,7 +468,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('réponse perdue après acceptation : signalé non enregistré, puis le cache rattrape le serveur sans doublon ni conflit', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -489,7 +489,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('réponse ambiguë (résultat incohérent) : non confirmée, cache inchangé ; résolue ensuite', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -515,7 +515,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('résolution impossible (réseau) : l’écriture suivante est refusée et rien n’est écrit, jusqu’au retour du réseau', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -538,7 +538,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('échec d’écriture du cache après acceptation : ni ligne ni version partielles ; réappliqué avant l’écriture suivante', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -578,7 +578,7 @@ describe('protocole v1 : atomicité et idempotence', () => {
 
 describe('protocole v1 : stockage des versions', () => {
   it('persistance : versions conservées à la réouverture du cache ; l’écriture suivante part de la bonne version', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const first = device(u, server);
     await first.repo.ensureUser('Test');
@@ -593,7 +593,7 @@ describe('protocole v1 : stockage des versions', () => {
   });
 
   it('isolation : chaque utilisateur a ses versions dans son propre cache', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const factory = new IDBFactory();
     const u1 = uid();
     const u2 = uid();
@@ -615,7 +615,7 @@ describe('protocole v1 : stockage des versions', () => {
   });
 
   it('les versions n’apparaissent ni dans les lignes, ni dans snapshot(), ni dans exportBackup()', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, cache } = device(u, server);
     await repo.ensureUser('Test');
@@ -644,7 +644,7 @@ describe('protocole v1 : stockage des versions', () => {
 describe('protocole v1 : compatibilité', () => {
   it('54 méthodes inchangées ; suite d’opérations variée : cache et serveur cohérents (versions comprises)', async () => {
     expect(REPOSITORY_METHODS).toHaveLength(54);
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, cache } = device(u, server);
     for (const m of REPOSITORY_METHODS) expect(typeof (repo as unknown as Record<string, unknown>)[m], m).toBe('function');
@@ -695,7 +695,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   }
 
   it('meta reste dans le cache, n’est jamais transmise ; les autres tables le sont normalement', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const s = spy(server);
     const u = uid();
     const { repo, cache } = device(u, s.transport);
@@ -710,7 +710,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('versions serveur : uniquement pour les tables synchronisées', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, cache, storage } = device(u, server);
     await repo.ensureUser('Test');
@@ -722,7 +722,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('atomicité : meta n’est écrite qu’avec le lot confirmé (conflit → rien ; échec du cache → ni meta ni lignes)', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const a = device(u, server);
     await a.repo.ensureUser('A');
@@ -752,7 +752,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('atomicité : une panne sur l’écriture locale (meta) annule aussi les lignes et les versions confirmées', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     // `cache.table('meta')` n'est pas l'objet `cache.meta` : on intercepte le prototype commun.
@@ -778,7 +778,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('réponse perdue : meta appliquée seulement à la résolution (rejouée) ; abandonnée avec un lot jamais appliqué', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const { repo, storage, cache } = device(u, server);
     server.loseResponseNext = new Error('réponse perdue');
@@ -800,7 +800,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('lot purement local : appliqué au cache sans aucun appel serveur', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const s = spy(server);
     const u = uid();
     const { repo, storage, cache } = device(u, s.transport);
@@ -820,7 +820,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('MemoryTransport refuse toute table exclue du mapping (meta), rien n’est appliqué', async () => {
-    const server = new MemoryTransport();
+    const server = new MemoryTransport({ legacy: true });
     const u = uid();
     const cs: ChangeSet = {
       protocol: 1,
@@ -896,9 +896,9 @@ describe('CloudCacheDB : protection du constructeur', () => {
 
   it('CloudRepository construit toujours un cache contrôlé ; un cache d’un autre utilisateur est refusé', () => {
     const u = uid();
-    const repo = new CloudRepository(u, { transport: new MemoryTransport() });
+    const repo = new CloudRepository(u, { transport: new MemoryTransport({ legacy: true }) });
     expect(repo.cacheName).toBe(cloudCacheName(u));
     const other = new CloudCacheDB(cloudCacheName('autre_u'), { userId: 'autre_u', dexie: { indexedDB: new IDBFactory(), IDBKeyRange } });
-    expect(() => new CloudRepository(u, { transport: new MemoryTransport(), cache: other })).toThrow(/refusé/);
+    expect(() => new CloudRepository(u, { transport: new MemoryTransport({ legacy: true }), cache: other })).toThrow(/refusé/);
   });
 });

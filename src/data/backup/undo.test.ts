@@ -26,7 +26,7 @@ function local(): Env {
 }
 function cloud(): Env {
   const u = `undo-cloud-${++seq}`;
-  const transport = new MemoryTransport();
+  const transport = new MemoryTransport({ legacy: true });
   const db = new CloudCacheDB(cloudCacheName(u), { userId: u });
   return { kind: 'cloud', repo: new CloudRepository(u, { transport, cache: db }), db, transport };
 }

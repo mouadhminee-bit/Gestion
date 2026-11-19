@@ -48,7 +48,7 @@ function makeLocal(): Env {
 }
 function makeCloud(): Env {
   const userId = `bk-cloud-${++seq}`;
-  const transport = new MemoryTransport();
+  const transport = new MemoryTransport({ legacy: true });
   return { kind: 'cloud', repo: new CloudRepository(userId, { transport, cache: new CloudCacheDB(cloudCacheName(userId), { userId }) }), transport };
 }
 

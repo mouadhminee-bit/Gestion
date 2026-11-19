@@ -54,7 +54,7 @@ function local(userId: string) {
   return { repo: new LocalRepository(db, userId), db };
 }
 
-function cloud(userId: string, transport = new MemoryTransport()) {
+function cloud(userId: string, transport = new MemoryTransport({ legacy: true })) {
   const cache = new CloudCacheDB(cloudCacheName(userId), { userId });
   return { repo: new CloudRepository(userId, { transport, cache }), cache, transport };
 }
@@ -469,7 +469,7 @@ describe('contrat : écritures cloud refusées par défaut', () => {
     const u = uid();
     const cache = new CloudCacheDB(cloudCacheName(u), { userId: u });
     // Cache rempli par un repository cloud « en ligne », puis rouvert avec le transport par défaut.
-    const online = new CloudRepository(u, { cache, transport: new MemoryTransport() });
+    const online = new CloudRepository(u, { cache, transport: new MemoryTransport({ legacy: true }) });
     const { bank, cat } = await seeded(online);
     await online.createTransaction(draft(bank.id, { categoryId: cat('food').id }));
     const before = await dump(cache);
@@ -996,7 +996,7 @@ describe('contrat : isolation entre utilisateurs', () => {
   });
 
   it('cloud : caches distincts, partitions serveur distinctes, aucune lecture croisée', async () => {
-    const transport = new MemoryTransport();
+    const transport = new MemoryTransport({ legacy: true });
     const u1 = uid();
     const u2 = uid();
     const c1 = cloud(u1, transport);
@@ -1019,7 +1019,7 @@ describe('contrat : isolation entre utilisateurs', () => {
   });
 
   it('cloud : une ligne attribuée à un autre utilisateur est refusée par le transport, rien n’est écrit', async () => {
-    const transport = new MemoryTransport();
+    const transport = new MemoryTransport({ legacy: true });
     const u1 = uid();
     const c2 = cloud(uid(), transport);
     await seeded(c2.repo);
@@ -1034,7 +1034,7 @@ describe('contrat : isolation entre utilisateurs', () => {
 
   it('cloud : un cache ne peut servir qu’à son propriétaire', () => {
     const u1 = uid();
-    expect(() => new CloudRepository(uid(), { cache: new NexoraDB(cloudCacheName(u1)), transport: new MemoryTransport() })).toThrow(/refusé/);
+    expect(() => new CloudRepository(uid(), { cache: new NexoraDB(cloudCacheName(u1)), transport: new MemoryTransport({ legacy: true }) })).toThrow(/refusé/);
   });
 });
 

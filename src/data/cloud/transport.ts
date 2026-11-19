@@ -127,7 +127,22 @@ export class CloudConflictError extends Error {
   }
 }
 
-export type CloudProtocolErrorCode = 'invalid_changeset' | 'changeset_id_reused' | 'changeset_abandoned' | 'unknown_changeset';
+export type CloudProtocolErrorCode =
+  | 'invalid_changeset'
+  | 'changeset_id_reused'
+  | 'changeset_abandoned'
+  | 'unknown_changeset'
+  // Codes de `apply_changeset` / `resolve_changeset` (migration 8, docs/LOT4_PLAN.md § 7.7).
+  | 'unauthorized'
+  | 'unsupported_protocol'
+  | 'unsupported_table'
+  | 'invalid_operation'
+  | 'invalid_key'
+  | 'invalid_row'
+  | 'duplicate_key'
+  | 'changeset_too_large'
+  // Refus HTTP (4xx) sans code du protocole : la requête a été refusée, rien n'est appliqué.
+  | 'rejected';
 
 /** Lot refusé définitivement par le serveur (mal formé, identifiant réutilisé…) : rien n'est appliqué. */
 export class CloudProtocolError extends Error {
@@ -138,6 +153,26 @@ export class CloudProtocolError extends Error {
   ) {
     super(`Lot refusé (${code}) : ${detail}`);
     this.name = 'CloudProtocolError';
+  }
+}
+
+/**
+ * Lot refusé pour une cause PASSAGÈRE (verrou, ressources, délai du serveur, limite de débit) :
+ * le serveur a annulé le lot, rien n'est appliqué, aucune résolution n'est nécessaire et le
+ * lot peut être soumis à nouveau plus tard (P20). `CloudStorage` le traite comme un refus
+ * définitif DE CE LOT (`definitive`), signalé à l'utilisateur comme une erreur transitoire.
+ */
+export class CloudTransientRejectionError extends Error {
+  readonly definitive = true;
+  constructor(
+    /** Code reçu (code du protocole ou statut HTTP). */
+    public readonly code: string,
+    /** SQLSTATE d'origine, s'il est connu (`details.sqlstate`). */
+    public readonly sqlstate: string | null,
+    detail: string,
+  ) {
+    super(`Lot refusé temporairement (${code}${sqlstate ? `, ${sqlstate}` : ''}) : ${detail}`);
+    this.name = 'CloudTransientRejectionError';
   }
 }
 
