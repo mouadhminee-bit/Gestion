@@ -1869,12 +1869,19 @@ const sv: Messages = {
   'auth.config.text': "Cloud-läget är valt, men dess konfiguration saknas eller är ogiltig: ingen åtkomst är möjlig. Detaljer finns i webbläsarens konsol.",
   'cloud.title': "Cloud-utrymme",
   'cloud.signedInAs': "Inloggad som {email}",
-  'cloud.pending': "Dina Cloud-data är inlästa på den här enheten. Visning och redigering aktiveras i ett kommande steg.",
   'cloud.loading': "Läser in dina Cloud-data…",
   'cloud.loadError.title': "Det gick inte att läsa in data",
   'cloud.loadError.unavailable': "Tjänsten är tillfälligt otillgänglig. Kontrollera anslutningen och försök sedan igen.",
   'cloud.loadError.denied': "Åtkomsten till dina data nekades. Försök igen; om problemet kvarstår, logga ut och logga in igen.",
   'cloud.loadError.failed': "Dina data kunde inte läsas in fullständigt: inga ofullständiga data har sparats. Försök igen; om problemet kvarstår, logga ut.",
+  'cloud.write.conflict': "Dessa data har ändrats under tiden (en annan enhet eller flik): inget har sparats. Läs in sidan igen och försök på nytt.",
+  'cloud.write.unconfirmed': "Servern kunde inte bekräfta sparandet. Kontrollera anslutningen och försök igen: det kontrolleras före varje ny ändring.",
+  'cloud.write.unavailable': "Tjänsten är tillfälligt otillgänglig: inget har sparats. Försök igen om en stund.",
+  'cloud.write.denied': "Din session tillåter inte detta sparande: inget har ändrats. Logga ut och logga sedan in igen.",
+  'cloud.write.rejected': "Servern avvisade detta sparande: inget har ändrats.",
+  'cloud.write.cacheStale': "Din ändring är sparad på servern, men den här enheten kunde inte uppdateras. Läs in sidan igen.",
+  'cloud.feature.unavailable': "Den här funktionen är ännu inte tillgänglig i Cloud-läge.",
+  'cloud.limited': "I Cloud-läge är återställning av en säkerhetskopia, demodata och bilagor ännu inte tillgängliga.",
 };
 
 export default sv;

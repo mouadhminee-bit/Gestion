@@ -1869,12 +1869,19 @@ const en: Messages = {
   'auth.config.text': "Cloud mode is selected, but its configuration is missing or invalid: no access is possible. Details are in the browser console.",
   'cloud.title': "Cloud space",
   'cloud.signedInAs': "Signed in as {email}",
-  'cloud.pending': "Your Cloud data is loaded on this device. Viewing and editing it will be enabled in an upcoming step.",
   'cloud.loading': "Loading your Cloud data…",
   'cloud.loadError.title': "Unable to load your data",
   'cloud.loadError.unavailable': "The service is temporarily unreachable. Check your connection, then try again.",
   'cloud.loadError.denied': "Access to your data was denied. Try again; if the problem persists, sign out and sign back in.",
   'cloud.loadError.failed': "Your data could not be fully loaded: no incomplete data was saved. Try again; if the problem persists, sign out.",
+  'cloud.write.conflict': "This data was changed in the meantime (another device or tab): nothing was saved. Reload the page, then try again.",
+  'cloud.write.unconfirmed': "The server could not confirm the save. Check your connection, then try again: it will be checked before any new change.",
+  'cloud.write.unavailable': "The service is temporarily unavailable: nothing was saved. Try again in a moment.",
+  'cloud.write.denied': "Your session does not allow this save: nothing was changed. Sign out, then sign in again.",
+  'cloud.write.rejected': "The server rejected this save: nothing was changed.",
+  'cloud.write.cacheStale': "Your change is saved on the server, but this device could not update. Reload the page.",
+  'cloud.feature.unavailable': "This feature is not yet available in Cloud mode.",
+  'cloud.limited': "In Cloud mode, restoring a backup, the demo data and attachments are not yet available.",
 };
 
 export default en;

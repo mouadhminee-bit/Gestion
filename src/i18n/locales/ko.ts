@@ -1869,12 +1869,19 @@ const ko: Messages = {
   'auth.config.text': "클라우드 모드가 선택되었지만 구성이 없거나 잘못되었습니다. 접근할 수 없습니다. 자세한 내용은 브라우저 콘솔을 확인하세요.",
   'cloud.title': "클라우드 공간",
   'cloud.signedInAs': "{email}(으)로 로그인됨",
-  'cloud.pending': "클라우드 데이터가 이 기기에 로드되었습니다. 조회 및 편집은 다음 단계에서 활성화됩니다.",
   'cloud.loading': "클라우드 데이터를 불러오는 중…",
   'cloud.loadError.title': "데이터를 불러올 수 없습니다",
   'cloud.loadError.unavailable': "서비스에 일시적으로 연결할 수 없습니다. 연결을 확인한 후 다시 시도하세요.",
   'cloud.loadError.denied': "데이터에 대한 접근이 거부되었습니다. 다시 시도하세요. 문제가 계속되면 로그아웃한 후 다시 로그인하세요.",
   'cloud.loadError.failed': "데이터를 모두 불러오지 못했습니다. 불완전한 데이터는 저장되지 않았습니다. 다시 시도하세요. 문제가 계속되면 로그아웃하세요.",
+  'cloud.write.conflict': "그 사이에 이 데이터가 변경되었습니다(다른 기기 또는 탭). 아무것도 저장되지 않았습니다. 페이지를 새로 고친 후 다시 시도하세요.",
+  'cloud.write.unconfirmed': "서버에서 저장을 확인하지 못했습니다. 연결을 확인한 후 다시 시도하세요. 다음 변경 전에 확인됩니다.",
+  'cloud.write.unavailable': "서비스를 일시적으로 사용할 수 없습니다. 아무것도 저장되지 않았습니다. 잠시 후 다시 시도하세요.",
+  'cloud.write.denied': "현재 세션으로는 이 저장을 할 수 없습니다. 아무것도 변경되지 않았습니다. 로그아웃한 후 다시 로그인하세요.",
+  'cloud.write.rejected': "서버가 이 저장을 거부했습니다. 아무것도 변경되지 않았습니다.",
+  'cloud.write.cacheStale': "변경 사항은 서버에 저장되었지만 이 기기를 업데이트하지 못했습니다. 페이지를 새로 고치세요.",
+  'cloud.feature.unavailable': "이 기능은 클라우드 모드에서 아직 사용할 수 없습니다.",
+  'cloud.limited': "클라우드 모드에서는 백업 복원, 데모 데이터, 첨부 파일을 아직 사용할 수 없습니다.",
 };
 
 export default ko;

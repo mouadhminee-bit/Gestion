@@ -1869,12 +1869,19 @@ const tr: Messages = {
   'auth.config.text': "Cloud modu seçili, ancak yapılandırması eksik veya geçersiz: erişim mümkün değil. Ayrıntılar tarayıcı konsolunda.",
   'cloud.title': "Cloud alanı",
   'cloud.signedInAs': "{email} olarak giriş yapıldı",
-  'cloud.pending': "Cloud verileriniz bu cihaza yüklendi. Görüntüleme ve düzenleme sonraki bir adımda etkinleştirilecek.",
   'cloud.loading': "Cloud verileriniz yükleniyor…",
   'cloud.loadError.title': "Veriler yüklenemedi",
   'cloud.loadError.unavailable': "Hizmete geçici olarak ulaşılamıyor. Bağlantınızı kontrol edip yeniden deneyin.",
   'cloud.loadError.denied': "Verilerinize erişim reddedildi. Yeniden deneyin; sorun devam ederse çıkış yapıp yeniden giriş yapın.",
   'cloud.loadError.failed': "Verileriniz tam olarak yüklenemedi: eksik veri kaydedilmedi. Yeniden deneyin; sorun devam ederse çıkış yapın.",
+  'cloud.write.conflict': "Bu veriler bu arada değiştirildi (başka bir cihaz veya sekme): hiçbir şey kaydedilmedi. Sayfayı yeniden yükleyin ve tekrar deneyin.",
+  'cloud.write.unconfirmed': "Sunucu kaydı onaylayamadı. Bağlantınızı kontrol edip tekrar deneyin: yeni bir değişiklikten önce doğrulanacaktır.",
+  'cloud.write.unavailable': "Hizmet geçici olarak kullanılamıyor: hiçbir şey kaydedilmedi. Birazdan tekrar deneyin.",
+  'cloud.write.denied': "Oturumunuz bu kayda izin vermiyor: hiçbir şey değiştirilmedi. Çıkış yapıp yeniden giriş yapın.",
+  'cloud.write.rejected': "Sunucu bu kaydı reddetti: hiçbir şey değiştirilmedi.",
+  'cloud.write.cacheStale': "Değişikliğiniz sunucuya kaydedildi ancak bu cihaz güncellenemedi. Sayfayı yeniden yükleyin.",
+  'cloud.feature.unavailable': "Bu özellik Cloud modunda henüz kullanılamıyor.",
+  'cloud.limited': "Cloud modunda yedek geri yükleme, demo verileri ve ekler henüz kullanılamıyor.",
 };
 
 export default tr;

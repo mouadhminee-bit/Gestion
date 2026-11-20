@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Database, Download, FileUp, FlaskConical, Lock, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
-import { useApp } from '@/app/AppContext';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Cloud, Database, Download, FileUp, FlaskConical, Lock, LogOut, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { useApp, type CloudAccount } from '@/app/AppContext';
 import { Card, PageHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, CategoryIcon } from '@/components/ui/Misc';
@@ -35,8 +35,35 @@ function weekday(day: 0 | 1, locale: string): string {
 
 const SECTIONS = ['profile', 'regional', 'display', 'notifications', 'categories', 'rates', 'data', 'privacy'] as const;
 
+/**
+ * Compte Cloud (V3.5, section minimale) : adresse de la session et déconnexion. La section
+ * complète (mot de passe…) relève de V4.5.
+ */
+function CloudAccountCard({ account }: { account: CloudAccount }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  async function signOut() {
+    if (busy) return;
+    setBusy(true);
+    const err = await account.signOut();
+    // En cas de succès, l'écran de connexion remplace l'application.
+    if (err) {
+      toast.error(t(err));
+      setBusy(false);
+    }
+  }
+  return (
+    <Card id="account" className="mb-5" title={<span className="flex items-center gap-1.5"><Cloud className="h-4 w-4" /> {t('cloud.title')}</span>}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm">{t('cloud.signedInAs', { email: account.email })}</p>
+        <Button variant="outline" loading={busy} icon={<LogOut className="h-4 w-4" />} onClick={signOut}>{t('auth.logout')}</Button>
+      </div>
+    </Card>
+  );
+}
+
 export default function Settings() {
-  const { settings, repo, data, ctx, today, fmt, uiLocale, setMonth } = useApp();
+  const { settings, repo, data, ctx, today, fmt, uiLocale, setMonth, cloud } = useApp();
   const { lang } = useI18n();
   const toast = useToast();
   const confirm = useConfirm();
@@ -71,6 +98,7 @@ export default function Settings() {
    *     réinitialisation des états d'interface (filtres, mois) incompatibles.
    */
   async function restore(file: File) {
+    if (cloud) return; // désactivée en mode Cloud jusqu'à V5
     if (file.size > MAX_BACKUP_FILE_BYTES) return toast.error(t('set.fileTooBig'));
     try {
       const parsed: unknown = JSON.parse(await file.text());
@@ -118,6 +146,7 @@ export default function Settings() {
   }
 
   async function resetDemo() {
+    if (cloud) return; // désactivée en mode Cloud jusqu'à V5
     if (!(await confirm({ title: t('set.resetDemo.title'), message: t('set.resetDemo.message'), confirmLabel: t('set.resetDemo.confirm') }))) return;
     const demo = generateDemoData(repo.userId, today, settings.displayName || 'Sara');
     await repo.replaceWithSnapshot(demo);
@@ -152,6 +181,8 @@ export default function Settings() {
       <nav className="no-print mb-5 flex gap-1.5 overflow-x-auto pb-1" aria-label={t('set.sections')}>
         {SECTIONS.map((id) => <a key={id} href={`#/settings#${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }} className="shrink-0 rounded-full border border-line/15 px-3 py-1.5 text-xs text-muted hover:text-fg">{td(`set.sec.${id}`)}</a>)}
       </nav>
+
+      {cloud && <CloudAccountCard account={cloud} />}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card id="profile" title={t('set.sec.profile')}>
@@ -234,9 +265,16 @@ export default function Settings() {
             <div className="label mb-2">{t('set.backup')}</div>
             <div className="flex flex-col gap-2">
               <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={exportBackup}>{t('set.exportBackup')}</Button>
-              <Button variant="outline" icon={<Upload className="h-4 w-4" />} onClick={() => fileRef.current?.click()}>{t('set.restoreBackup')}</Button>
-              <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" data-testid="restore-input" onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = ''; }} />
-              <p className="text-xs text-muted">{t('set.backupNote')}</p>
+              {cloud ? (
+                // Mode Cloud : restauration désactivée jusqu'à V5 (export conservé).
+                <p className="text-xs text-muted">{t('cloud.limited')}</p>
+              ) : (
+                <>
+                  <Button variant="outline" icon={<Upload className="h-4 w-4" />} onClick={() => fileRef.current?.click()}>{t('set.restoreBackup')}</Button>
+                  <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" data-testid="restore-input" onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = ''; }} />
+                  <p className="text-xs text-muted">{t('set.backupNote')}</p>
+                </>
+              )}
             </div>
           </div>
           <div>
@@ -251,7 +289,7 @@ export default function Settings() {
           <div>
             <div className="label mb-2">{t('set.reset')}</div>
             <div className="flex flex-col gap-2">
-              <Button variant="outline" icon={<FlaskConical className="h-4 w-4" />} onClick={resetDemo}>{t('set.resetDemo')}</Button>
+              {!cloud && <Button variant="outline" icon={<FlaskConical className="h-4 w-4" />} onClick={resetDemo}>{t('set.resetDemo')}</Button>}
               <Button variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={startEmpty}>{t('set.startEmpty')}</Button>
               <Button variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={deleteAll}>{t('set.deleteAll')}</Button>
               {settings.demoMode && <Badge tone="warning" className="self-start">{t('set.demoActive')}</Badge>}

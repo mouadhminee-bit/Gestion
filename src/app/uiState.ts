@@ -55,6 +55,24 @@ export function resetUiStateAfterRestore(month: MonthKey): void {
   }
 }
 
+/**
+ * Fin de session Cloud (déconnexion, changement de compte — V3.5) : efface les états
+ * d'interface mémorisés (identifiants, filtres, mois), propres aux données de l'utilisateur.
+ * Les préférences de l'appareil (langue, thème) sont conservées.
+ */
+export function clearUiStateOnSessionEnd(): void {
+  try {
+    for (const k of [...SESSION_KEYS_RESET_ON_RESTORE, MONTH_KEY]) sessionStorage.removeItem(k);
+  } catch {
+    /* stockage indisponible : rien à effacer */
+  }
+  try {
+    for (const k of LOCAL_KEYS_RESET_ON_RESTORE) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Ignore les filtres de compte / catégorie dont l'identifiant n'existe pas (ou plus). */
 export function dropUnknownIds<F extends { accountId: string; categoryId: string }>(f: F, ctx: { accounts: Map<ID, unknown>; categories: Map<ID, unknown> }): F {
   const accountOk = !f.accountId || ctx.accounts.has(f.accountId);

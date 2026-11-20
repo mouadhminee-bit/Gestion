@@ -18,7 +18,7 @@ import { formatDate, formatMonth, monthKey, todayISO } from '@/domain/dates';
 import type { CurrencyCode } from '@/domain/money';
 import { formatMoney, formatPercent } from '@/domain/money';
 import { displayCategoryName } from '@/domain/categories.seed';
-import { getLang } from '@/i18n/core';
+import { getLang, type MessageKey } from '@/i18n/core';
 
 export interface Formatters {
   money: (minor: number, currency?: CurrencyCode, opts?: { sign?: boolean; compact?: boolean; force?: boolean }) => string;
@@ -41,7 +41,22 @@ interface AppState {
   fmt: Formatters;
   /** Locale de l'interface (noms des mois et des jours), distincte des formats numériques. */
   uiLocale: string;
+  /**
+   * Compte Cloud de la session (V3.5) ; `null` en mode local. En mode Cloud, la démo, les
+   * pièces jointes et la restauration sont désactivées jusqu'à V5.
+   */
+  cloud: CloudAccount | null;
 }
+
+/** Compte Cloud de la session affiché dans l'application (aucun code Cloud importé ici). */
+export interface CloudAccount {
+  readonly email: string;
+  /** Déconnexion : clé du message d'erreur, ou `null` si elle a réussi. */
+  signOut(): Promise<MessageKey | null>;
+}
+
+/** Source de l'instantané affiché : le dépôt (mode local) ou un lecteur du cache (mode Cloud). */
+export type SnapshotSource = Pick<NexoraRepository, 'snapshot'>;
 
 const AppCtx = createContext<AppState | null>(null);
 
@@ -88,7 +103,7 @@ function useToday(timeZone: string): ISODate {
   return today;
 }
 
-export function AppProvider({ repo, data: rawData, children }: { repo: NexoraRepository; data: DataSnapshot; children: ReactNode }) {
+export function AppProvider({ repo, data: rawData, cloud = null, children }: { repo: NexoraRepository; data: DataSnapshot; cloud?: CloudAccount | null; children: ReactNode }) {
   // Catégories initiales affichées dans la langue active (sauf si renommées).
   // Paramètres normalisés en mémoire : un champ absent ou invalide ne peut pas bloquer l'affichage.
   const data = useMemo(() => ({ ...rawData, settings: normalizeSettings(rawData.settings), categories: rawData.categories.map((c) => ({ ...c, name: displayCategoryName(c) })) }), [rawData]);
@@ -124,7 +139,7 @@ export function AppProvider({ repo, data: rawData, children }: { repo: NexoraRep
   }, [settings.theme]);
 
   const uiLocale = uiLocaleFor(settings);
-  const value = useMemo<AppState>(() => ({ repo, data, settings, ctx, today, month, setMonth, fmt, uiLocale }), [repo, data, settings, ctx, today, month, setMonth, fmt, uiLocale]);
+  const value = useMemo<AppState>(() => ({ repo, data, settings, ctx, today, month, setMonth, fmt, uiLocale, cloud }), [repo, data, settings, ctx, today, month, setMonth, fmt, uiLocale, cloud]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }
 
@@ -139,7 +154,10 @@ export function useApp(): AppState {
   return v;
 }
 
-/** Charge l'instantané en direct ; `null` = aucun profil (onboarding), `undefined` = chargement. */
-export function useSnapshot(repo: NexoraRepository) {
-  return useLiveQuery(() => repo.snapshot(), [repo]);
+/**
+ * Charge l'instantané en direct ; `null` = aucun profil (onboarding), `undefined` = chargement.
+ * `source` : le dépôt (mode local) ou le lecteur du cache Cloud (V3.5, option O1).
+ */
+export function useSnapshot(source: SnapshotSource) {
+  return useLiveQuery(() => source.snapshot(), [source]);
 }

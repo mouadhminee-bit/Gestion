@@ -1869,12 +1869,19 @@ const es: Messages = {
   'auth.config.text': "El modo Cloud está seleccionado, pero su configuración falta o no es válida: no es posible acceder. Los detalles están en la consola del navegador.",
   'cloud.title': "Espacio Cloud",
   'cloud.signedInAs': "Sesión iniciada como {email}",
-  'cloud.pending': "Tus datos Cloud están cargados en este dispositivo. Su consulta y su edición se activarán en una próxima etapa.",
   'cloud.loading': "Cargando tus datos Cloud…",
   'cloud.loadError.title': "No se pudieron cargar los datos",
   'cloud.loadError.unavailable': "El servicio no está disponible temporalmente. Comprueba tu conexión e inténtalo de nuevo.",
   'cloud.loadError.denied': "Se ha denegado el acceso a tus datos. Inténtalo de nuevo; si el problema persiste, cierra sesión y vuelve a iniciarla.",
   'cloud.loadError.failed': "No se pudieron cargar todos tus datos: no se ha guardado ningún dato incompleto. Inténtalo de nuevo; si el problema persiste, cierra sesión.",
+  'cloud.write.conflict': "Estos datos se modificaron mientras tanto (otro dispositivo u otra pestaña): no se ha guardado nada. Recarga la página y vuelve a intentarlo.",
+  'cloud.write.unconfirmed': "El servidor no pudo confirmar el guardado. Comprueba tu conexión y vuelve a intentarlo: se verificará antes de cualquier nuevo cambio.",
+  'cloud.write.unavailable': "El servicio no está disponible temporalmente: no se ha guardado nada. Inténtalo de nuevo en un momento.",
+  'cloud.write.denied': "Tu sesión no permite este guardado: no se ha modificado nada. Cierra sesión y vuelve a iniciarla.",
+  'cloud.write.rejected': "El servidor rechazó este guardado: no se ha modificado nada.",
+  'cloud.write.cacheStale': "Tu cambio está guardado en el servidor, pero este dispositivo no pudo actualizarse. Recarga la página.",
+  'cloud.feature.unavailable': "Esta función aún no está disponible en el modo Cloud.",
+  'cloud.limited': "En el modo Cloud, la restauración de copias de seguridad, los datos de demostración y los adjuntos aún no están disponibles.",
 };
 
 export default es;

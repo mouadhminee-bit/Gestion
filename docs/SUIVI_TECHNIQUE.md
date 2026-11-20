@@ -15,7 +15,7 @@ uniquement par un lot validé qui la traite explicitement (test à l'appui).
 
 | # | Point | Origine | Lot |
 |---|---|---|---|
-| P1 | Cache cloud en retard si l'écriture du cache échoue après acceptation du serveur. **Atténué à l'étape 4.3** : le résultat accepté est conservé et réappliqué avant toute nouvelle écriture (`CloudCacheWriteError`) ; perdu si l'application est fermée entre-temps → rattrapage par la récupération des changements. **V3.4** : le chargement complet exécuté à chaque ouverture de session ou rechargement remplace le cache par l'état du serveur, ce qui rattrape un tel écart dès que ce chargement réussit ; effectif dans l'application une fois les écritures Cloud branchées (V3.5) | Lot 2 § 8.2 | 5 |
+| P1 | Cache cloud en retard si l'écriture du cache échoue après acceptation du serveur. **Atténué à l'étape 4.3** : le résultat accepté est conservé et réappliqué avant toute nouvelle écriture (`CloudCacheWriteError`) ; perdu si l'application est fermée entre-temps → rattrapage par la récupération des changements. **V3.4** : le chargement complet exécuté à chaque ouverture de session ou rechargement remplace le cache par l'état du serveur, ce qui rattrape un tel écart dès que ce chargement réussit ; effectif dans l'application une fois les écritures Cloud branchées (V3.5). **Effectif depuis V3.5** (écritures branchées ; chargement complet à chaque ouverture de session) | Lot 2 § 8.2 | 5 |
 | P2 | `ChangeSet` sans version ; correspondance des tables `users` / `meta` vers le serveur. **Correspondance traitée à l'étape 4.2** (`src/data/cloud/mapping.ts` : `users` → `profiles` en mise à jour seule, `meta` exclue — `docs/LOT4_PLAN.md` § 5) ; **version du `ChangeSet` : traitée à l'étape 4.3** (protocole v1, `docs/LOT4_PLAN.md` § 6) ; `meta` exclue du protocole (locale, jamais transmise, refusée par le serveur simulé — § 6.10) | Lot 2 § 8.3 | 4 |
 | P3 | Références orphelines possibles dans les données locales existantes (suppressions physiques en IndexedDB : compte supprimé encore référencé par un objectif, etc.) : à détecter et réparer avant toute migration des données Edge | Cadrage Lot 3 | lot « migration Edge » |
 | P4 | Pièces jointes exclues des sauvegardes JSON alors que `transactions.attachmentId` est conservé. **Traité par le correctif Backup / Restore v2 (en attente de validation)** : pièces jointes exportées (base64) et restaurées ; une pièce jointe référencée mais absente du fichier (fichier v1) est conservée localement (`docs/BACKUP_RESTORE.md` § 5, tests « 14 » et « 20 ») | existant | v2 / 7 (stockage distant) |
@@ -127,7 +127,7 @@ obligatoire avant V3.5) et **P35** ci-dessous.
 
 | # | Point | Statut | Lot |
 |---|---|---|---|
-| P35 | **Chemin de succès non validé réellement sur NEXORA-DEV** : V3.3 n'a exécuté sur DEV que des refus (décision du 19/11/2026 : aucune donnée des comptes de test modifiée) ; le chemin de succès n'est couvert qu'en simulation et **ne doit pas être considéré comme acquis**. Critère restant : exécuter réellement un `apply_changeset` accepté ; appeler ensuite `resolve_changeset` sur le même lot ; vérifier le résultat `replayed` ; vérifier que les données persistées correspondent exactement au lot soumis | ouvert | au plus tard V3.5 ou V3.7 |
+| P35 | **Chemin de succès non validé réellement sur NEXORA-DEV** : V3.3 n'a exécuté sur DEV que des refus (décision du 19/11/2026 : aucune donnée des comptes de test modifiée) ; le chemin de succès n'est couvert qu'en simulation et **ne doit pas être considéré comme acquis**. Critère restant : exécuter réellement un `apply_changeset` accepté ; appeler ensuite `resolve_changeset` sur le même lot ; vérifier le résultat `replayed` ; vérifier que les données persistées correspondent exactement au lot soumis | ouvert | **V3.7** (report acté en V3.5, arbitrage A6 : essai dédié sous autorisation d'écriture sur DEV) |
 
 ## Plan directeur V1 — V3.4 : chargement initial des données Cloud (19 et 20/11/2026)
 
@@ -172,10 +172,71 @@ Points consignés en clôture de V3.4 :
 | P36 | **D2 — mutation équivalente** (V3.4-d) : dans `MemoryTransport`, la comparaison « clé non canonique » est inatteignable, la conversion préalable par le mapping refusant déjà toute clé non canonique (UUID en minuscules exigés) ; ce refus est couvert par `transportContract.test.ts` (clé en majuscules → `invalid_key`) | acté, sans action | — |
 | P37 | **Validation dans un vrai navigateur** : ordre « fin de la transaction, puis suppression » prévu par la norme IndexedDB (fake-indexeddb 6.0.0 supprime d'abord ; seul l'état final est vérifié), comportement multi-onglets (`BroadcastChannel` du SDK : testé sous jsdom avec le vrai SDK et le `BroadcastChannel` de Node, non dans un navigateur), quota IndexedDB réel (simulé), réouverture du cache après suppression | ouvert | V3.7 |
 | P38 | **Hypothèse H1** (preuve d'intégralité de la lecture) : aucune ligne métier n'est effacée physiquement pendant un chargement (`authenticated` sans `DELETE`, suppression logique par `apply_changeset`, clés jamais modifiées). À réexaminer avant toute purge (P5, P14, P31) ou toute suppression de compte | ouvert | avant V7 |
-| P39 | **Lecture et chargement non validés sur NEXORA-DEV** : lecture seule, sans aucune écriture — distinct de **P35**, qui porte sur l'écriture (lot accepté, puis `replayed`). les essais réels en lecture seule prévus au cadrage (chargement du compte B comparé à une lecture directe, profil du compte A, isolation, conversion des 18 tables réelles, jeton falsifié, déconnexion réelle) n'ont pas été réalisés ; seule une ligne `accounts` réelle a été convertie (V3.3) | ouvert | V3.5 ou V3.7, sur autorisation |
+| P39 | **Lecture et chargement non validés sur NEXORA-DEV** : lecture seule, sans aucune écriture — distinct de **P35**, qui porte sur l'écriture (lot accepté, puis `replayed`). les essais réels en lecture seule prévus au cadrage (chargement du compte B comparé à une lecture directe, profil du compte A, isolation, conversion des 18 tables réelles, jeton falsifié, déconnexion réelle) n'ont pas été réalisés ; seule une ligne `accounts` réelle a été convertie (V3.3) | ouvert | **V3.7**, sur autorisation (report acté en V3.5, arbitrage A6) |
 | P40 | **Lecture non transactionnelle entre les 18 tables** : une modification sur place pendant un chargement laisse une version antérieure dans le cache (sans danger : l'écriture suivante est refusée par conflit) ; un instantané exact relève de V4 (M9, borne P8). Pièces jointes chargées sans fichier (`blob` local, jamais transmis) : sans effet tant qu'elles sont désactivées en mode Cloud | accepté | V4 / V5 |
 | P41 | Comportements de V3.2 conservés : une déconnexion faite dans un autre onglet s'affiche « session expirée » dans les onglets restants ; un `SIGNED_IN` venu d'un autre onglet est accepté sans nouvelle vérification (le changement de compte entre onglets repose sur ce comportement). Suppression du cache en arrière-plan, bornée à 5 s ; un cache dont la suppression est bloquée est purgé à l'ouverture de session suivante. Traductions des 5 nouvelles clés et de `cloud.pending` non relues par des locuteurs natifs | ouvert | V3.7 / V6 |
 | P42 | **SMTP personnalisé** (réserve de clôture de V2, 19/11/2026) : NEXORA-DEV exige la confirmation de l'e-mail (V2.3) et utilise le serveur d'e-mail par défaut de Supabase, limité ; l'inscription réelle d'un nouvel utilisateur requiert un SMTP personnalisé, à configurer avant l'étape 2 (confirmation de l'e-mail) du parcours de V3.7 | ouvert | avant l'étape 2 de V3.7 |
 
 Réserves toujours ouvertes après V3.4 : **P35** (chemin de succès réel sur DEV, au plus tard
 V3.5 ou V3.7), **P42** (SMTP, avant l'étape 2 du parcours V3.7), P37, P39, P41.
+
+## Plan directeur V1 — V3.5 : branchement de `CloudRepository` et onboarding Cloud (20/11/2026)
+
+Périmètre (ligne V3.5 du plan directeur V1) : en mode Cloud avec session,
+`CloudRepository(uid, HttpTransport)` remplace le dépôt local ; l'onboarding Cloud
+(`ensureUser` après le chargement) crée profil, paramètres et catégories en un seul lot ; démo,
+pièces jointes et restauration désactivées en mode Cloud jusqu'à V5. Aucun accès à DEV ni à
+PROD, aucune modification du schéma, des migrations, de la RLS ni de l'Auth.
+`CloudRepository`, `CloudStorage`, les transports et le chargement (V3.3, V3.4) sont inchangés
+(seul l'en-tête de `CloudRepository.ts` est mis à jour).
+
+**Option O1 (décision du 20/11/2026, après l'échec du test décisif T3)** : les lectures faites
+à travers `CloudRepository` sortent de la zone de suivi de Dexie (file d'appels sérialisés) ;
+`useLiveQuery` ne recalculait donc jamais l'instantané. L'affichage lit désormais le cache par un
+lecteur en lecture seule (`CloudSnapshotReader` : règles de `RepositoryCore.snapshot` sur
+`DexieStorage(cache)`, seul `snapshot()` exposé) ; toutes les écritures passent par
+`CloudRepository`. Le cache ne reçoit que le chargement initial et les lots confirmés par le
+serveur : le lecteur n'affiche jamais une écriture en cours, refusée, à l'issue inconnue, ni un
+lot accepté dont l'écriture dans le cache a échoué (vérifié cas par cas).
+
+| Élément | Contenu | Fichiers principaux |
+|---|---|---|
+| Espace de travail | Contenu de `Root` extrait dans `Workspace` (instantané → onboarding ou application), partagé par les deux modes ; sans import Cloud | `src/app/Workspace.tsx`, `src/App.tsx` |
+| Branchement | Après chargement réussi : espace de données de la session (`CloudCacheDB(uid)`, `CloudRepository(uid, HttpTransport)` derrière une garde, lecteur O1), recréé à chaque changement de compte, fermé au démontage ; erreur de l'espace contenue dans la session | `src/data/cloud/cloudWorkspace.ts`, `CloudSnapshotReader.ts`, `src/features/auth/CloudApp.tsx` |
+| Capacités | Compte Cloud transmis à l'application (`AppProvider`, `Onboarding`) ; `useSnapshot` accepte le lecteur | `src/app/AppContext.tsx` |
+| Désactivations (A5) | Interface : démo (accueil, paramètres), restauration, champ de pièce jointe masqués (export conservé, note `cloud.limited`) ; dépôt : `addAttachment`, `restoreBackup`, `replaceWithSnapshot` refusés (`CloudFeatureUnavailableError`) par une garde extérieure à `CloudRepository`, sans requête | `Onboarding.tsx`, `Settings.tsx`, `TransactionForm.tsx`, `cloudWorkspace.ts` |
+| Compte (A4) | Section minimale : adresse et « Se déconnecter » dans les paramètres, et sur l'accueil Cloud ; section complète en V4.5 | `Settings.tsx`, `Onboarding.tsx` |
+| Fin de session | États d'interface mémorisés (filtres, mois, dernier compte) effacés à la déconnexion et au changement de compte ; langue et thème conservés | `src/app/uiState.ts`, `CloudApp.tsx` |
+| Erreurs (A2) | Erreurs d'écriture Cloud traduites, sans détail technique (conflit, issue inconnue, indisponibilité, session refusée, refus, cache non mis à jour, fonction indisponible) ; 8 clés dans les 24 langues, `cloud.pending` retirée | `src/components/ui/Toast.tsx`, 24 dictionnaires |
+| Sélection | `effective = supabase` en mode Cloud correctement configuré ; diagnostic mis à jour | `src/data/backend.ts` |
+
+Adaptations de tests existants : la barrière (`CloudApp`, `CloudData`, `CloudMultiTab`) reçoit
+un espace factice reproduisant l'ancien écran d'attente (`src/test/cloudWorkspaceStub.ts`) ; le
+parcours sans réseau de `CloudApp.test.ts` utilise un espace de données factice et vérifie
+l'accueil Cloud ; le test de source de Decision Lab lit `Workspace.tsx` ; le test de sélection
+attend `effective = supabase`. Le test de contrat « `CloudRepository` ne redéfinit aucune méthode
+métier » est conservé tel quel (la garde de A5 a été déplacée hors de la classe pour le
+respecter).
+
+| Contrôle (20/11/2026) | Résultat |
+|---|---|
+| Suite complète (tests simulés) | 1 812 / 1 812 (62 fichiers) |
+| Tests ajoutés | 33 : lecteur O1 10 ; parcours de bout en bout simulé (vrai SDK, serveur simulé, fake-indexeddb) 8 ; messages d'erreur et 24 langues 13 ; graphe d'imports du mode local 2 |
+| T3 (rafraîchissement) | réussi : onboarding → application sans rechargement ; écriture appliquée par le serveur mais non confirmée → invisible, puis affichée après confirmation |
+| Défauts introduits volontairement | 9 / 10 détectés ; le 10ᵉ (dépendance de l'effet de l'espace sur l'utilisateur) est une mutation équivalente, la clé par utilisateur recréant déjà l'espace |
+| Mode local | aucun module Cloud dans le graphe statique ; bundle principal sans `apply_changeset`, `resolve_changeset` ni `nexora-cache` (code Cloud dans le seul module `CloudApp` chargé à la demande) |
+| TypeScript et build | réussis |
+| Essais réels sur NEXORA-DEV | aucun (P35 et P39 reportés en V3.7, arbitrage A6) |
+| Git | aucun commit ni push à la date de cette clôture documentaire |
+
+Points consignés en clôture de V3.5 :
+
+| # | Point | Statut | Lot |
+|---|---|---|---|
+| P43 | **Onboarding Cloud en 4 lots** (A1, parcours inchangé) : profil + paramètres + catégories ; paramètres ; premier compte ; fin d'onboarding. Une interruption laisse un état repris par l'accueil (`ensureUser` n'écrit rien la seconde fois, testé) ; cas résiduel : compte en double si le 3ᵉ lot est accepté et le 4ᵉ échoue | accepté | — |
+| P44 | **Date de création du profil** : après `ensureUser`, le cache porte la date du client, le serveur conserve la sienne (`profiles.created_at` jamais écrit par le client) ; écart corrigé au chargement suivant (A3) | accepté | — |
+| P45 | **Lots volumineux** en mode Cloud (« Effacer toutes les données », « Repartir de zéro », import CSV) : un seul lot, soumis aux limites du serveur (5 000 opérations, 4 Mio) ; sans effet sur un compte récent | ouvert | V5 (P30) |
+| P46 | Traductions des 8 nouvelles clés non relues par des locuteurs natifs ; comportement réel du lecteur O1 (suivi de Dexie, multi-onglets) à confirmer dans un vrai navigateur | ouvert | V3.7 / V6 |
+
+Réserves toujours ouvertes après V3.5 : **P35** et **P39** (V3.7, sur autorisation), **P42**
+(SMTP, avant l'étape 2 du parcours V3.7), P37, P41, P45, P46.

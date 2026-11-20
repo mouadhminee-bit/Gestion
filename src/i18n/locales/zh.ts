@@ -1869,12 +1869,19 @@ const zh: Messages = {
   'auth.config.text': "已选择云模式，但其配置缺失或无效：无法访问。详情请查看浏览器控制台。",
   'cloud.title': "云空间",
   'cloud.signedInAs': "已登录：{email}",
-  'cloud.pending': "您的云数据已加载到此设备。查看和编辑功能将在后续步骤中启用。",
   'cloud.loading': "正在加载您的云数据…",
   'cloud.loadError.title': "无法加载数据",
   'cloud.loadError.unavailable': "服务暂时无法访问。请检查网络连接，然后重试。",
   'cloud.loadError.denied': "访问您的数据被拒绝。请重试；如果问题仍然存在，请退出登录后重新登录。",
   'cloud.loadError.failed': "未能完整加载您的数据：未保存任何不完整的数据。请重试；如果问题仍然存在，请退出登录。",
+  'cloud.write.conflict': "这些数据在此期间已被修改（其他设备或标签页）：未保存任何内容。请重新加载页面后重试。",
+  'cloud.write.unconfirmed': "服务器未能确认保存。请检查网络连接后重试：在进行任何新的修改之前会先核实。",
+  'cloud.write.unavailable': "服务暂时不可用：未保存任何内容。请稍后重试。",
+  'cloud.write.denied': "您的会话不允许此次保存：未修改任何内容。请退出登录后重新登录。",
+  'cloud.write.rejected': "服务器拒绝了此次保存：未修改任何内容。",
+  'cloud.write.cacheStale': "您的修改已保存到服务器，但此设备未能更新。请重新加载页面。",
+  'cloud.feature.unavailable': "此功能在云模式下暂不可用。",
+  'cloud.limited': "在云模式下，暂不支持恢复备份、演示数据和附件。",
 };
 
 export default zh;

@@ -1869,12 +1869,19 @@ const nl: Messages = {
   'auth.config.text': "De Cloud-modus is geselecteerd, maar de configuratie ontbreekt of is ongeldig: toegang is niet mogelijk. Details staan in de browserconsole.",
   'cloud.title': "Cloud-omgeving",
   'cloud.signedInAs': "Ingelogd als {email}",
-  'cloud.pending': "Je Cloud-gegevens zijn op dit apparaat geladen. Bekijken en bewerken worden in een volgende stap geactiveerd.",
   'cloud.loading': "Je Cloud-gegevens worden geladen…",
   'cloud.loadError.title': "Laden mislukt",
   'cloud.loadError.unavailable': "De dienst is tijdelijk onbereikbaar. Controleer je verbinding en probeer het opnieuw.",
   'cloud.loadError.denied': "De toegang tot je gegevens is geweigerd. Probeer het opnieuw; blijft het probleem bestaan, log dan uit en weer in.",
   'cloud.loadError.failed': "Je gegevens konden niet volledig worden geladen: er zijn geen onvolledige gegevens opgeslagen. Probeer het opnieuw; blijft het probleem bestaan, log dan uit.",
+  'cloud.write.conflict': "Deze gegevens zijn intussen gewijzigd (ander apparaat of ander tabblad): er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens.",
+  'cloud.write.unconfirmed': "De server kon het opslaan niet bevestigen. Controleer je verbinding en probeer het opnieuw: het wordt gecontroleerd vóór elke nieuwe wijziging.",
+  'cloud.write.unavailable': "De dienst is tijdelijk niet beschikbaar: er is niets opgeslagen. Probeer het zo meteen opnieuw.",
+  'cloud.write.denied': "Je sessie staat dit opslaan niet toe: er is niets gewijzigd. Log uit en log opnieuw in.",
+  'cloud.write.rejected': "De server heeft dit opslaan geweigerd: er is niets gewijzigd.",
+  'cloud.write.cacheStale': "Je wijziging is op de server opgeslagen, maar dit apparaat kon niet worden bijgewerkt. Laad de pagina opnieuw.",
+  'cloud.feature.unavailable': "Deze functie is nog niet beschikbaar in de Cloud-modus.",
+  'cloud.limited': "In de Cloud-modus zijn het terugzetten van een back-up, de demogegevens en bijlagen nog niet beschikbaar.",
 };
 
 export default nl;

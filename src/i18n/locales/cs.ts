@@ -1869,12 +1869,19 @@ const cs: Messages = {
   'auth.config.text': "Je vybrán režim Cloud, ale jeho konfigurace chybí nebo je neplatná: přístup není možný. Podrobnosti najdete v konzoli prohlížeče.",
   'cloud.title': "Prostor Cloud",
   'cloud.signedInAs': "Přihlášeno jako {email}",
-  'cloud.pending': "Vaše data v Cloudu jsou načtena v tomto zařízení. Jejich zobrazení a úpravy budou aktivovány v některém z dalších kroků.",
   'cloud.loading': "Načítání vašich dat v Cloudu…",
   'cloud.loadError.title': "Data se nepodařilo načíst",
   'cloud.loadError.unavailable': "Služba je dočasně nedostupná. Zkontrolujte připojení a zkuste to znovu.",
   'cloud.loadError.denied': "Přístup k vašim datům byl odepřen. Zkuste to znovu; pokud problém přetrvává, odhlaste se a znovu se přihlaste.",
   'cloud.loadError.failed': "Vaše data se nepodařilo načíst úplně: žádná neúplná data nebyla uložena. Zkuste to znovu; pokud problém přetrvává, odhlaste se.",
+  'cloud.write.conflict': "Tato data byla mezitím změněna (jiné zařízení nebo karta): nic nebylo uloženo. Načtěte stránku znovu a zkuste to znovu.",
+  'cloud.write.unconfirmed': "Server nemohl potvrdit uložení. Zkontrolujte připojení a zkuste to znovu: bude ověřeno před každou další změnou.",
+  'cloud.write.unavailable': "Služba je dočasně nedostupná: nic nebylo uloženo. Zkuste to za chvíli znovu.",
+  'cloud.write.denied': "Vaše relace toto uložení neumožňuje: nic nebylo změněno. Odhlaste se a znovu se přihlaste.",
+  'cloud.write.rejected': "Server toto uložení odmítl: nic nebylo změněno.",
+  'cloud.write.cacheStale': "Vaše změna je uložena na serveru, ale toto zařízení se nepodařilo aktualizovat. Načtěte stránku znovu.",
+  'cloud.feature.unavailable': "Tato funkce zatím není v režimu Cloud k dispozici.",
+  'cloud.limited': "V režimu Cloud zatím není k dispozici obnovení zálohy, ukázková data ani přílohy.",
 };
 
 export default cs;

@@ -1,13 +1,14 @@
 /**
- * Repository cloud (PRÉPARÉ, NON ACTIVÉ).
+ * Repository cloud. Branché dans l'application en mode Cloud depuis V3.5 (`cloudWorkspace.ts`,
+ * transport `HttpTransport`) ; code inchangé par ce branchement.
  *
  * Mêmes règles métier que `LocalRepository` (héritées de `RepositoryCore`), exécutées
  * sur `CloudStorage` : lecture du cache `nexora-cache-<uid>`, écritures soumises à un
  * `CloudTransport`. Par défaut le transport est `DisabledTransport` : toute écriture est
  * refusée et le cache reste intact.
  *
- * Rien dans l'application n'instancie cette classe à ce stade (aucune authentification,
- * aucune synchronisation, aucune connexion Supabase).
+ * L'affichage ne lit pas l'instantané par cette classe (file d'appels hors du suivi de Dexie) :
+ * voir `CloudSnapshotReader` (V3.5, option O1).
  */
 import { RepositoryCore } from '../RepositoryCore';
 import { REPOSITORY_METHODS } from '../contracts';

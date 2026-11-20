@@ -22,6 +22,7 @@ import { simBrowser, type SimBrowser } from '@/test/cloudBrowser';
 import { userToken, type RecordedRequest } from '@/test/postgrestSimulator';
 import { seed } from '@/test/cloudData';
 import { CloudGate } from './CloudApp';
+import { stubWorkspace } from '@/test/cloudWorkspaceStub';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 window.matchMedia ??= ((q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as never;
@@ -37,7 +38,7 @@ async function openTab(b: SimBrowser) {
   document.body.append(host);
   const root = createRoot(host);
   mounted.push({ root, host });
-  await act(async () => root.render(h(CloudGate, { auth: client.auth, cloud, timeoutMs: 2000 })));
+  await act(async () => root.render(h(CloudGate, { auth: client.auth, cloud, workspace: stubWorkspace, timeoutMs: 2000 })));
   return {
     client,
     host,

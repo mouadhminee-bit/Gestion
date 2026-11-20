@@ -8,8 +8,9 @@
  *    inchangé ;
  *  - `supabase` : la configuration Cloud est lue et validée ; l'application impose
  *    l'authentification Supabase (V2.5, `features/auth/CloudApp.tsx`) et n'ouvre JAMAIS la
- *    base locale. Les données Cloud ne sont pas encore activées (ni lecture, ni écriture) ;
- *    une configuration absente ou invalide bloque l'accès (aucun repli silencieux) ;
+ *    base locale. Données Cloud actives (V3.5) : chargement initial dans le cache de
+ *    l'utilisateur, écritures par `CloudRepository(uid, HttpTransport)` ; une configuration
+ *    absente ou invalide bloque l'accès (aucun repli silencieux) ;
  *  - toute autre valeur : refusée explicitement, backend `local`.
  *
  * La lecture de la configuration ne lève jamais d'exception : une configuration absente,
@@ -44,10 +45,11 @@ export interface BackendSelection {
   /** Backend demandé par `VITE_DATA_BACKEND` (`unknown` : valeur non reconnue). */
   readonly requested: DataBackend | 'unknown';
   /**
-   * Backend de DONNÉES : toujours `local` tant que les données Cloud ne sont pas activées.
-   * En mode `supabase`, aucun repository n'est créé (barrière d'authentification seule).
+   * Backend de DONNÉES : `supabase` si le mode Cloud est demandé avec une configuration valide
+   * (V3.5 : dépôt Cloud créé par `CloudApp` après authentification et chargement) ; sinon
+   * `local` (en mode `supabase` mal configuré, l'accès est bloqué : aucun dépôt n'est créé).
    */
-  readonly effective: 'local';
+  readonly effective: DataBackend;
   readonly supabase: SupabaseConfigStatus;
   /** Diagnostics, sans aucune valeur de configuration. */
   readonly notices: readonly string[];
@@ -141,12 +143,12 @@ export function selectBackend(env: BackendEnv): BackendSelection {
   if (requested === 'unknown') notices.push(`VITE_DATA_BACKEND : valeur non reconnue (admises : local, supabase) — ${LOCAL_USED}.`);
   if (requested === 'supabase') {
     const BLOCKED = 'accès bloqué';
-    if (supabase.status === 'ok') notices.push('Backend « supabase » : authentification requise ; les données Cloud ne sont pas encore activées dans cette version (aucune lecture ni écriture).');
+    if (supabase.status === 'ok') notices.push('Backend « supabase » : authentification requise ; données Cloud chargées dans le cache de l’utilisateur, écritures soumises au serveur (démo, pièces jointes et restauration indisponibles).');
     else if (supabase.status === 'absent') notices.push(`Backend « supabase » demandé sans configuration Cloud (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) — ${BLOCKED}.`);
     else if (supabase.status === 'incomplete') notices.push(`Backend « supabase » demandé : configuration Cloud incomplète (manquant : ${supabase.missing.join(', ')}) — ${BLOCKED}.`);
     else notices.push(`Backend « supabase » demandé : configuration Cloud invalide (${supabase.problems.join(' ; ')}) — ${BLOCKED}.`);
   }
-  return { requested, effective: 'local', supabase, notices };
+  return { requested, effective: requested === 'supabase' && supabase.status === 'ok' ? 'supabase' : 'local', supabase, notices };
 }
 
 let current: BackendSelection | null = null;

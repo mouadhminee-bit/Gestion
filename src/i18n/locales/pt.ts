@@ -1869,12 +1869,19 @@ const pt: Messages = {
   'auth.config.text': "O modo Cloud está selecionado, mas a sua configuração está em falta ou é inválida: o acesso não é possível. Os detalhes estão na consola do navegador.",
   'cloud.title': "Espaço Cloud",
   'cloud.signedInAs': "Sessão iniciada como {email}",
-  'cloud.pending': "Os seus dados Cloud estão carregados neste dispositivo. A consulta e a edição serão ativadas numa próxima etapa.",
   'cloud.loading': "A carregar os seus dados Cloud…",
   'cloud.loadError.title': "Não foi possível carregar os dados",
   'cloud.loadError.unavailable': "O serviço está temporariamente inacessível. Verifique a sua ligação e tente novamente.",
   'cloud.loadError.denied': "O acesso aos seus dados foi recusado. Tente novamente; se o problema persistir, termine sessão e volte a iniciá-la.",
   'cloud.loadError.failed': "Não foi possível carregar todos os seus dados: nenhum dado incompleto foi guardado. Tente novamente; se o problema persistir, termine sessão.",
+  'cloud.write.conflict': "Estes dados foram alterados entretanto (outro dispositivo ou outro separador): nada foi guardado. Recarregue a página e tente novamente.",
+  'cloud.write.unconfirmed': "O servidor não conseguiu confirmar a gravação. Verifique a ligação e tente novamente: será verificada antes de qualquer nova alteração.",
+  'cloud.write.unavailable': "O serviço está temporariamente indisponível: nada foi guardado. Tente novamente dentro de instantes.",
+  'cloud.write.denied': "A sua sessão não permite esta gravação: nada foi alterado. Termine sessão e volte a iniciar sessão.",
+  'cloud.write.rejected': "O servidor recusou esta gravação: nada foi alterado.",
+  'cloud.write.cacheStale': "A sua alteração está guardada no servidor, mas este dispositivo não conseguiu atualizar-se. Recarregue a página.",
+  'cloud.feature.unavailable': "Esta função ainda não está disponível no modo Cloud.",
+  'cloud.limited': "No modo Cloud, o restauro de cópias de segurança, os dados de demonstração e os anexos ainda não estão disponíveis.",
 };
 
 export default pt;

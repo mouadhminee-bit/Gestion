@@ -24,6 +24,7 @@ import { seed } from '@/test/cloudData';
 import type { AuthPort } from '@/data/cloud/auth';
 import type { CloudDataPort, CloudLoadOutcome } from '@/data/cloud/cloudLoadCycle';
 import { CloudGate } from './CloudApp';
+import { stubWorkspace } from '@/test/cloudWorkspaceStub';
 import { useCloudData, type CloudDataState } from './useCloudData';
 import type { CloudSessionState } from './useCloudSession';
 
@@ -40,7 +41,7 @@ async function openTab(b: SimBrowser, wrap: (n: ReactNode) => ReactNode = (n) =>
   document.body.append(host);
   const root = createRoot(host);
   mounted.push({ root, host });
-  await act(async () => root.render(wrap(h(CloudGate, { auth: client.auth, cloud, timeoutMs: 2000 }))));
+  await act(async () => root.render(wrap(h(CloudGate, { auth: client.auth, cloud, workspace: stubWorkspace, timeoutMs: 2000 }))));
   return {
     client,
     host,

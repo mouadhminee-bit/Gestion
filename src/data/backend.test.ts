@@ -51,13 +51,14 @@ describe('V2.4 — valeur de backend inconnue', () => {
 });
 
 describe('V2.4 — configuration Supabase', () => {
-  it('configuration valide (JWT anon) : détectée, URL normalisée, cloud NON activé (mode local)', () => {
+  it('configuration valide (JWT anon) : détectée, URL normalisée, données Cloud actives (V3.5)', () => {
     const s = selectBackend(cloud({ VITE_SUPABASE_URL: `${URL_OK}/` }));
     expect(s.requested).toBe('supabase');
-    expect(s.effective).toBe('local');
+    expect(s.effective).toBe('supabase');
     expect(s.supabase).toEqual({ status: 'ok', config: { url: URL_OK, anonKey: ANON } });
     expect(s.notices).toHaveLength(1);
-    expect(s.notices[0]).toContain('pas encore activé');
+    expect(s.notices[0]).toContain('données Cloud chargées');
+    expect(s.notices[0]).not.toContain(ANON);
   });
 
   it('clé « sb_publishable_ » et pile locale http://127.0.0.1 acceptées', () => {

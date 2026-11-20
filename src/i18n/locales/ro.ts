@@ -1869,12 +1869,19 @@ const ro: Messages = {
   'auth.config.text': "Modul Cloud este selectat, dar configurația sa lipsește sau este nevalidă: accesul nu este posibil. Detaliile se află în consola browserului.",
   'cloud.title': "Spațiul Cloud",
   'cloud.signedInAs': "Conectat ca {email}",
-  'cloud.pending': "Datele dumneavoastră Cloud sunt încărcate pe acest dispozitiv. Consultarea și modificarea lor vor fi activate într-o etapă următoare.",
   'cloud.loading': "Se încarcă datele dumneavoastră Cloud…",
   'cloud.loadError.title': "Încărcarea nu a reușit",
   'cloud.loadError.unavailable': "Serviciul este temporar indisponibil. Verificați conexiunea, apoi reîncercați.",
   'cloud.loadError.denied': "Accesul la datele dumneavoastră a fost refuzat. Reîncercați; dacă problema persistă, deconectați-vă și conectați-vă din nou.",
   'cloud.loadError.failed': "Datele dumneavoastră nu au putut fi încărcate complet: nu a fost salvată nicio dată incompletă. Reîncercați; dacă problema persistă, deconectați-vă.",
+  'cloud.write.conflict': "Aceste date au fost modificate între timp (alt dispozitiv sau altă filă): nu s-a salvat nimic. Reîncărcați pagina, apoi reîncercați.",
+  'cloud.write.unconfirmed': "Serverul nu a putut confirma salvarea. Verificați conexiunea, apoi reîncercați: va fi verificată înaintea oricărei noi modificări.",
+  'cloud.write.unavailable': "Serviciul este momentan indisponibil: nu s-a salvat nimic. Reîncercați peste câteva clipe.",
+  'cloud.write.denied': "Sesiunea dumneavoastră nu permite această salvare: nu s-a modificat nimic. Deconectați-vă, apoi conectați-vă din nou.",
+  'cloud.write.rejected': "Serverul a refuzat această salvare: nu s-a modificat nimic.",
+  'cloud.write.cacheStale': "Modificarea este salvată pe server, dar acest dispozitiv nu s-a putut actualiza. Reîncărcați pagina.",
+  'cloud.feature.unavailable': "Această funcție nu este încă disponibilă în modul Cloud.",
+  'cloud.limited': "În modul Cloud, restaurarea unei copii de rezervă, datele demonstrative și atașamentele nu sunt încă disponibile.",
 };
 
 export default ro;

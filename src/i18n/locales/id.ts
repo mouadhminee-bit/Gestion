@@ -1869,12 +1869,19 @@ const id: Messages = {
   'auth.config.text': "Mode Cloud dipilih, tetapi konfigurasinya tidak ada atau tidak valid: akses tidak memungkinkan. Detailnya ada di konsol peramban.",
   'cloud.title': "Ruang Cloud",
   'cloud.signedInAs': "Masuk sebagai {email}",
-  'cloud.pending': "Data Cloud Anda telah dimuat di perangkat ini. Melihat dan mengedit data akan diaktifkan pada tahap berikutnya.",
   'cloud.loading': "Memuat data Cloud Anda…",
   'cloud.loadError.title': "Data tidak dapat dimuat",
   'cloud.loadError.unavailable': "Layanan sementara tidak dapat dijangkau. Periksa koneksi Anda, lalu coba lagi.",
   'cloud.loadError.denied': "Akses ke data Anda ditolak. Coba lagi; jika masalah berlanjut, keluar lalu masuk kembali.",
   'cloud.loadError.failed': "Data Anda tidak dapat dimuat sepenuhnya: tidak ada data tidak lengkap yang disimpan. Coba lagi; jika masalah berlanjut, keluar.",
+  'cloud.write.conflict': "Data ini telah diubah sementara itu (perangkat atau tab lain): tidak ada yang disimpan. Muat ulang halaman, lalu coba lagi.",
+  'cloud.write.unconfirmed': "Server tidak dapat mengonfirmasi penyimpanan. Periksa koneksi Anda, lalu coba lagi: penyimpanan akan diperiksa sebelum perubahan baru apa pun.",
+  'cloud.write.unavailable': "Layanan sedang tidak tersedia: tidak ada yang disimpan. Coba lagi sebentar lagi.",
+  'cloud.write.denied': "Sesi Anda tidak mengizinkan penyimpanan ini: tidak ada yang diubah. Keluar, lalu masuk kembali.",
+  'cloud.write.rejected': "Server menolak penyimpanan ini: tidak ada yang diubah.",
+  'cloud.write.cacheStale': "Perubahan Anda tersimpan di server, tetapi perangkat ini tidak dapat diperbarui. Muat ulang halaman.",
+  'cloud.feature.unavailable': "Fitur ini belum tersedia dalam mode Cloud.",
+  'cloud.limited': "Dalam mode Cloud, pemulihan cadangan, data demo, dan lampiran belum tersedia.",
 };
 
 export default id;

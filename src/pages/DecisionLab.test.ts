@@ -143,8 +143,8 @@ describe('Decision Lab — navigation', () => {
     }
   });
 
-  it('la page est déclarée en chargement différé dans App.tsx', () => {
-    const src = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
+  it('la page est déclarée en chargement différé dans l’espace de travail (routes extraites de App.tsx en V3.5)', () => {
+    const src = readFileSync(join(process.cwd(), 'src/app/Workspace.tsx'), 'utf8');
     expect(src).toContain("const DecisionLab = lazy(() => import('@/pages/DecisionLab'));");
     expect(src).toContain('<Route path="/decision-lab" element={<DecisionLab />} />');
   });

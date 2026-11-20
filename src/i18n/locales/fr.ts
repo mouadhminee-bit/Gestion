@@ -1909,12 +1909,19 @@ const fr = {
   'auth.config.text': "Le mode Cloud est sélectionné, mais sa configuration est absente ou invalide : aucun accès n’est possible. Le détail figure dans la console du navigateur.",
   'cloud.title': "Espace Cloud",
   'cloud.signedInAs': "Connecté avec {email}",
-  'cloud.pending': "Vos données Cloud sont chargées sur cet appareil. Leur consultation et leur modification seront activées lors d’une prochaine étape.",
   'cloud.loading': "Chargement de vos données Cloud…",
   'cloud.loadError.title': "Chargement impossible",
   'cloud.loadError.unavailable': "Le service est momentanément injoignable. Vérifiez votre connexion, puis réessayez.",
   'cloud.loadError.denied': "L’accès à vos données a été refusé. Réessayez ; si le problème persiste, déconnectez-vous puis reconnectez-vous.",
   'cloud.loadError.failed': "Vos données n’ont pas pu être chargées complètement : aucune donnée incomplète n’a été enregistrée. Réessayez ; si le problème persiste, déconnectez-vous.",
+  'cloud.write.conflict': "Ces données ont été modifiées entre-temps (autre appareil ou autre onglet) : rien n’a été enregistré. Rechargez la page, puis recommencez.",
+  'cloud.write.unconfirmed': "L’enregistrement n’a pas pu être confirmé par le serveur. Vérifiez votre connexion, puis réessayez : il sera vérifié avant toute nouvelle modification.",
+  'cloud.write.unavailable': "Le service est momentanément indisponible : rien n’a été enregistré. Réessayez dans un instant.",
+  'cloud.write.denied': "Votre session ne permet pas cet enregistrement : rien n’a été modifié. Déconnectez-vous, puis reconnectez-vous.",
+  'cloud.write.rejected': "Le serveur a refusé cet enregistrement : rien n’a été modifié.",
+  'cloud.write.cacheStale': "Votre modification est enregistrée sur le serveur, mais cet appareil n’a pas pu se mettre à jour. Rechargez la page.",
+  'cloud.feature.unavailable': "Cette fonction n’est pas encore disponible en mode Cloud.",
+  'cloud.limited': "En mode Cloud, la restauration d’une sauvegarde, le jeu de démonstration et les pièces jointes ne sont pas encore disponibles.",
 } satisfies Record<string, Msg>;
 
 export default fr;

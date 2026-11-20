@@ -1869,12 +1869,19 @@ const pl: Messages = {
   'auth.config.text': "Wybrano tryb Cloud, ale jego konfiguracji brakuje lub jest nieprawidłowa: dostęp jest niemożliwy. Szczegóły znajdują się w konsoli przeglądarki.",
   'cloud.title': "Przestrzeń Cloud",
   'cloud.signedInAs': "Zalogowano jako {email}",
-  'cloud.pending': "Dane Cloud zostały wczytane na tym urządzeniu. Przeglądanie i edycja zostaną włączone na jednym z kolejnych etapów.",
   'cloud.loading': "Wczytywanie danych Cloud…",
   'cloud.loadError.title': "Nie udało się wczytać danych",
   'cloud.loadError.unavailable': "Usługa jest chwilowo niedostępna. Sprawdź połączenie, a następnie spróbuj ponownie.",
   'cloud.loadError.denied': "Odmówiono dostępu do Twoich danych. Spróbuj ponownie; jeśli problem nie ustąpi, wyloguj się i zaloguj ponownie.",
   'cloud.loadError.failed': "Nie udało się wczytać wszystkich danych: nie zapisano żadnych niepełnych danych. Spróbuj ponownie; jeśli problem nie ustąpi, wyloguj się.",
+  'cloud.write.conflict': "Te dane zostały w międzyczasie zmienione (inne urządzenie lub karta): nic nie zapisano. Odśwież stronę i spróbuj ponownie.",
+  'cloud.write.unconfirmed': "Serwer nie potwierdził zapisu. Sprawdź połączenie i spróbuj ponownie: zostanie on sprawdzony przed każdą nową zmianą.",
+  'cloud.write.unavailable': "Usługa jest chwilowo niedostępna: nic nie zapisano. Spróbuj ponownie za chwilę.",
+  'cloud.write.denied': "Twoja sesja nie pozwala na ten zapis: nic nie zmieniono. Wyloguj się, a następnie zaloguj ponownie.",
+  'cloud.write.rejected': "Serwer odrzucił ten zapis: nic nie zmieniono.",
+  'cloud.write.cacheStale': "Zmiana jest zapisana na serwerze, ale tego urządzenia nie udało się zaktualizować. Odśwież stronę.",
+  'cloud.feature.unavailable': "Ta funkcja nie jest jeszcze dostępna w trybie Cloud.",
+  'cloud.limited': "W trybie Cloud przywracanie kopii zapasowej, dane demonstracyjne i załączniki nie są jeszcze dostępne.",
 };
 
 export default pl;

@@ -1869,12 +1869,19 @@ const vi: Messages = {
   'auth.config.text': "Chế độ Cloud đã được chọn nhưng cấu hình bị thiếu hoặc không hợp lệ: không thể truy cập. Chi tiết có trong bảng điều khiển của trình duyệt.",
   'cloud.title': "Không gian Cloud",
   'cloud.signedInAs': "Đã đăng nhập bằng {email}",
-  'cloud.pending': "Dữ liệu Cloud của bạn đã được tải về thiết bị này. Việc xem và chỉnh sửa sẽ được kích hoạt ở bước tiếp theo.",
   'cloud.loading': "Đang tải dữ liệu Cloud của bạn…",
   'cloud.loadError.title': "Không thể tải dữ liệu",
   'cloud.loadError.unavailable': "Dịch vụ tạm thời không truy cập được. Hãy kiểm tra kết nối rồi thử lại.",
   'cloud.loadError.denied': "Quyền truy cập vào dữ liệu của bạn đã bị từ chối. Hãy thử lại; nếu sự cố vẫn tiếp diễn, hãy đăng xuất rồi đăng nhập lại.",
   'cloud.loadError.failed': "Không thể tải đầy đủ dữ liệu của bạn: không có dữ liệu thiếu nào được lưu. Hãy thử lại; nếu sự cố vẫn tiếp diễn, hãy đăng xuất.",
+  'cloud.write.conflict': "Dữ liệu này đã bị thay đổi trong lúc đó (thiết bị hoặc thẻ khác): không có gì được lưu. Hãy tải lại trang rồi thử lại.",
+  'cloud.write.unconfirmed': "Máy chủ không thể xác nhận việc lưu. Hãy kiểm tra kết nối rồi thử lại: việc lưu sẽ được kiểm tra trước mọi thay đổi mới.",
+  'cloud.write.unavailable': "Dịch vụ tạm thời không khả dụng: không có gì được lưu. Hãy thử lại sau giây lát.",
+  'cloud.write.denied': "Phiên của bạn không cho phép lưu thao tác này: không có gì bị thay đổi. Hãy đăng xuất rồi đăng nhập lại.",
+  'cloud.write.rejected': "Máy chủ đã từ chối việc lưu này: không có gì bị thay đổi.",
+  'cloud.write.cacheStale': "Thay đổi của bạn đã được lưu trên máy chủ, nhưng thiết bị này không thể cập nhật. Hãy tải lại trang.",
+  'cloud.feature.unavailable': "Tính năng này chưa khả dụng ở chế độ Cloud.",
+  'cloud.limited': "Ở chế độ Cloud, khôi phục bản sao lưu, dữ liệu minh họa và tệp đính kèm chưa khả dụng.",
 };
 
 export default vi;

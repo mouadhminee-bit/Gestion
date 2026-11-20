@@ -1869,12 +1869,19 @@ const it: Messages = {
   'auth.config.text': "La modalità Cloud è selezionata, ma la sua configurazione è assente o non valida: nessun accesso è possibile. I dettagli sono nella console del browser.",
   'cloud.title': "Spazio Cloud",
   'cloud.signedInAs': "Accesso effettuato come {email}",
-  'cloud.pending': "I tuoi dati Cloud sono caricati su questo dispositivo. La consultazione e la modifica saranno attivate in una fase successiva.",
   'cloud.loading': "Caricamento dei tuoi dati Cloud…",
   'cloud.loadError.title': "Impossibile caricare i dati",
   'cloud.loadError.unavailable': "Il servizio è momentaneamente irraggiungibile. Verifica la connessione, poi riprova.",
   'cloud.loadError.denied': "L'accesso ai tuoi dati è stato negato. Riprova; se il problema persiste, esci e accedi di nuovo.",
   'cloud.loadError.failed': "Non è stato possibile caricare completamente i tuoi dati: nessun dato incompleto è stato salvato. Riprova; se il problema persiste, esci.",
+  'cloud.write.conflict': "Questi dati sono stati modificati nel frattempo (altro dispositivo o altra scheda): non è stato salvato nulla. Ricarica la pagina, poi riprova.",
+  'cloud.write.unconfirmed': "Il server non ha potuto confermare il salvataggio. Controlla la connessione, poi riprova: verrà verificato prima di ogni nuova modifica.",
+  'cloud.write.unavailable': "Il servizio è momentaneamente non disponibile: non è stato salvato nulla. Riprova tra un istante.",
+  'cloud.write.denied': "La tua sessione non consente questo salvataggio: non è stato modificato nulla. Esci, poi accedi di nuovo.",
+  'cloud.write.rejected': "Il server ha rifiutato questo salvataggio: non è stato modificato nulla.",
+  'cloud.write.cacheStale': "La modifica è salvata sul server, ma questo dispositivo non è riuscito ad aggiornarsi. Ricarica la pagina.",
+  'cloud.feature.unavailable': "Questa funzione non è ancora disponibile in modalità Cloud.",
+  'cloud.limited': "In modalità Cloud il ripristino di un backup, i dati dimostrativi e gli allegati non sono ancora disponibili.",
 };
 
 export default it;

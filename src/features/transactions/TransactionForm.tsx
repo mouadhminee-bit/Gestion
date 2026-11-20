@@ -87,7 +87,7 @@ function draftFromGroup(group: Transaction[]): TransactionDraft {
 }
 
 function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClose: () => void; onReopen: (a: OpenArgs) => void }) {
-  const { data, repo, today, ctx, fmt, uiLocale } = useApp();
+  const { data, repo, today, ctx, fmt, uiLocale, cloud } = useApp();
   const toast = useToast();
   // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
   const amounts = useAmountGuard();
@@ -202,7 +202,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
     setSaving(true);
     try {
       const records = editing ? await repo.updateTransaction(editing.id, d) : await repo.createTransaction(d);
-      if (file) await repo.addAttachment(records[0].id, file);
+      if (file && !cloud) await repo.addAttachment(records[0].id, file);
       try {
         if (d.accountId) localStorage.setItem(LAST_ACCOUNT_KEY, d.accountId);
       } catch {
@@ -451,6 +451,8 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
                 <Textarea value={draft.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
               </Field>
             )}
+            {/* Pièces jointes désactivées en mode Cloud jusqu'à V5 (stockage distant : M10). */}
+            {!cloud && (
             <Field label={tr('form.attachment')} className="sm:col-span-2" hint={tr('form.attachmentHint')}>
               <div className="flex flex-wrap items-center gap-2">
                 {editing?.attachmentId && (
@@ -466,6 +468,7 @@ function TransactionDialog({ args, onClose, onReopen }: { args: OpenArgs; onClos
                 </label>
               </div>
             </Field>
+            )}
             {editing && (
               <p className="text-[11px] text-muted sm:col-span-2">
                 {tr('form.createdAt', { created: new Date(editing.createdAt).toLocaleString(gregorian(uiLocale)), updated: new Date(editing.updatedAt).toLocaleString(gregorian(uiLocale)) })}

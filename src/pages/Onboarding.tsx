@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ArrowRight, FlaskConical, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
+import { ArrowRight, FlaskConical, LogOut, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
 import { Logo } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, MoneyInput, Select, useAmountGuard } from '@/components/ui/Field';
 import { errorMessage, useToast } from '@/components/ui/Toast';
 import type { NexoraRepository } from '@/data/contracts';
+import type { CloudAccount } from '@/app/AppContext';
 import { generateDemoData } from '@/data/demo';
 import { CURRENCIES } from '@/domain/money';
 import { todayISO } from '@/domain/dates';
@@ -15,7 +16,15 @@ import { languageInfo } from '@/i18n/languages';
 import { LanguageSelect } from '@/components/ui/LanguageSelect';
 import { currencyName } from '@/i18n/labels';
 
-export function Onboarding({ repo, existing }: { repo: NexoraRepository; existing?: UserSettings }) {
+/**
+ * Accueil et configuration initiale.
+ *
+ * Mode Cloud (`cloud` : compte de la session, V3.5) : `ensureUser` (profil, paramètres et
+ * catégories initiales en un seul lot) n'est appelé qu'après le chargement initial ; le jeu
+ * de démonstration est désactivé jusqu'à V5 ; l'utilisateur peut se déconnecter dès l'accueil.
+ */
+export function Onboarding({ repo, existing, cloud = null }: { repo: NexoraRepository; existing?: UserSettings; cloud?: CloudAccount | null }) {
+  const demo = !cloud;
   const toast = useToast();
   // Saisie de montant refusée (ambiguë, non valide…) : aucun enregistrement tant qu'elle n'est pas corrigée.
   const amounts = useAmountGuard();
@@ -26,8 +35,21 @@ export function Onboarding({ repo, existing }: { repo: NexoraRepository; existin
   const [accountName, setAccountName] = useState(t('demo.acc.checking'));
   const [balance, setBalance] = useState<number | null>(0);
   const [busy, setBusy] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  /** Mode Cloud : déconnexion depuis l'accueil (message si elle échoue). */
+  async function signOut() {
+    if (!cloud || leaving) return;
+    setLeaving(true);
+    const err = await cloud.signOut();
+    if (err) {
+      toast.error(t(err));
+      setLeaving(false);
+    }
+  }
 
   async function startDemo() {
+    if (!demo) return;
     setBusy(true);
     try {
       const today = todayISO('Africa/Casablanca');
@@ -61,7 +83,14 @@ export function Onboarding({ repo, existing }: { repo: NexoraRepository; existin
       <div className="w-full max-w-4xl">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3 animate-fade-in">
           <Logo />
-          <LanguageSelect className="w-[220px]" />
+          <div className="flex flex-wrap items-center gap-2">
+            <LanguageSelect className="w-[220px]" />
+            {cloud && (
+              <Button variant="ghost" size="sm" loading={leaving} icon={<LogOut className="h-4 w-4" />} onClick={signOut} title={t('cloud.signedInAs', { email: cloud.email })}>
+                {t('auth.logout')}
+              </Button>
+            )}
+          </div>
         </div>
         {step === 'welcome' ? (
           <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
@@ -80,12 +109,14 @@ export function Onboarding({ repo, existing }: { repo: NexoraRepository; existin
               </ul>
             </div>
             <div className="card space-y-3 p-5 animate-fade-up" style={{ animationDelay: '120ms' }}>
-              <button onClick={startDemo} disabled={busy} className="group w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-violet/10 p-4 text-start transition hover:border-primary/60">
-                <div className="flex items-center gap-2 font-semibold">
-                  <FlaskConical className="h-4 w-4 text-cyan" /> {t('onb.demo')}
-                </div>
-                <p className="mt-1 text-xs text-muted">{t('onb.demoHint')}</p>
-              </button>
+              {demo && (
+                <button onClick={startDemo} disabled={busy} className="group w-full rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-violet/10 p-4 text-start transition hover:border-primary/60">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <FlaskConical className="h-4 w-4 text-cyan" /> {t('onb.demo')}
+                  </div>
+                  <p className="mt-1 text-xs text-muted">{t('onb.demoHint')}</p>
+                </button>
+              )}
               <button onClick={() => setStep('setup')} disabled={busy} className="w-full rounded-2xl border border-line/15 bg-surface-2/60 p-4 text-start transition hover:border-line/40">
                 <div className="flex items-center gap-2 font-semibold">
                   <ArrowRight className="h-4 w-4 text-primary rtl:-scale-x-100" /> {t('onb.fresh')}

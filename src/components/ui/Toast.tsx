@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { t as tr } from '@/i18n/core';
+import { t as tr, type MessageKey } from '@/i18n/core';
 
 type ToastKind = 'success' | 'error' | 'info' | 'warning';
 interface ToastItem {
@@ -72,8 +72,42 @@ export function useToast(): ToastApi {
   return v;
 }
 
+type ErrorLike = { name?: unknown; code?: unknown; cause?: unknown; definitive?: unknown };
+
+/**
+ * Écriture Cloud refusée ou non confirmée (V3.5) : message traduit, sans détail technique
+ * (ni table, ni code serveur). Reconnu par le nom de l'erreur : aucun module Cloud importé.
+ */
+function cloudErrorKey(e: unknown): MessageKey | null {
+  if (typeof e !== 'object' || e === null) return null;
+  const err = e as ErrorLike;
+  const definitive = (x: ErrorLike): MessageKey => (x.name === 'CloudTransientRejectionError' ? 'cloud.write.unavailable' : x.name === 'CloudProtocolError' && x.code === 'unauthorized' ? 'cloud.write.denied' : 'cloud.write.rejected');
+  switch (err.name) {
+    case 'CloudConflictError':
+      return 'cloud.write.conflict';
+    case 'CloudCacheWriteError':
+      return 'cloud.write.cacheStale';
+    case 'CloudFeatureUnavailableError':
+      return 'cloud.feature.unavailable';
+    case 'CloudWriteDisabledError':
+      return 'cloud.write.rejected';
+    case 'CloudProtocolError':
+    case 'CloudTransientRejectionError':
+      return definitive(err);
+    case 'CloudTransportError': {
+      // Refus définitif transmis par le transport (rien d'appliqué) ; sinon issue inconnue.
+      const cause = (typeof err.cause === 'object' && err.cause !== null ? err.cause : {}) as ErrorLike;
+      return cause.definitive === true ? definitive(cause) : 'cloud.write.unconfirmed';
+    }
+    default:
+      return null;
+  }
+}
+
 /** Message d'erreur lisible pour l'utilisateur, sans détails techniques sensibles. */
 export function errorMessage(e: unknown): string {
+  const cloud = cloudErrorKey(e);
+  if (cloud) return tr(cloud);
   if (e instanceof Error && e.name === 'ValidationError') return e.message;
   if (e instanceof Error && /QuotaExceeded/i.test(e.name + e.message)) return tr('common.storageFull');
   if (e instanceof Error && e.message && e.message.length < 160) return e.message;

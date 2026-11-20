@@ -15,6 +15,10 @@ import type { CloudDataPort, CloudLoadOutcome } from '@/data/cloud/cloudLoadCycl
 import { selectBackend } from '@/data/backend';
 import fr from '@/i18n/locales/fr';
 import CloudApp, { CloudGate } from './CloudApp';
+import { stubWorkspace } from '@/test/cloudWorkspaceStub';
+import type { CloudWorkspacePort } from '@/data/cloud/cloudWorkspace';
+import type { NexoraRepository } from '@/data/contracts';
+import { ToastProvider } from '@/components/ui/Toast';
 import { App } from '@/App';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -178,7 +182,7 @@ describe('V2.5 — mode local : aucune authentification', () => {
 describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
   it('sans session : écran de connexion uniquement', async () => {
     const f = fakeAuth();
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     expect(emailInput()).toBeTruthy();
     expect(text()).toContain(fr['auth.title.login']);
     expect(text()).not.toContain(fr['cloud.title']);
@@ -187,7 +191,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
 
   it('vérification en cours : écran d’attente borné (ni formulaire ni espace Cloud), puis erreur et nouvel essai', async () => {
     const f = fakeAuth({ emitInitial: false });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, timeoutMs: 80 }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace, timeoutMs: 80 }));
     expect(text()).toContain(fr['auth.checking']);
     expect(emailInput()).toBeNull();
     expect(text()).not.toContain(fr['cloud.title']);
@@ -203,7 +207,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
 
   it('session restaurée (actualisation) : vérifiée par le serveur, puis accès à l’espace Cloud', async () => {
     const f = fakeAuth({ stored: session() });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     expect(f.calls.getUser).toBe(1);
     expect(text()).toContain(fr['cloud.title']);
     expect(text()).toContain(EMAIL);
@@ -212,7 +216,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
 
   it('session restaurée révoquée (comportement réel du SDK : SIGNED_OUT pendant la vérification) : écran de connexion « session expirée »', async () => {
     const f = fakeAuth({ stored: session(), getUser: async () => ({ data: { user: null }, error: new AuthSessionMissingError() }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     expect(f.calls.getUser).toBe(1);
     expect(emailInput()).toBeTruthy();
     expect(text()).toContain(fr['auth.err.sessionExpired']);
@@ -221,7 +225,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
 
   it('session restaurée refusée sans suppression par le SDK (JWT invalide) : déconnexion locale, « session expirée »', async () => {
     const f = fakeAuth({ stored: session(), getUser: async () => ({ data: { user: null }, error: new AuthApiError('invalid JWT', 403, 'bad_jwt') }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     expect(f.calls.signOut).toEqual([{ scope: 'local' }]);
     expect(emailInput()).toBeTruthy();
     expect(text()).toContain(fr['auth.err.sessionExpired']);
@@ -231,7 +235,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
   it('vérification impossible (réseau) : aucun accès, message et nouvel essai', async () => {
     let fail = true;
     const f = fakeAuth({ stored: session(), getUser: async () => (fail ? { data: { user: null }, error: new AuthRetryableFetchError('Failed to fetch', 0) } : { data: { user: session().user }, error: null }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     expect(text()).toContain(fr['auth.err.network']);
     expect(text()).not.toContain(fr['cloud.title']);
     expect(f.calls.signOut).toEqual([]);
@@ -242,7 +246,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
 
   it('SIGNED_IN émis pendant la vérification (restauration par le SDK) : jamais accepté sans vérification', async () => {
     const f = fakeAuth({ stored: session(), emitInitial: false, getUser: async () => ({ data: { user: null }, error: new AuthApiError('bad jwt', 401, 'bad_jwt') }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await act(async () => f.emit('SIGNED_IN', session()));
     await flush();
     expect(f.calls.getUser).toBe(1);
@@ -252,7 +256,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
 
   it('session devenue invalide pendant l’utilisation (SIGNED_OUT non demandé) : retour à la connexion', async () => {
     const f = fakeAuth({ stored: session() });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     expect(text()).toContain(fr['cloud.title']);
     await act(async () => f.emit('SIGNED_OUT', null));
     await flush();
@@ -262,7 +266,7 @@ describe('V2.5 — barrière d’authentification (mode Cloud)', () => {
 
   it('un seul abonnement actif (StrictMode compris), retiré au démontage', async () => {
     const f = fakeAuth();
-    await render(h(StrictMode, null, h(CloudGate, { auth: f.port, cloud: f.cloud })));
+    await render(h(StrictMode, null, h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace })));
     expect(f.listeners.size).toBe(1);
     expect(f.calls.subscribe - f.calls.unsubscribe).toBe(1);
     await act(async () => root!.unmount());
@@ -277,7 +281,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const f = fakeAuth({ signIn: async (email) => (await gate, { data: { user: session(email).user, session: session(email) }, error: null }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await fillAndSubmit(EMAIL, 'mot-de-passe-fictif', 3);
     expect(f.calls.signIn).toEqual([EMAIL]);
     expect(submitButton()!.disabled).toBe(true);
@@ -289,7 +293,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('identifiants invalides : message clair, formulaire réactivé, aucun accès', async () => {
     const f = fakeAuth({ signIn: async () => ({ data: { user: null, session: null }, error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials') }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await fillAndSubmit(EMAIL, 'mauvais');
     expect(text()).toContain(fr['auth.err.invalidCredentials']);
     expect(submitButton()!.disabled).toBe(false);
@@ -298,7 +302,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('saisie incomplète : aucune requête', async () => {
     const f = fakeAuth();
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await fillAndSubmit('', '');
     expect(text()).toContain(fr['auth.err.required']);
     expect(f.calls.signIn).toEqual([]);
@@ -306,7 +310,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('inscription avec confirmation d’e-mail exigée : marche à suivre, retour à la connexion, aucun accès', async () => {
     const f = fakeAuth();
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await click(buttonByText(fr['auth.toSignup']));
     expect(text()).toContain(fr['auth.title.signup']);
     await fillAndSubmit(EMAIL, 'mot-de-passe-fictif');
@@ -319,7 +323,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('inscription sans confirmation (session immédiate) : accès à l’espace Cloud', async () => {
     const f = fakeAuth({ signUp: async (email) => ({ data: { user: session(email).user, session: session(email) }, error: null }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await click(buttonByText(fr['auth.toSignup']));
     await fillAndSubmit(EMAIL, 'mot-de-passe-fictif');
     expect(text()).toContain(fr['cloud.title']);
@@ -327,7 +331,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('inscription refusée par le service : message traduit, jamais le texte brut', async () => {
     const f = fakeAuth({ signUp: async () => ({ data: { user: null, session: null }, error: new AuthApiError(`Email address "${EMAIL}" cannot be used`, 400, 'email_address_not_authorized') }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await click(buttonByText(fr['auth.toSignup']));
     await fillAndSubmit(EMAIL, 'mot-de-passe-fictif');
     expect(text()).toContain(fr['auth.err.emailNotAuthorized']);
@@ -336,7 +340,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('déconnexion : session invalidée (scope local), retour à l’écran de connexion sans message d’expiration', async () => {
     const f = fakeAuth({ stored: session() });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await click(buttonByText(fr['auth.logout']));
     expect(f.calls.signOut).toEqual([{ scope: 'local' }]);
     expect(emailInput()).toBeTruthy();
@@ -346,7 +350,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('déconnexion hors ligne : la session de l’appareil est supprimée d’abord, retour à la connexion', async () => {
     const f = fakeAuth({ stored: session(), signOut: async () => ({ error: new AuthRetryableFetchError('Failed to fetch', 0) }) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await click(buttonByText(fr['auth.logout']));
     expect(emailInput()).toBeTruthy();
     expect(text()).not.toContain(fr['cloud.title']);
@@ -355,7 +359,7 @@ describe('V2.5 — connexion, inscription, déconnexion', () => {
 
   it('déconnexion impossible avant suppression locale : message, l’utilisateur reste connecté et peut réessayer', async () => {
     const f = fakeAuth({ stored: session(), signOutFailsBeforeRemoval: new AuthRetryableFetchError('Failed to fetch', 0) });
-    await render(h(CloudGate, { auth: f.port, cloud: f.cloud }));
+    await render(h(CloudGate, { auth: f.port, cloud: f.cloud, workspace: stubWorkspace }));
     await click(buttonByText(fr['auth.logout']));
     expect(text()).toContain(fr['auth.err.network']);
     expect(text()).toContain(fr['cloud.title']);
@@ -377,9 +381,17 @@ describe('V2.5 — mode Cloud sans données', () => {
     vi.stubGlobal('fetch', fetchProbe);
     try {
       const f = fakeAuth();
-      await render(h(CloudApp, { selection: selectBackend({}), auth: f.port, cloud: f.cloud }));
+      // V3.5 : espace de données factice (nouvel utilisateur → accueil Cloud), aucune base ouverte.
+      const opened: string[] = [];
+      const workspace: CloudWorkspacePort = {
+        open: (userId) => (opened.push(userId), { userId, repo: {} as NexoraRepository, reader: { snapshot: async () => null }, close() {} }),
+      };
+      await render(h(ToastProvider, null, h(CloudApp, { selection: selectBackend({}), auth: f.port, cloud: f.cloud, workspace })));
       await fillAndSubmit(EMAIL, 'mot-de-passe-fictif');
-      expect(text()).toContain(fr['cloud.title']);
+      for (let i = 0; i < 50 && !text().includes(fr['onb.fresh']); i++) await flush(20);
+      expect(text()).toContain(fr['onb.fresh']); // accueil (onboarding) de l'application
+      expect(text()).not.toContain(fr['onb.demo']); // démo désactivée en mode Cloud
+      expect(opened).toHaveLength(1);
       await click(buttonByText(fr['auth.logout']));
       expect(emailInput()).toBeTruthy();
       expect(open).not.toHaveBeenCalled();

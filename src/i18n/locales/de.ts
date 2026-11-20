@@ -1869,12 +1869,19 @@ const de: Messages = {
   'auth.config.text': "Der Cloud-Modus ist ausgewählt, aber seine Konfiguration fehlt oder ist ungültig: Kein Zugriff möglich. Details finden Sie in der Browserkonsole.",
   'cloud.title': "Cloud-Bereich",
   'cloud.signedInAs': "Angemeldet als {email}",
-  'cloud.pending': "Ihre Cloud-Daten sind auf diesem Gerät geladen. Anzeigen und Bearbeiten werden in einem späteren Schritt aktiviert.",
   'cloud.loading': "Ihre Cloud-Daten werden geladen…",
   'cloud.loadError.title': "Laden nicht möglich",
   'cloud.loadError.unavailable': "Der Dienst ist vorübergehend nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es dann erneut.",
   'cloud.loadError.denied': "Der Zugriff auf Ihre Daten wurde verweigert. Versuchen Sie es erneut; besteht das Problem weiter, melden Sie sich ab und wieder an.",
   'cloud.loadError.failed': "Ihre Daten konnten nicht vollständig geladen werden: Es wurden keine unvollständigen Daten gespeichert. Versuchen Sie es erneut; besteht das Problem weiter, melden Sie sich ab.",
+  'cloud.write.conflict': "Diese Daten wurden zwischenzeitlich geändert (anderes Gerät oder anderer Tab): Es wurde nichts gespeichert. Laden Sie die Seite neu und versuchen Sie es erneut.",
+  'cloud.write.unconfirmed': "Der Server konnte das Speichern nicht bestätigen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut: Es wird vor jeder neuen Änderung überprüft.",
+  'cloud.write.unavailable': "Der Dienst ist vorübergehend nicht verfügbar: Es wurde nichts gespeichert. Versuchen Sie es gleich noch einmal.",
+  'cloud.write.denied': "Ihre Sitzung erlaubt dieses Speichern nicht: Es wurde nichts geändert. Melden Sie sich ab und wieder an.",
+  'cloud.write.rejected': "Der Server hat dieses Speichern abgelehnt: Es wurde nichts geändert.",
+  'cloud.write.cacheStale': "Ihre Änderung ist auf dem Server gespeichert, aber dieses Gerät konnte nicht aktualisiert werden. Laden Sie die Seite neu.",
+  'cloud.feature.unavailable': "Diese Funktion ist im Cloud-Modus noch nicht verfügbar.",
+  'cloud.limited': "Im Cloud-Modus sind das Wiederherstellen einer Sicherung, die Demodaten und Anhänge noch nicht verfügbar.",
 };
 
 export default de;
