@@ -1869,7 +1869,12 @@ const ro: Messages = {
   'auth.config.text': "Modul Cloud este selectat, dar configurația sa lipsește sau este nevalidă: accesul nu este posibil. Detaliile se află în consola browserului.",
   'cloud.title': "Spațiul Cloud",
   'cloud.signedInAs': "Conectat ca {email}",
-  'cloud.pending': "Datele dumneavoastră Cloud vor fi activate într-o etapă următoare: deocamdată nu se citesc și nu se salvează date financiare.",
+  'cloud.pending': "Datele dumneavoastră Cloud sunt încărcate pe acest dispozitiv. Consultarea și modificarea lor vor fi activate într-o etapă următoare.",
+  'cloud.loading': "Se încarcă datele dumneavoastră Cloud…",
+  'cloud.loadError.title': "Încărcarea nu a reușit",
+  'cloud.loadError.unavailable': "Serviciul este temporar indisponibil. Verificați conexiunea, apoi reîncercați.",
+  'cloud.loadError.denied': "Accesul la datele dumneavoastră a fost refuzat. Reîncercați; dacă problema persistă, deconectați-vă și conectați-vă din nou.",
+  'cloud.loadError.failed': "Datele dumneavoastră nu au putut fi încărcate complet: nu a fost salvată nicio dată incompletă. Reîncercați; dacă problema persistă, deconectați-vă.",
 };
 
 export default ro;

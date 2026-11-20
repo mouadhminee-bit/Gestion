@@ -66,11 +66,30 @@ export class CloudCacheDB extends NexoraDB {
   serverVersions!: Table<ServerVersionRecord, [string, string]>;
 
   readonly userId: ID;
+  private revokedFlag = false;
 
   constructor(name: string, options: CloudCacheOptions) {
     super(checkedName(name, options?.userId), options.dexie);
     this.userId = options.userId;
     // Version 2 du CACHE : ajoute la table annexe ; les tables métier restent celles de la v1.
     this.version(2).stores({ [SERVER_VERSIONS_TABLE]: '[table+key]' });
+    // Suppression de la base par une autre connexion (déconnexion dans un autre onglet, purge) :
+    // cette instance est RÉVOQUÉE — fermée sans réouverture automatique, toute opération
+    // ultérieure échoue (`DatabaseClosedError`) au lieu de recréer la base (V3.4-c, T41).
+    // Dexie appelle les gestionnaires dans l'ordre INVERSE de leur ajout : celui-ci passe avant
+    // le gestionnaire par défaut de Dexie (fermeture AVEC réouverture automatique) et l'écarte
+    // en renvoyant `false`. Une mise à niveau de schéma (nouvelle version > 0) garde le
+    // comportement par défaut de Dexie.
+    this.on('versionchange', (event: IDBVersionChangeEvent) => {
+      if (event.newVersion) return undefined;
+      this.revokedFlag = true;
+      this.close({ disableAutoOpen: true });
+      return false;
+    });
+  }
+
+  /** La base a été supprimée par une autre connexion : cette instance ne peut plus servir. */
+  get revoked(): boolean {
+    return this.revokedFlag;
   }
 }

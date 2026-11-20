@@ -1869,7 +1869,12 @@ const cs: Messages = {
   'auth.config.text': "Je vybrán režim Cloud, ale jeho konfigurace chybí nebo je neplatná: přístup není možný. Podrobnosti najdete v konzoli prohlížeče.",
   'cloud.title': "Prostor Cloud",
   'cloud.signedInAs': "Přihlášeno jako {email}",
-  'cloud.pending': "Vaše data v Cloudu budou aktivována v některém z dalších kroků: zatím se nečtou ani neukládají žádná finanční data.",
+  'cloud.pending': "Vaše data v Cloudu jsou načtena v tomto zařízení. Jejich zobrazení a úpravy budou aktivovány v některém z dalších kroků.",
+  'cloud.loading': "Načítání vašich dat v Cloudu…",
+  'cloud.loadError.title': "Data se nepodařilo načíst",
+  'cloud.loadError.unavailable': "Služba je dočasně nedostupná. Zkontrolujte připojení a zkuste to znovu.",
+  'cloud.loadError.denied': "Přístup k vašim datům byl odepřen. Zkuste to znovu; pokud problém přetrvává, odhlaste se a znovu se přihlaste.",
+  'cloud.loadError.failed': "Vaše data se nepodařilo načíst úplně: žádná neúplná data nebyla uložena. Zkuste to znovu; pokud problém přetrvává, odhlaste se.",
 };
 
 export default cs;

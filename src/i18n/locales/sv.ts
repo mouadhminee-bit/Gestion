@@ -1869,7 +1869,12 @@ const sv: Messages = {
   'auth.config.text': "Cloud-läget är valt, men dess konfiguration saknas eller är ogiltig: ingen åtkomst är möjlig. Detaljer finns i webbläsarens konsol.",
   'cloud.title': "Cloud-utrymme",
   'cloud.signedInAs': "Inloggad som {email}",
-  'cloud.pending': "Dina Cloud-data aktiveras i ett kommande steg: inga finansiella data läses eller sparas för närvarande.",
+  'cloud.pending': "Dina Cloud-data är inlästa på den här enheten. Visning och redigering aktiveras i ett kommande steg.",
+  'cloud.loading': "Läser in dina Cloud-data…",
+  'cloud.loadError.title': "Det gick inte att läsa in data",
+  'cloud.loadError.unavailable': "Tjänsten är tillfälligt otillgänglig. Kontrollera anslutningen och försök sedan igen.",
+  'cloud.loadError.denied': "Åtkomsten till dina data nekades. Försök igen; om problemet kvarstår, logga ut och logga in igen.",
+  'cloud.loadError.failed': "Dina data kunde inte läsas in fullständigt: inga ofullständiga data har sparats. Försök igen; om problemet kvarstår, logga ut.",
 };
 
 export default sv;

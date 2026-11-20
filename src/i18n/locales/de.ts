@@ -1869,7 +1869,12 @@ const de: Messages = {
   'auth.config.text': "Der Cloud-Modus ist ausgewählt, aber seine Konfiguration fehlt oder ist ungültig: Kein Zugriff möglich. Details finden Sie in der Browserkonsole.",
   'cloud.title': "Cloud-Bereich",
   'cloud.signedInAs': "Angemeldet als {email}",
-  'cloud.pending': "Ihre Cloud-Daten werden in einem späteren Schritt aktiviert: Derzeit werden keine Finanzdaten gelesen oder gespeichert.",
+  'cloud.pending': "Ihre Cloud-Daten sind auf diesem Gerät geladen. Anzeigen und Bearbeiten werden in einem späteren Schritt aktiviert.",
+  'cloud.loading': "Ihre Cloud-Daten werden geladen…",
+  'cloud.loadError.title': "Laden nicht möglich",
+  'cloud.loadError.unavailable': "Der Dienst ist vorübergehend nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es dann erneut.",
+  'cloud.loadError.denied': "Der Zugriff auf Ihre Daten wurde verweigert. Versuchen Sie es erneut; besteht das Problem weiter, melden Sie sich ab und wieder an.",
+  'cloud.loadError.failed': "Ihre Daten konnten nicht vollständig geladen werden: Es wurden keine unvollständigen Daten gespeichert. Versuchen Sie es erneut; besteht das Problem weiter, melden Sie sich ab.",
 };
 
 export default de;

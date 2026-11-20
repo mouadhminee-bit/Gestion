@@ -1869,7 +1869,12 @@ const es: Messages = {
   'auth.config.text': "El modo Cloud está seleccionado, pero su configuración falta o no es válida: no es posible acceder. Los detalles están en la consola del navegador.",
   'cloud.title': "Espacio Cloud",
   'cloud.signedInAs': "Sesión iniciada como {email}",
-  'cloud.pending': "Tus datos Cloud se activarán en una próxima etapa: por ahora no se lee ni se guarda ningún dato financiero.",
+  'cloud.pending': "Tus datos Cloud están cargados en este dispositivo. Su consulta y su edición se activarán en una próxima etapa.",
+  'cloud.loading': "Cargando tus datos Cloud…",
+  'cloud.loadError.title': "No se pudieron cargar los datos",
+  'cloud.loadError.unavailable': "El servicio no está disponible temporalmente. Comprueba tu conexión e inténtalo de nuevo.",
+  'cloud.loadError.denied': "Se ha denegado el acceso a tus datos. Inténtalo de nuevo; si el problema persiste, cierra sesión y vuelve a iniciarla.",
+  'cloud.loadError.failed': "No se pudieron cargar todos tus datos: no se ha guardado ningún dato incompleto. Inténtalo de nuevo; si el problema persiste, cierra sesión.",
 };
 
 export default es;

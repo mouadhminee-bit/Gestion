@@ -1869,7 +1869,12 @@ const id: Messages = {
   'auth.config.text': "Mode Cloud dipilih, tetapi konfigurasinya tidak ada atau tidak valid: akses tidak memungkinkan. Detailnya ada di konsol peramban.",
   'cloud.title': "Ruang Cloud",
   'cloud.signedInAs': "Masuk sebagai {email}",
-  'cloud.pending': "Data Cloud Anda akan diaktifkan pada tahap berikutnya: saat ini tidak ada data keuangan yang dibaca atau disimpan.",
+  'cloud.pending': "Data Cloud Anda telah dimuat di perangkat ini. Melihat dan mengedit data akan diaktifkan pada tahap berikutnya.",
+  'cloud.loading': "Memuat data Cloud Anda…",
+  'cloud.loadError.title': "Data tidak dapat dimuat",
+  'cloud.loadError.unavailable': "Layanan sementara tidak dapat dijangkau. Periksa koneksi Anda, lalu coba lagi.",
+  'cloud.loadError.denied': "Akses ke data Anda ditolak. Coba lagi; jika masalah berlanjut, keluar lalu masuk kembali.",
+  'cloud.loadError.failed': "Data Anda tidak dapat dimuat sepenuhnya: tidak ada data tidak lengkap yang disimpan. Coba lagi; jika masalah berlanjut, keluar.",
 };
 
 export default id;

@@ -26,7 +26,8 @@ export interface CloudUser {
 
 export type CloudSessionState =
   | { readonly status: 'checking' }
-  | { readonly status: 'signedOut'; readonly notice?: AuthMessageKey }
+  /** `endedUserId` : utilisateur dont la session vient de prendre fin (son cache est à supprimer, D6). */
+  | { readonly status: 'signedOut'; readonly notice?: AuthMessageKey; readonly endedUserId?: string }
   | { readonly status: 'signedIn'; readonly user: CloudUser }
   | { readonly status: 'error'; readonly message: AuthMessageKey };
 
@@ -60,7 +61,7 @@ export function useCloudSession(auth: AuthPort, timeoutMs: number = AUTH_TIMEOUT
         // Session refusée par le service (expirée, révoquée, compte supprimé…).
         userSignOut.current = true;
         await withTimeout(auth.signOut({ scope: 'local' }), timeoutMs).catch(() => undefined);
-        if (active) setState({ status: 'signedOut', notice: 'auth.err.sessionExpired' });
+        if (active) setState({ status: 'signedOut', notice: 'auth.err.sessionExpired', endedUserId: session.user.id });
       } catch (e) {
         if (active) setState({ status: 'error', message: authMessageKey(e) });
       } finally {
@@ -97,11 +98,14 @@ export function useCloudSession(auth: AuthPort, timeoutMs: number = AUTH_TIMEOUT
           // pendant `getUser`) et émet SIGNED_OUT AVANT de rendre la main : pendant une
           // vérification, c'est une session expirée, pas une déconnexion demandée.
           const duringVerification = verifying !== null;
+          // Utilisateur dont la session prend fin : connecté, ou en cours de vérification.
+          const current = stateRef.current;
+          const endedUserId = current.status === 'signedIn' ? current.user.id : (verifying ?? undefined);
           verifying = null;
           const expected = userSignOut.current;
           userSignOut.current = false;
           const expired = !expected && (stateRef.current.status === 'signedIn' || duringVerification);
-          setState(expired ? { status: 'signedOut', notice: 'auth.err.sessionExpired' } : { status: 'signedOut' });
+          setState(expired ? { status: 'signedOut', notice: 'auth.err.sessionExpired', endedUserId } : { status: 'signedOut', endedUserId });
           return;
         }
         case 'TOKEN_REFRESHED':
@@ -130,13 +134,15 @@ export function useCloudSession(auth: AuthPort, timeoutMs: number = AUTH_TIMEOUT
    */
   const signOut = useCallback(async (): Promise<AuthMessageKey | null> => {
     userSignOut.current = true;
+    const before = stateRef.current;
+    const endedUserId = before.status === 'signedIn' ? before.user.id : before.status === 'signedOut' ? before.endedUserId : undefined;
     try {
       const { error } = await withTimeout(auth.signOut({ scope: 'local' }), timeoutMs);
       if (error) {
         userSignOut.current = false;
         return authMessageKey(error);
       }
-      setState({ status: 'signedOut' });
+      setState({ status: 'signedOut', endedUserId });
       return null;
     } catch (e) {
       userSignOut.current = false;

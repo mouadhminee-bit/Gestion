@@ -181,6 +181,21 @@ describe.each(harnesses)('contrat du transport — $name', (h) => {
     await expectCode(c.resolve(randomUUID(), ub), 'unauthorized');
   });
 
+  it('identité : lot de SUPPRESSIONS uniquement attribué à un autre utilisateur → unauthorized, rien appliqué ni modifié (V3.4-d, D6)', async () => {
+    const { server, as } = h.make();
+    const [ua, ub] = [randomUUID(), randomUUID()];
+    const accB = demo(ub).accounts[0];
+    await as(ub).commit(lot(ub, [put('accounts', accB)]));
+    const before = server.entry(ub, 'accounts', accB.id);
+    const commits = server.commits.length;
+    // Session de A, lot attribué à B, sans aucune création : seul le contrôle d'identité du lot peut le refuser.
+    await expectCode(as(ua).commit(lot(ub, [del('accounts', accB.id, 1)])), 'unauthorized');
+    expect(server.entry(ub, 'accounts', accB.id)).toEqual(before);
+    expect(server.entry(ub, 'accounts', accB.id)).toMatchObject({ version: 1, deleted: false });
+    expect(server.commits.length).toBe(commits);
+    expect(server.rows(ua, 'accounts')).toEqual([]);
+  });
+
   it('profil : créé à l’inscription (version 1), modifiable, jamais recréé ni supprimé par un lot', async () => {
     const { server, as } = h.make();
     const uid = randomUUID();

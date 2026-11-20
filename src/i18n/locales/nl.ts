@@ -1869,7 +1869,12 @@ const nl: Messages = {
   'auth.config.text': "De Cloud-modus is geselecteerd, maar de configuratie ontbreekt of is ongeldig: toegang is niet mogelijk. Details staan in de browserconsole.",
   'cloud.title': "Cloud-omgeving",
   'cloud.signedInAs': "Ingelogd als {email}",
-  'cloud.pending': "Je Cloud-gegevens worden in een volgende stap geactiveerd: er worden momenteel geen financiële gegevens gelezen of opgeslagen.",
+  'cloud.pending': "Je Cloud-gegevens zijn op dit apparaat geladen. Bekijken en bewerken worden in een volgende stap geactiveerd.",
+  'cloud.loading': "Je Cloud-gegevens worden geladen…",
+  'cloud.loadError.title': "Laden mislukt",
+  'cloud.loadError.unavailable': "De dienst is tijdelijk onbereikbaar. Controleer je verbinding en probeer het opnieuw.",
+  'cloud.loadError.denied': "De toegang tot je gegevens is geweigerd. Probeer het opnieuw; blijft het probleem bestaan, log dan uit en weer in.",
+  'cloud.loadError.failed': "Je gegevens konden niet volledig worden geladen: er zijn geen onvolledige gegevens opgeslagen. Probeer het opnieuw; blijft het probleem bestaan, log dan uit.",
 };
 
 export default nl;

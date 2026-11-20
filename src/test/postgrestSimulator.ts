@@ -1,5 +1,5 @@
 /**
- * Serveur PostgREST SIMULÉ — RÉSERVÉ AUX TESTS (V3.3).
+ * Serveur PostgREST SIMULÉ — RÉSERVÉ AUX TESTS (V3.3, lecture V3.4-a, Auth V3.4-c).
  *
  * Reproduit, au format filaire RÉEL, les deux fonctions de la migration 8 :
  *  - `POST /rest/v1/rpc/apply_changeset`   `{ p_changeset }`    (noms, clés et lignes SQL) ;
@@ -7,14 +7,36 @@
  *  - erreurs `{ code, message, details, hint }` avec les statuts du § 7.7 de
  *    docs/LOT4_PLAN.md (`PT403`, `PT409`, `PT400`, `PT413`), refus d'authentification de
  *    PostgREST (`42501`, `PGRST301`, `PGRST303`).
+ * Et la lecture des tables (V3.4-a) :
+ *  - `GET` / `HEAD /rest/v1/<table>?select=*` : RLS (lignes de l'utilisateur du jeton,
+ *    actives ET supprimées, comme la politique de lecture de la migration 6), filtres
+ *    `col=eq.v`, `col=is.null`, `col=not.is.null`, tri `order=a.asc,b.desc`, pages
+ *    `offset` / `limit` plafonnées à `maxRows` (1 000 par défaut, comme Supabase),
+ *    `Prefer: count=exact` → `Content-Range: début-fin/total` ; 206 pour une page partielle,
+ *    416 (`PGRST103`) au-delà du total ; table inconnue → 404 `PGRST205`.
  * La logique du serveur est celle de `MemoryTransport` ALIGNÉ (P15) : le transport HTTP et
  * le transport en mémoire passent ainsi la même suite de contrat. Identité : `sub` du jeton
  * de la requête (JWT fictif, signature non vérifiée sauf jeton marqué « invalide »).
- * Aucune requête réelle : `fetch` est fourni au client Supabase des tests.
+ * Aucune requête réelle : `fetch` est fourni au client Supabase des tests. `onRequest`
+ * s'exécute avant chaque requête (modifications concurrentes simulées).
+ * Apport V3.4-c (tests multi-onglets avec le vrai SDK, écart accepté le 19/11/2026) :
+ * `GET /auth/v1/user`, `POST /auth/v1/logout` et sessions révocables (`revokedSessions`) —
+ * voir `handleAuth`. Réservé aux tests, comme le reste de ce fichier.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { MemoryTransport, REGISTERED_AT } from '@/data/cloud/MemoryTransport';
-import { MAPPING, deserializeRow, fromSqlKey, sqlColumnsOf, sqlTableOf, tableOfSql, toSqlKey, type CloudTableName, type ColumnSpec } from '@/data/cloud/mapping';
+import { MemoryTransport, REGISTERED_AT, orderSqlRows } from '@/data/cloud/MemoryTransport';
+import {
+  MAPPING,
+  SERVER_METADATA_COLUMNS,
+  deserializeRow,
+  fromSqlKey,
+  sqlColumnsOf,
+  sqlTableOf,
+  tableOfSql,
+  toSqlKey,
+  type CloudTableName,
+  type ColumnSpec,
+} from '@/data/cloud/mapping';
 import { CloudConflictError, CloudProtocolError, CloudTransportError, type ChangeSet, type CommitResult, type ResolveResult } from '@/data/cloud/transport';
 
 export const SIM_URL = 'https://projetfictif.supabase.co';
@@ -34,12 +56,19 @@ export function userToken(uid: string, opts: { invalid?: boolean; expired?: bool
 export interface RecordedRequest {
   method: string;
   path: string;
+  /** Paramètres de l'URL (`?…`, vide sans paramètre). */
+  query: string;
   headers: Record<string, string>;
   body: unknown;
 }
 
-/** Réponse imposée à la prochaine requête (réseau, délai, réponse brute). */
-export type Override = { network: true } | { hang: true } | { status: number; body: string; contentType?: string };
+/** Réponse imposée à la prochaine requête (réseau, délai, réponse brute avec en-têtes). */
+export type Override = { network: true } | { hang: true } | { status: number; body: string | null; contentType?: string; headers?: Record<string, string> };
+
+export interface SimulatorOptions {
+  /** Nombre maximal de lignes par réponse de lecture (réglage « Max rows » ; 1 000 par défaut). */
+  maxRows?: number;
+}
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
 const pgError = (status: number, code: string | null, message: string, details: unknown = null) =>
@@ -59,10 +88,10 @@ function writeCols(table: CloudTableName): string[] {
   return (Object.values(spec.fields).filter((f) => f.kind === 'column') as ColumnSpec[]).filter((c) => c.writable || spec.sqlKey.includes(c.column)).map((c) => c.column);
 }
 
-export function postgrestSimulator(server: MemoryTransport = new MemoryTransport()) {
-  if (server.legacy) throw new Error('simulateur : MemoryTransport aligné requis');
+export function postgrestSimulator(server: MemoryTransport = new MemoryTransport(), options: SimulatorOptions = {}) {
   const requests: RecordedRequest[] = [];
   const overrides: Override[] = [];
+  const maxRows = options.maxRows ?? 1000;
 
   /** Ligne SQL reçue → ligne TS ; `null` si elle ne correspond pas exactement aux colonnes écrites. */
   function rowFromWire(table: CloudTableName, uid: string, values: unknown): Record<string, unknown> | null {
@@ -123,14 +152,11 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
     return pgError(500, 'XX000', 'erreur interne simulée');
   }
 
-  async function handle(method: string, url: URL, headers: Headers, rawBody: string | null): Promise<Response> {
-    const fn = url.pathname.replace(/^\/rest\/v1\/rpc\//, '');
-    if (method !== 'POST' || !['apply_changeset', 'resolve_changeset'].includes(fn) || !url.pathname.startsWith('/rest/v1/rpc/')) {
-      return pgError(404, 'PGRST202', `Could not find the function public.${fn}`);
-    }
+  /** Identité de la requête (`sub` du jeton) ou refus d'authentification de PostgREST. */
+  function authenticate(headers: Headers, denied: string): string | Response {
     if (headers.get('apikey') !== SIM_ANON_KEY) return json(401, { message: 'Invalid API key' });
     const token = (headers.get('authorization') ?? '').replace(/^Bearer /, '');
-    if (token === SIM_ANON_KEY) return pgError(401, '42501', `permission denied for function ${fn}`);
+    if (token === SIM_ANON_KEY) return pgError(401, '42501', denied);
     let claims: Record<string, unknown>;
     try {
       claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
@@ -139,8 +165,96 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
     }
     if (token.endsWith('.invalide')) return pgError(401, 'PGRST301', 'JWSError JWSInvalidSignature');
     if (typeof claims.exp === 'number' && claims.exp * 1000 < Date.now()) return pgError(401, 'PGRST303', 'JWT expired');
-    if (claims.role !== 'authenticated' || typeof claims.sub !== 'string') return pgError(401, '42501', `permission denied for function ${fn}`);
-    const uid = claims.sub;
+    if (claims.role !== 'authenticated' || typeof claims.sub !== 'string') return pgError(401, '42501', denied);
+    return claims.sub;
+  }
+
+  /** Lecture d'une table (`GET` / `HEAD`) avec la RLS de l'utilisateur du jeton. */
+  function handleRead(method: string, url: URL, headers: Headers): Response {
+    const sqlTable = url.pathname.slice('/rest/v1/'.length);
+    const uid = authenticate(headers, `permission denied for table ${sqlTable}`);
+    if (typeof uid !== 'string') return uid;
+    let table: CloudTableName;
+    try {
+      table = tableOfSql(sqlTable);
+    } catch {
+      return pgError(404, 'PGRST205', `Could not find the table 'public.${sqlTable}' in the schema cache`);
+    }
+    const params = url.searchParams;
+    if (params.get('select') !== '*') return pgError(400, 'PGRST100', 'simulateur : select=* attendu');
+    const columns = new Set<string>([...sqlColumnsOf(table), ...SERVER_METADATA_COLUMNS]);
+    let rows = server.sqlRows(uid, table); // RLS : lignes de l'utilisateur, actives et supprimées
+    for (const [name, value] of params) {
+      if (['select', 'order', 'offset', 'limit'].includes(name)) continue;
+      if (!columns.has(name)) return pgError(400, '42703', `column ${sqlTable}.${name} does not exist`);
+      if (value.startsWith('eq.')) rows = rows.filter((r) => r[name] !== null && String(r[name]) === value.slice(3));
+      else if (value === 'is.null') rows = rows.filter((r) => r[name] === null);
+      else if (value === 'not.is.null') rows = rows.filter((r) => r[name] !== null);
+      else return pgError(400, 'PGRST100', `simulateur : opérateur non pris en charge (${name})`);
+    }
+    const order = params.get('order');
+    if (order) {
+      const spec = order.split(',').map((part) => {
+        const [column, direction] = part.split('.');
+        return { column, ascending: direction !== 'desc', valid: columns.has(column) && (direction === 'asc' || direction === 'desc') };
+      });
+      if (spec.some((s) => !s.valid)) return pgError(400, 'PGRST100', 'simulateur : tri invalide');
+      rows = orderSqlRows(rows, spec);
+    }
+    const offset = params.has('offset') ? Number(params.get('offset')) : 0;
+    const limit = params.has('limit') ? Number(params.get('limit')) : Infinity;
+    if (!Number.isSafeInteger(offset) || offset < 0 || !(limit === Infinity || (Number.isSafeInteger(limit) && limit >= 0))) return pgError(400, 'PGRST103', 'simulateur : offset / limit invalides');
+    const counted = /count=exact/.test(headers.get('prefer') ?? '');
+    const total = rows.length;
+    const totalText = counted ? String(total) : '*';
+    if (offset > 0 && offset >= total) {
+      return new Response(JSON.stringify({ code: 'PGRST103', message: 'Requested range not satisfiable', details: null, hint: null }), {
+        status: 416,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Range': `*/${totalText}` },
+      });
+    }
+    const page = rows.slice(offset, offset + Math.min(limit, maxRows));
+    const range = page.length ? `${offset}-${offset + page.length - 1}` : '*';
+    return new Response(method === 'HEAD' ? null : JSON.stringify(page), {
+      status: counted && page.length < total ? 206 : 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Range': `${range}/${totalText}` },
+    });
+  }
+
+  /**
+   * Auth (V3.4-c, tests multi-onglets avec le vrai SDK) : vérification de session
+   * `GET /auth/v1/user` et révocation `POST /auth/v1/logout`, au format d'erreur de GoTrue.
+   * Une session révoquée (`revokedSessions`) répond `session_not_found`, comme sur NEXORA-DEV.
+   */
+  function handleAuth(method: string, url: URL, headers: Headers): Response | null {
+    const gotrue = (status: number, errorCode: string, msg: string) => json(status, { code: status, error_code: errorCode, msg });
+    if (url.pathname === '/auth/v1/logout' && method === 'POST') return new Response(null, { status: 204 });
+    if (url.pathname !== '/auth/v1/user' || method !== 'GET') return null;
+    if (headers.get('apikey') !== SIM_ANON_KEY) return json(401, { message: 'Invalid API key' });
+    const token = (headers.get('authorization') ?? '').replace(/^Bearer /, '');
+    let claims: Record<string, unknown>;
+    try {
+      claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    } catch {
+      return gotrue(403, 'bad_jwt', 'invalid JWT: unable to parse or verify signature');
+    }
+    if (token.endsWith('.invalide') || (typeof claims.exp === 'number' && claims.exp * 1000 < Date.now()) || typeof claims.sub !== 'string') {
+      return gotrue(403, 'bad_jwt', 'invalid JWT: unable to parse or verify signature, token is expired');
+    }
+    if (sim.revokedSessions.has(claims.sub)) return gotrue(403, 'session_not_found', 'Session from session_id claim in JWT does not exist');
+    return json(200, { id: claims.sub, aud: 'authenticated', role: 'authenticated', email: `${claims.sub.slice(0, 8)}@exemple.invalid`, app_metadata: {}, user_metadata: {}, created_at: REGISTERED_AT });
+  }
+
+  async function handle(method: string, url: URL, headers: Headers, rawBody: string | null): Promise<Response> {
+    const auth = handleAuth(method, url, headers);
+    if (auth) return auth;
+    if ((method === 'GET' || method === 'HEAD') && /^\/rest\/v1\/[a-z_]+$/.test(url.pathname)) return handleRead(method, url, headers);
+    const fn = url.pathname.replace(/^\/rest\/v1\/rpc\//, '');
+    if (method !== 'POST' || !['apply_changeset', 'resolve_changeset'].includes(fn) || !url.pathname.startsWith('/rest/v1/rpc/')) {
+      return pgError(404, 'PGRST202', `Could not find the function public.${fn}`);
+    }
+    const uid = authenticate(headers, `permission denied for function ${fn}`);
+    if (typeof uid !== 'string') return uid;
     let body: Record<string, unknown>;
     try {
       body = JSON.parse(rawBody ?? '');
@@ -166,7 +280,9 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
     } catch {
       /* corps non JSON conservé tel quel */
     }
-    requests.push({ method: init.method ?? 'GET', path: url.pathname, headers: Object.fromEntries(headers.entries()), body: parsed });
+    const recorded: RecordedRequest = { method: init.method ?? 'GET', path: url.pathname, query: url.search, headers: Object.fromEntries(headers.entries()), body: parsed };
+    requests.push(recorded);
+    await sim.onRequest?.(recorded, requests.length - 1);
     const o = overrides.shift();
     if (o && 'network' in o) throw new TypeError('fetch failed');
     if (o && 'hang' in o) {
@@ -177,11 +293,11 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
         else signal?.addEventListener('abort', abort, { once: true });
       });
     }
-    if (o) return new Response(o.body, { status: o.status, headers: { 'Content-Type': o.contentType ?? 'application/json' } });
+    if (o) return new Response(o.body, { status: o.status, headers: { 'Content-Type': o.contentType ?? 'application/json', ...o.headers } });
     return handle(init.method ?? 'GET', url, headers, rawBody);
   };
 
-  return {
+  const sim = {
     server,
     requests,
     fetch: fetchImpl as typeof fetch,
@@ -189,7 +305,12 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
     respondNext(o: Override) {
       overrides.push(o);
     },
+    /** Exécuté avant chaque requête (après son enregistrement) : modifications concurrentes. */
+    onRequest: null as ((request: RecordedRequest, index: number) => void | Promise<void>) | null,
+    /** V3.4-c — utilisateurs dont la session est révoquée côté Auth (`GET /auth/v1/user` → `session_not_found`). */
+    revokedSessions: new Set<string>(),
   };
+  return sim;
 }
 
 /**

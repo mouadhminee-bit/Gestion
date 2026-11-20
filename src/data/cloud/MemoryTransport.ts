@@ -13,7 +13,7 @@
  *    (`replayed`) sans rien réappliquer ; réutilisé avec un autre contenu → refus ;
  *  - résolution : un lot inconnu est marqué abandonné et ne sera jamais appliqué.
  *
- * ALIGNEMENT SUR LE SERVEUR (P15, V3.3) — comportement PAR DÉFAUT, identique à
+ * ALIGNEMENT SUR LE SERVEUR (P15, V3.3 ; seul comportement depuis V3.4-d), identique à
  * `apply_changeset` / `resolve_changeset` (migration 8, docs/LOT4_PLAN.md § 7.3 à 7.7) :
  *  - identité : celle de la session (`as(uid)`), ou à défaut le `userId` du lot ; lot d'un
  *    autre utilisateur ou ligne / clé appartenant à un autre → `unauthorized` ;
@@ -25,18 +25,17 @@
  *    `duplicate_key` ;
  *  - codes du serveur (`unsupported_protocol`, `unsupported_table`, `invalid_operation`,
  *    `invalid_key`, `invalid_row`, `changeset_too_large`…), dans le même ordre de contrôle ;
- *  - `changeset_pending` simulable (`pendingResolveNext`).
+ *  - `changeset_pending` simulable (`pendingResolveNext`) ;
+ *  - lecture (V3.4-a) : lignes SQL actives et supprimées (`sqlRows`), source de lecture de la
+ *    session (`readSource`, même contrat que `HttpReadSource`).
  * Non modélisé (propre à PostgreSQL) : types et contraintes métier des colonnes (CHECK, clés
  * étrangères), taille en octets, concurrence réelle.
- *
- * Mode `legacy` (option) : comportement d'avant V3.3, conservé À L'IDENTIQUE pour les suites
- * écrites avant le chargement initial (V3.4) — elles créent le profil par un premier lot et
- * utilisent des identifiants fictifs non canoniques. À retirer quand elles seront migrées.
  */
 import type { ID } from '@/domain/types';
 import type { Key } from '../storage';
-import { ALL_TABLES, PRIMARY_KEYS, type TableName } from '../tables';
-import { EXCLUDED_TABLES, MAPPING, assertNoServerMetadata, fromSqlKey, toSqlKey } from './mapping';
+import { PRIMARY_KEYS, type TableName } from '../tables';
+import { MAPPING, assertNoServerMetadata, fromSqlKey, serializeRow, sqlColumnsOf, toSqlKey, type CloudTableName } from './mapping';
+import type { CloudReadSource, ReadQuery } from './CloudReader';
 import {
   CHANGESET_PROTOCOL,
   CloudConflictError,
@@ -53,15 +52,6 @@ import {
   type VersionConflict,
   type VersionEntry,
 } from './transport';
-
-export interface MemoryTransportOptions {
-  /**
-   * Comportement d'avant V3.3 (non aligné sur le serveur) : identifiants de lot globaux,
-   * profil créé par un lot, clés non canoniques admises, `invalid_changeset` générique,
-   * `IsolationViolationError`. Réservé aux suites antérieures à V3.4.
-   */
-  legacy?: boolean;
-}
 
 /** Limite du nombre d'opérations d'un lot (identique à la migration 8). */
 const MAX_OPS = 5000;
@@ -80,15 +70,6 @@ function ownerOfKey(table: TableName, key: Key): unknown {
   return undefined;
 }
 
-export class IsolationViolationError extends Error {
-  /** Refus définitif (RLS) : rien n'a été appliqué, aucune résolution nécessaire. */
-  readonly definitive = true;
-  constructor(table: string, owner: unknown, userId: ID) {
-    super(`Ligne ${table} attribuée à « ${String(owner)} » refusée pour l’utilisateur « ${userId} ».`);
-    this.name = 'IsolationViolationError';
-  }
-}
-
 /** Propriétaire déclaré d'une ligne. */
 function ownerOf(table: TableName, row: Record<string, unknown>): unknown {
   if (table === 'users') return row.id;
@@ -100,39 +81,22 @@ function keyOfRow(table: TableName, row: Record<string, unknown>): Key {
   return typeof pk === 'string' ? (row[pk] as string) : pk.map((f) => row[f] as string);
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 interface ServerEntry {
   row: Record<string, unknown>;
   version: number;
   deleted: boolean;
 }
 
-interface Processed {
-  userId: ID;
-  fingerprint: string;
-  result: CommitResult;
-}
-
 export class MemoryTransport implements CloudTransport {
   readonly kind = 'memory';
-  /** Comportement d'avant V3.3 (voir `MemoryTransportOptions`). */
-  readonly legacy: boolean;
-  constructor(options: MemoryTransportOptions = {}) {
-    this.legacy = options.legacy === true;
-  }
   /** userId → table → clé canonique → ligne versionnée. */
   private readonly server = new Map<ID, Map<TableName, Map<string, ServerEntry>>>();
-  /** Mode aligné : lots par utilisateur (`uid␀changesetId`), appliqués ou abandonnés. */
+  /** Lots par utilisateur (`uid␀changesetId`), appliqués ou abandonnés. */
   private readonly lots = new Map<string, { status: 'applied' | 'abandoned'; fingerprint?: string; result?: CommitResult }>();
-  /** Mode aligné : propriétaire de chaque clé existante (clés primaires globales). */
+  /** Propriétaire de chaque clé existante (clés primaires globales). */
   private readonly keyOwners = new Map<string, ID>();
-  /** Mode aligné : prochain `resolve` → le lot est encore « en cours » (`changeset_pending`). */
+  /** Prochain `resolve` → le lot est encore « en cours » (`changeset_pending`). */
   pendingResolveNext = false;
-  /** Lots acceptés (idempotence), par `changesetId`. */
-  private readonly processed = new Map<string, Processed>();
-  /** Lots abandonnés lors d'une résolution : ne seront jamais appliqués. */
-  private readonly abandoned = new Map<string, ID>();
   /** Lots ACCEPTÉS (dans l'ordre). Les rejeus n'y figurent pas. */
   readonly commits: ChangeSet[] = [];
   /** Erreur à lever au prochain `commit`, AVANT toute application (échec réseau à l'aller). */
@@ -146,21 +110,20 @@ export class MemoryTransport implements CloudTransport {
   /** Tant que non nul : chaque `resolve` échoue avec cette erreur (réseau indisponible). */
   resolveFailure: Error | null = null;
 
+  /** Identité : à défaut de session (`as`), le `userId` du lot. */
   async commit(changes: ChangeSet): Promise<CommitResult> {
-    return this.commitFor(this.legacy ? null : typeof changes?.userId === 'string' ? changes.userId : '', changes);
+    return this.commitFor(typeof changes?.userId === 'string' ? changes.userId : '', changes);
   }
 
   async resolve(changesetId: string, userId: ID): Promise<ResolveResult> {
-    if (this.legacy) return this.resolveLegacy(changesetId, userId);
     return this.resolveFor(userId, changesetId, userId);
   }
 
   /**
-   * Vue « session » (mode aligné) : les lots et résolutions sont soumis au nom de `uid`,
-   * comme par un client authentifié. L'utilisateur est inscrit (profil créé) au besoin.
+   * Vue « session » : les lots et résolutions sont soumis au nom de `uid`, comme par un
+   * client authentifié. L'utilisateur est inscrit (profil créé) au besoin.
    */
   as(uid: ID): CloudTransport {
-    if (this.legacy) throw new Error('MemoryTransport.as() : réservé au mode aligné sur le serveur');
     this.registerUser(uid);
     return {
       kind: 'memory',
@@ -169,9 +132,9 @@ export class MemoryTransport implements CloudTransport {
     };
   }
 
-  /** Mode aligné : inscription (déclencheur `handle_new_user`) — profil créé en version 1. */
+  /** Inscription (déclencheur `handle_new_user`) — profil créé en version 1. */
   registerUser(uid: ID, displayName = ''): void {
-    if (this.legacy || this.keyOwners.has(`users\u0000${keyString(uid)}`)) return;
+    if (this.keyOwners.has(`users\u0000${keyString(uid)}`)) return;
     const space = this.server.get(uid) ?? new Map<TableName, Map<string, ServerEntry>>();
     this.server.set(uid, space);
     const users = space.get('users') ?? new Map<string, ServerEntry>();
@@ -180,7 +143,7 @@ export class MemoryTransport implements CloudTransport {
     this.keyOwners.set(`users\u0000${keyString(uid)}`, uid);
   }
 
-  private async commitFor(uid: ID | null, changes: ChangeSet): Promise<CommitResult> {
+  private async commitFor(uid: ID, changes: ChangeSet): Promise<CommitResult> {
     if (this.failNext) {
       const e = this.failNext;
       this.failNext = null;
@@ -188,7 +151,7 @@ export class MemoryTransport implements CloudTransport {
     }
     const conditional = this.failWhen?.(changes);
     if (conditional) throw conditional;
-    const result = uid === null ? this.apply(changes) : this.applyAligned(uid, changes);
+    const result = this.applyAligned(uid, changes);
     if (this.loseResponseNext) {
       const e = this.loseResponseNext;
       this.loseResponseNext = null;
@@ -202,7 +165,7 @@ export class MemoryTransport implements CloudTransport {
     return structuredClone(result);
   }
 
-  /** Mode aligné : résolution dans le périmètre de l'utilisateur authentifié. */
+  /** Résolution dans le périmètre de l'utilisateur authentifié. */
   private async resolveFor(uid: ID, changesetId: string, userId: ID): Promise<ResolveResult> {
     if (this.resolveFailure) throw this.resolveFailure;
     if (userId !== uid) throw new CloudProtocolError('unauthorized', 'résolution demandée pour un autre utilisateur');
@@ -221,7 +184,7 @@ export class MemoryTransport implements CloudTransport {
   }
 
   /**
-   * Mode aligné : contrôles dans l'ordre de `apply_changeset` (enveloppe, identité, taille,
+   * Contrôles dans l'ordre de `apply_changeset` (enveloppe, identité, taille,
    * idempotence, forme de chaque opération, versions, écritures), puis application tout ou rien.
    */
   private applyAligned(uid: ID, changes: ChangeSet): CommitResult {
@@ -331,94 +294,6 @@ export class MemoryTransport implements CloudTransport {
     return result;
   }
 
-  private async resolveLegacy(changesetId: string, userId: ID): Promise<ResolveResult> {
-    if (this.resolveFailure) throw this.resolveFailure;
-    const done = this.processed.get(changesetId);
-    if (done) {
-      if (done.userId !== userId) throw new CloudProtocolError('unknown_changeset', 'lot inconnu pour cet utilisateur');
-      return { ...structuredClone(done.result), status: 'replayed' };
-    }
-    const owner = this.abandoned.get(changesetId);
-    if (owner !== undefined && owner !== userId) throw new CloudProtocolError('unknown_changeset', 'lot inconnu pour cet utilisateur');
-    this.abandoned.set(changesetId, userId);
-    return { changesetId, status: 'abandoned' };
-  }
-
-  /** Validation complète, puis application tout ou rien. */
-  private apply(changes: ChangeSet): CommitResult {
-    this.validateShape(changes);
-    const fingerprint = changesetFingerprint(changes);
-    const done = this.processed.get(changes.changesetId);
-    if (done) {
-      if (done.userId !== changes.userId || done.fingerprint !== fingerprint) throw new CloudProtocolError('changeset_id_reused', 'identifiant de lot déjà utilisé pour un autre contenu');
-      return { ...structuredClone(done.result), status: 'replayed' };
-    }
-    if (this.abandoned.has(changes.changesetId)) throw new CloudProtocolError('changeset_abandoned', 'lot abandonné lors d’une résolution : jamais appliqué');
-
-    for (const op of changes.ops) {
-      if (op.type !== 'put') continue;
-      const owner = ownerOf(op.table, op.row);
-      if (owner !== changes.userId) throw new IsolationViolationError(op.table, owner, changes.userId);
-    }
-
-    const space = this.server.get(changes.userId) ?? new Map<TableName, Map<string, ServerEntry>>();
-    const conflicts: VersionConflict[] = [];
-    for (const op of changes.ops) {
-      const cur = space.get(op.table)?.get(keyString(op.key));
-      const ok =
-        op.type === 'put'
-          ? op.expectedVersion === null
-            ? cur === undefined // création : la clé ne doit pas exister (même supprimée)
-            : cur !== undefined && cur.version === op.expectedVersion // modification ou réactivation
-          : op.expectedVersion !== null && cur !== undefined && !cur.deleted && cur.version === op.expectedVersion; // suppression d'une ligne active
-      if (!ok) conflicts.push({ table: op.table, key: op.key, expectedVersion: op.expectedVersion, actualVersion: cur?.version ?? null, actualDeleted: cur?.deleted ?? null });
-    }
-    if (conflicts.length) throw new CloudConflictError(conflicts);
-
-    // Application (aucune erreur possible au-delà de ce point : tout ou rien).
-    this.server.set(changes.userId, space);
-    const versions: VersionEntry[] = [];
-    for (const op of changes.ops) {
-      const table = space.get(op.table) ?? new Map<string, ServerEntry>();
-      space.set(op.table, table);
-      const k = keyString(op.key);
-      const cur = table.get(k);
-      const version = (cur?.version ?? 0) + 1;
-      if (op.type === 'put') table.set(k, { row: structuredClone(op.row), version, deleted: false });
-      else table.set(k, { row: cur!.row, version, deleted: true });
-      versions.push({ table: op.table, key: structuredClone(op.key) as Key, version, deleted: op.type === 'delete' });
-    }
-    const result: CommitResult = { changesetId: changes.changesetId, status: 'applied', versions };
-    this.processed.set(changes.changesetId, { userId: changes.userId, fingerprint, result: structuredClone(result) });
-    this.commits.push(structuredClone(changes));
-    return result;
-  }
-
-  private validateShape(changes: ChangeSet): void {
-    const bad = (detail: string): never => {
-      throw new CloudProtocolError('invalid_changeset', detail);
-    };
-    if (!changes || changes.protocol !== CHANGESET_PROTOCOL) bad('protocole inconnu');
-    if (typeof changes.changesetId !== 'string' || !UUID_RE.test(changes.changesetId)) bad('changesetId : UUID attendu');
-    if (typeof changes.userId !== 'string' || !changes.userId) bad('userId manquant');
-    if (!Array.isArray(changes.ops) || !changes.ops.length) bad('lot vide');
-    const seen = new Set<string>();
-    for (const op of changes.ops) {
-      if (!(ALL_TABLES as readonly string[]).includes(op.table)) bad(`table inconnue : ${String(op.table)}`);
-      // Tables locales (`EXCLUDED_TABLES` du mapping, ex. `meta`) : inconnues du serveur.
-      if (Object.prototype.hasOwnProperty.call(EXCLUDED_TABLES, op.table)) bad(`table locale, exclue du protocole cloud : ${op.table}`);
-      if (op.type !== 'put' && op.type !== 'delete') bad('type d’opération inconnu');
-      if (op.expectedVersion !== null && !(Number.isSafeInteger(op.expectedVersion) && op.expectedVersion >= 1)) bad('expectedVersion : entier ≥ 1 ou null');
-      const k = `${op.table}\u0000${keyString(op.key)}`;
-      if (seen.has(k)) bad('deux opérations sur la même clé');
-      seen.add(k);
-      if (op.type === 'put') {
-        if (!op.row || typeof op.row !== 'object') bad('ligne manquante');
-        if (keyString(keyOfRow(op.table, op.row)) !== keyString(op.key)) bad('clé incohérente avec la ligne');
-      } else if ('row' in op) bad('une suppression ne transporte pas de ligne');
-    }
-  }
-
   /** Lignes ACTIVES (non supprimées) d'un utilisateur pour une table. */
   rows(userId: ID, table: TableName): Record<string, unknown>[] {
     return [...(this.server.get(userId)?.get(table)?.values() ?? [])].filter((e) => !e.deleted).map((e) => structuredClone(e.row));
@@ -434,4 +309,67 @@ export class MemoryTransport implements CloudTransport {
   users(): ID[] {
     return [...this.server.keys()];
   }
+
+  /**
+   * Lignes SQL d'un utilisateur pour une table (V3.4-a), ACTIVES ET SUPPRIMÉES, au format
+   * renvoyé par PostgREST pour `select=*` : colonnes du mapping (ligne convertie par
+   * `serializeRow` ; date d'inscription du profil, seule colonne non modifiable, reprise de la
+   * ligne) et métadonnées serveur. Métadonnées simulées : `sync_txid` = version, horodatages
+   * fixes (`REGISTERED_AT`) ; seules la version et la suppression sont significatives ici.
+   */
+  sqlRows(userId: ID, table: CloudTableName): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const e of this.server.get(userId)?.get(table)?.values() ?? []) {
+      const sql: Record<string, unknown> = { ...serializeRow(table, e.row).values };
+      for (const column of sqlColumnsOf(table)) {
+        if (column in sql) continue;
+        if (table === 'users' && column === 'created_at') sql.created_at = e.row.createdAt;
+        else throw new Error(`MemoryTransport.sqlRows : colonne ${table}.${column} non simulée`);
+      }
+      sql.version = e.version;
+      sql.sync_txid = String(e.version);
+      sql.server_updated_at = REGISTERED_AT;
+      sql.deleted_at = e.deleted ? REGISTERED_AT : null;
+      out.push(structuredClone(sql));
+    }
+    return out;
+  }
+
+  /**
+   * Source de lecture vue par la session de `uid` (V3.4-a) — même contrat que `HttpReadSource` :
+   * RLS (lignes de `uid` seulement, actives et supprimées), filtre sur le propriétaire, tri
+   * sur les colonnes demandées, pages, nombre total exact. L'utilisateur est inscrit au besoin
+   * (profil créé, comme par le déclencheur d'inscription).
+   */
+  readSource(uid: ID): CloudReadSource {
+    this.registerUser(uid);
+    const visible = (q: ReadQuery) => {
+      if (MAPPING[q.table]?.sqlTable !== q.sqlTable) throw new Error(`MemoryTransport.readSource : table incohérente (${q.table} / ${q.sqlTable})`);
+      return orderSqlRows(
+        this.sqlRows(uid, q.table).filter((r) => r[q.owner] === q.userId),
+        q.order.map((column) => ({ column, ascending: true })),
+      );
+    };
+    return {
+      kind: 'memory',
+      sessionUserId: async () => uid,
+      page: async (q, offset, limit) => {
+        const all = visible(q);
+        return { rows: all.slice(offset, offset + limit), total: all.length };
+      },
+      count: async (q) => visible(q).length,
+    };
+  }
+}
+
+/** Trie des lignes SQL sur les colonnes indiquées (valeurs comparées en texte, ordre stable). */
+export function orderSqlRows(rows: Record<string, unknown>[], order: readonly { column: string; ascending: boolean }[]): Record<string, unknown>[] {
+  return [...rows].sort((a, b) => {
+    for (const { column, ascending } of order) {
+      const x = String(a[column]);
+      const y = String(b[column]);
+      if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
+    }
+    return 0;
+  });
 }

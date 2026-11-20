@@ -1869,7 +1869,12 @@ const ko: Messages = {
   'auth.config.text': "클라우드 모드가 선택되었지만 구성이 없거나 잘못되었습니다. 접근할 수 없습니다. 자세한 내용은 브라우저 콘솔을 확인하세요.",
   'cloud.title': "클라우드 공간",
   'cloud.signedInAs': "{email}(으)로 로그인됨",
-  'cloud.pending': "클라우드 데이터는 다음 단계에서 활성화됩니다. 현재는 어떤 금융 데이터도 읽거나 저장하지 않습니다.",
+  'cloud.pending': "클라우드 데이터가 이 기기에 로드되었습니다. 조회 및 편집은 다음 단계에서 활성화됩니다.",
+  'cloud.loading': "클라우드 데이터를 불러오는 중…",
+  'cloud.loadError.title': "데이터를 불러올 수 없습니다",
+  'cloud.loadError.unavailable': "서비스에 일시적으로 연결할 수 없습니다. 연결을 확인한 후 다시 시도하세요.",
+  'cloud.loadError.denied': "데이터에 대한 접근이 거부되었습니다. 다시 시도하세요. 문제가 계속되면 로그아웃한 후 다시 로그인하세요.",
+  'cloud.loadError.failed': "데이터를 모두 불러오지 못했습니다. 불완전한 데이터는 저장되지 않았습니다. 다시 시도하세요. 문제가 계속되면 로그아웃하세요.",
 };
 
 export default ko;

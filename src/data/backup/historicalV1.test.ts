@@ -43,8 +43,8 @@ function local(): Env {
   return { kind: 'local', repo: new LocalRepository(db, 'local-user'), db };
 }
 function cloud(): Env {
-  const u = `hist-v1-cloud-${++seq}`;
-  const transport = new MemoryTransport({ legacy: true });
+  const u = globalThis.crypto.randomUUID(); // identifiant canonique (mode aligné sur le serveur)
+  const transport = new MemoryTransport();
   const db = new CloudCacheDB(cloudCacheName(u), { userId: u });
   return { kind: 'cloud', repo: new CloudRepository(u, { transport, cache: db }), db, transport };
 }

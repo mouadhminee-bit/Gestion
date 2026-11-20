@@ -16,6 +16,8 @@ import { CloudRepository } from '../cloud/CloudRepository';
 import { CloudCacheDB } from '../cloud/CloudCacheDB';
 import { cloudCacheName } from '../cloud/CloudStorage';
 import { MemoryTransport } from '../cloud/MemoryTransport';
+import { loadCloudData } from '../cloud/CloudLoader';
+import { readCloudData } from '../cloud/CloudReader';
 import type { NexoraRepository } from '../contracts';
 import type { StoragePort } from '../storage';
 import type { TableName } from '../tables';
@@ -47,8 +49,8 @@ function makeLocal(): Env {
   return { kind: 'local', repo: new LocalRepository(new NexoraDB(`backup-test-${userId}`), userId) };
 }
 function makeCloud(): Env {
-  const userId = `bk-cloud-${++seq}`;
-  const transport = new MemoryTransport({ legacy: true });
+  const userId = globalThis.crypto.randomUUID(); // identifiant canonique (mode aligné sur le serveur)
+  const transport = new MemoryTransport();
   return { kind: 'cloud', repo: new CloudRepository(userId, { transport, cache: new CloudCacheDB(cloudCacheName(userId), { userId }) }), transport };
 }
 
@@ -65,6 +67,19 @@ async function seed(env: Env) {
   await repo.addAttachment(expenses[0].id, new File([bytes(1500)], 'recu.pdf', { type: 'application/pdf' }));
   await repo.addAttachment(expenses[1].id, new File([bytes(64, 3)], 'ticket.png', { type: 'image/png' }));
   return (await repo.snapshot())!;
+}
+
+/**
+ * V3.4-d (arbitrage A3, extension ponctuelle) : chargement initial du cache Cloud AVANT une
+ * écriture du profil (`resetToEmpty`). En mode aligné, le profil existe dès l'inscription ;
+ * sans sa version, le lot du profil serait refusé (conflit). Sans effet en mode local.
+ */
+async function preloadCloud(env: Env) {
+  if (env.kind !== 'cloud') return;
+  const uid = env.repo.userId;
+  const cache = new CloudCacheDB(cloudCacheName(uid), { userId: uid });
+  await loadCloudData(cache, await readCloudData(env.transport!.readSource(uid), uid), uid);
+  cache.close();
 }
 
 /** État observable complet (toutes les tables, contenu des pièces jointes) + lots envoyés au serveur. */
@@ -452,6 +467,7 @@ for (const make of [makeLocal, makeCloud]) {
       const env = make();
       await env.repo.replaceWithSnapshot(generateDemoData(env.repo.userId, TODAY));
       expect(validateBackup(await validFile(env))).toEqual([]);
+      await preloadCloud(env); // V3.4-d (A3) : variante Cloud uniquement
       await env.repo.resetToEmpty();
       expect(validateBackup(await validFile(env))).toEqual([]);
     });

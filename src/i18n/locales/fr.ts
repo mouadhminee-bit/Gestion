@@ -1909,7 +1909,12 @@ const fr = {
   'auth.config.text': "Le mode Cloud est sélectionné, mais sa configuration est absente ou invalide : aucun accès n’est possible. Le détail figure dans la console du navigateur.",
   'cloud.title': "Espace Cloud",
   'cloud.signedInAs': "Connecté avec {email}",
-  'cloud.pending': "Vos données Cloud seront activées lors d’une prochaine étape : aucune donnée financière n’est lue ni enregistrée pour le moment.",
+  'cloud.pending': "Vos données Cloud sont chargées sur cet appareil. Leur consultation et leur modification seront activées lors d’une prochaine étape.",
+  'cloud.loading': "Chargement de vos données Cloud…",
+  'cloud.loadError.title': "Chargement impossible",
+  'cloud.loadError.unavailable': "Le service est momentanément injoignable. Vérifiez votre connexion, puis réessayez.",
+  'cloud.loadError.denied': "L’accès à vos données a été refusé. Réessayez ; si le problème persiste, déconnectez-vous puis reconnectez-vous.",
+  'cloud.loadError.failed': "Vos données n’ont pas pu être chargées complètement : aucune donnée incomplète n’a été enregistrée. Réessayez ; si le problème persiste, déconnectez-vous.",
 } satisfies Record<string, Msg>;
 
 export default fr;

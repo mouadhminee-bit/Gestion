@@ -34,8 +34,10 @@ import { ALL_TABLES, PRIMARY_KEYS, SCHEMA_VERSION, USER_TABLES, type TableName }
 import { CloudRepository } from './cloud/CloudRepository';
 import { CloudCacheDB } from './cloud/CloudCacheDB';
 import { CLOUD_CACHE_PREFIX, ConstraintError, cloudCacheName } from './cloud/CloudStorage';
-import { CloudTransportError, CloudWriteDisabledError, DisabledTransport } from './cloud/transport';
-import { IsolationViolationError, MemoryTransport } from './cloud/MemoryTransport';
+import { CloudProtocolError, CloudTransportError, CloudWriteDisabledError, DisabledTransport } from './cloud/transport';
+import { MemoryTransport } from './cloud/MemoryTransport';
+import { loadCloudData } from './cloud/CloudLoader';
+import { readCloudData } from './cloud/CloudReader';
 import { EXCLUDED_TABLES, MappingError, assertCloudTable, deserializeRow, fromSqlKey, serializeRow, toCloudRow, toSqlKey } from './cloud/mapping';
 import { generateDemoData } from './demo';
 import type { Account, Category, DataSnapshot } from '@/domain/types';
@@ -46,17 +48,34 @@ import type { StoragePort } from './storage';
 // Outils
 // ---------------------------------------------------------------------------
 
-let seq = 0;
-const uid = () => `user_${++seq}`;
+/** Identifiant d'utilisateur canonique (UUID, comme `auth.uid()`) : exigé par le mode aligné (V3.4-d). */
+const uid = () => globalThis.crypto.randomUUID();
 
 function local(userId: string) {
   const db = new NexoraDB(`contract-local-${userId}`);
   return { repo: new LocalRepository(db, userId), db };
 }
 
-function cloud(userId: string, transport = new MemoryTransport({ legacy: true })) {
+/** Serveur en mémoire et cache de chaque repository cloud des tests (chargement préalable, V3.4-d). */
+const servers = new WeakMap<NexoraRepository, { transport: MemoryTransport; cache: CloudCacheDB }>();
+
+function cloud(userId: string, transport = new MemoryTransport()) {
   const cache = new CloudCacheDB(cloudCacheName(userId), { userId });
-  return { repo: new CloudRepository(userId, { transport, cache }), cache, transport };
+  const repo = new CloudRepository(userId, { transport, cache });
+  servers.set(repo, { transport, cache });
+  return { repo, cache, transport };
+}
+
+/**
+ * V3.4-d (arbitrage A3) : chargement initial du cache AVANT une écriture du profil
+ * (`ensureUser`). En mode aligné, le profil existe dès l'inscription : sans sa version, le lot
+ * du profil serait refusé (conflit). Sans effet pour un repository local (ou sans serveur en mémoire).
+ */
+async function preloadCloud(repo: NexoraRepository) {
+  const env = servers.get(repo);
+  if (!env) return;
+  const u = repo.userId;
+  await loadCloudData(env.cache, await readCloudData(env.transport.readSource(u), u), u);
 }
 
 /** Toutes les lignes de toutes les tables d'une base (comparaison exhaustive). */
@@ -97,6 +116,7 @@ const account = (name: string, currency = 'MAD', initialBalance = 500000): Omit<
 });
 
 async function seeded(repo: NexoraRepository) {
+  await preloadCloud(repo); // V3.4-d (A3)
   await repo.ensureUser('Test');
   const bank = await repo.createAccount(account('Banque'));
   const savings = await repo.createAccount({ ...account('Épargne', 'MAD', 0), type: 'savings', order: 1 });
@@ -137,6 +157,7 @@ async function scenario(repo: NexoraRepository): Promise<{ log: Log; checkpoints
   // Initialisation, paramètres
   await rec('getSettings-empty', r.getSettings());
   await snap();
+  await preloadCloud(repo); // V3.4-d (A3) : hors journal du scénario
   await rec('ensureUser', r.ensureUser('Test'));
   await rec('ensureUser-again', r.ensureUser('Autre'));
   await rec('updateSettings', r.updateSettings({ displayName: 'Sara', privacyMode: true }));
@@ -469,7 +490,9 @@ describe('contrat : écritures cloud refusées par défaut', () => {
     const u = uid();
     const cache = new CloudCacheDB(cloudCacheName(u), { userId: u });
     // Cache rempli par un repository cloud « en ligne », puis rouvert avec le transport par défaut.
-    const online = new CloudRepository(u, { cache, transport: new MemoryTransport({ legacy: true }) });
+    const transport = new MemoryTransport();
+    const online = new CloudRepository(u, { cache, transport });
+    servers.set(online, { transport, cache }); // V3.4-d (A3) : chargement préalable dans seeded()
     const { bank, cat } = await seeded(online);
     await online.createTransaction(draft(bank.id, { categoryId: cat('food').id }));
     const before = await dump(cache);
@@ -996,7 +1019,7 @@ describe('contrat : isolation entre utilisateurs', () => {
   });
 
   it('cloud : caches distincts, partitions serveur distinctes, aucune lecture croisée', async () => {
-    const transport = new MemoryTransport({ legacy: true });
+    const transport = new MemoryTransport();
     const u1 = uid();
     const u2 = uid();
     const c1 = cloud(u1, transport);
@@ -1010,8 +1033,12 @@ describe('contrat : isolation entre utilisateurs', () => {
     expect((await c2.repo.snapshot())!.transactions).toHaveLength(0);
     await expect(c2.repo.getTransactionGroup(t.id)).rejects.toThrow();
     expect(await c2.repo.deleteTransactions([t.id])).toBe(0);
-    // Même sauvegarde restaurée chez u2 : u1 n'est pas affecté (cache et partition séparés).
-    await c2.repo.restoreBackup(await c1.repo.exportBackup());
+    // Même sauvegarde restaurée chez u2, sur le MÊME serveur : refusée par le serveur (clés
+    // primaires globales, `duplicate_key` — limite R1, remappage prévu en V5, arbitrage A2 de
+    // V3.4-d) ; rien n'est écrit, u1 n'est pas affecté (cache et partition séparés).
+    const restored = await c2.repo.restoreBackup(await c1.repo.exportBackup()).catch((e: unknown) => e);
+    expect(restored).toBeInstanceOf(CloudProtocolError);
+    expect((restored as CloudProtocolError).code).toBe('duplicate_key');
     expect(await c1.repo.snapshot()).toEqual(s1);
     expect(transport.rows(u1, 'transactions')).toHaveLength(1);
     expect(transport.rows(u2, 'transactions').every((r) => r.userId === u2)).toBe(true);
@@ -1019,22 +1046,24 @@ describe('contrat : isolation entre utilisateurs', () => {
   });
 
   it('cloud : une ligne attribuée à un autre utilisateur est refusée par le transport, rien n’est écrit', async () => {
-    const transport = new MemoryTransport({ legacy: true });
+    const transport = new MemoryTransport();
     const u1 = uid();
     const c2 = cloud(uid(), transport);
     await seeded(c2.repo);
     const before = await dump(c2.cache);
-    const forged = { id: 'x', userId: u1, displayName: '', createdAt: '' };
+    // Clé canonique et horodatage valide (mode aligné) ; la ligne est attribuée à u1.
+    const forged = { id: uid(), userId: u1, displayName: '', createdAt: '2026-10-31T12:00:00.000Z' };
     const err = await store(c2.repo).tables.accounts.put(forged as never).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(CloudTransportError);
-    expect((err as CloudTransportError).cause).toBeInstanceOf(IsolationViolationError);
+    // Refus d'isolation du serveur (aligné) : `unauthorized`, refus définitif, rien n'est appliqué.
+    expect(err).toBeInstanceOf(CloudProtocolError);
+    expect((err as CloudProtocolError).code).toBe('unauthorized');
     expect(await dump(c2.cache)).toEqual(before);
     expect(transport.rows(u1, 'accounts')).toHaveLength(0);
   });
 
   it('cloud : un cache ne peut servir qu’à son propriétaire', () => {
     const u1 = uid();
-    expect(() => new CloudRepository(uid(), { cache: new NexoraDB(cloudCacheName(u1)), transport: new MemoryTransport({ legacy: true }) })).toThrow(/refusé/);
+    expect(() => new CloudRepository(uid(), { cache: new NexoraDB(cloudCacheName(u1)), transport: new MemoryTransport() })).toThrow(/refusé/);
   });
 });
 

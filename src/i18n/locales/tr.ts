@@ -1869,7 +1869,12 @@ const tr: Messages = {
   'auth.config.text': "Cloud modu seçili, ancak yapılandırması eksik veya geçersiz: erişim mümkün değil. Ayrıntılar tarayıcı konsolunda.",
   'cloud.title': "Cloud alanı",
   'cloud.signedInAs': "{email} olarak giriş yapıldı",
-  'cloud.pending': "Cloud verileriniz sonraki bir adımda etkinleştirilecek: şu anda hiçbir finansal veri okunmuyor veya kaydedilmiyor.",
+  'cloud.pending': "Cloud verileriniz bu cihaza yüklendi. Görüntüleme ve düzenleme sonraki bir adımda etkinleştirilecek.",
+  'cloud.loading': "Cloud verileriniz yükleniyor…",
+  'cloud.loadError.title': "Veriler yüklenemedi",
+  'cloud.loadError.unavailable': "Hizmete geçici olarak ulaşılamıyor. Bağlantınızı kontrol edip yeniden deneyin.",
+  'cloud.loadError.denied': "Verilerinize erişim reddedildi. Yeniden deneyin; sorun devam ederse çıkış yapıp yeniden giriş yapın.",
+  'cloud.loadError.failed': "Verileriniz tam olarak yüklenemedi: eksik veri kaydedilmedi. Yeniden deneyin; sorun devam ederse çıkış yapın.",
 };
 
 export default tr;

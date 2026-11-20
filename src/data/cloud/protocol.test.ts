@@ -12,6 +12,8 @@ import { CloudRepository } from './CloudRepository';
 import { CloudCacheDB, SERVER_VERSIONS_TABLE } from './CloudCacheDB';
 import { CloudStorage, cloudCacheName } from './CloudStorage';
 import { MemoryTransport } from './MemoryTransport';
+import { loadCloudData } from './CloudLoader';
+import { readCloudData } from './CloudReader';
 import {
   CHANGESET_PROTOCOL,
   CloudCacheWriteError,
@@ -35,16 +37,35 @@ import type { Account } from '@/domain/types';
 // Outils
 // ---------------------------------------------------------------------------
 
-let n = 0;
-const uid = () => `proto_${++n}`;
+/** Identifiant canonique (UUID, comme `auth.uid()`) : exigé par le mode aligné (V3.4-d). */
+const uid = () => globalThis.crypto.randomUUID();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-/** Un appareil : sa propre base IndexedDB (fabrique distincte), son repository cloud. */
-function device(userId: string, transport: CloudTransport, factory = new IDBFactory()) {
+/** Cache et serveur en mémoire de chaque repository des tests (chargement préalable, V3.4-d). */
+const devices = new WeakMap<NexoraRepository, { cache: CloudCacheDB; server?: MemoryTransport }>();
+
+/**
+ * Un appareil : sa propre base IndexedDB (fabrique distincte), son repository cloud. `server` :
+ * serveur en mémoire derrière un transport enveloppé (espion, porte), pour le chargement préalable.
+ */
+function device(userId: string, transport: CloudTransport, factory = new IDBFactory(), server = transport instanceof MemoryTransport ? transport : undefined) {
   const cache = new CloudCacheDB(cloudCacheName(userId), { userId, dexie: { indexedDB: factory, IDBKeyRange } });
   const repo = new CloudRepository(userId, { transport, cache });
+  devices.set(repo, { cache, server });
   const storage = Reflect.get(repo, 'store') as CloudStorage;
   return { repo, cache, storage, factory };
+}
+
+/**
+ * V3.4-d (arbitrage A3) : chargement initial du cache (V3.4-a/b) AVANT une écriture du profil
+ * (`ensureUser`). En mode aligné, le profil existe dès l'inscription : sans sa version, le lot du
+ * profil serait refusé (conflit).
+ */
+async function preload(repo: NexoraRepository) {
+  const d = devices.get(repo);
+  if (!d?.server) throw new Error('preload : appareil sans serveur en mémoire');
+  const u = repo.userId;
+  await loadCloudData(d.cache, await readCloudData(d.server.readSource(u), u), u);
 }
 
 /** Simule une récupération complète (Lot 5) : copie lignes ET versions d'un cache à l'autre. */
@@ -118,9 +139,10 @@ async function expectVersionsConsistent(userId: string, cache: CloudCacheDB, ser
 
 describe('protocole v1 : forme du lot', () => {
   it('protocol 1, changesetId UUID unique par lot, userId, au plus une opération par clé, version attendue', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     await repo.createAccount(account('Banque'));
     await repo.createAccount(account('Épargne'));
@@ -135,7 +157,8 @@ describe('protocole v1 : forme du lot', () => {
       expect(new Set(keys).size).toBe(keys.length);
       for (const op of c.ops) {
         expect(op).toHaveProperty('expectedVersion');
-        expect(op.expectedVersion).toBeNull(); // créations uniquement
+        // Créations uniquement, sauf le profil : créé à l'inscription en version 1 (mode aligné), il est mis à jour.
+        expect(op.expectedVersion, op.table).toBe(op.table === 'users' ? 1 : null);
         if (op.type === 'put') expect(op.row).toBeTypeOf('object');
         else expect(op).not.toHaveProperty('row');
       }
@@ -143,24 +166,27 @@ describe('protocole v1 : forme du lot', () => {
   });
 
   it('une clé créée puis supprimée dans la même transaction n’est pas transmise', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const { repo, storage } = device(uid(), server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const before = server.commits.length;
+    const tmp = uid(); // clé canonique et horodatages valides (mode aligné)
     await storage.transaction(['accounts'], async () => {
-      await storage.tables.accounts.add({ id: 'tmp', userId: repo.userId, ...account('Tmp'), createdAt: 'x', updatedAt: 'x' });
-      await storage.tables.accounts.delete('tmp');
+      await storage.tables.accounts.add({ id: tmp, userId: repo.userId, ...account('Tmp'), createdAt: '2026-03-01T10:00:00.000Z', updatedAt: '2026-03-01T10:00:00.000Z' });
+      await storage.tables.accounts.delete(tmp);
     });
     expect(server.commits.length).toBe(before); // lot vide : rien envoyé
-    expect(await storage.serverVersion('accounts', 'tmp')).toBeUndefined();
+    expect(await storage.serverVersion('accounts', tmp)).toBeUndefined();
   });
 });
 
 describe('protocole v1 : versions (création, modification, suppression, réactivation)', () => {
   it('création → version 1 ; modification avec la bonne version → v + 1 (serveur et cache)', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const acc = await repo.createAccount(account('Banque'));
     expect(server.entry(u, 'accounts', acc.id)).toMatchObject({ version: 1, deleted: false });
@@ -177,9 +203,10 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
   });
 
   it('suppression logique : version + 1, ligne conservée côté serveur, retirée du cache, version conservée', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const acc = await repo.createAccount(account('À supprimer'));
     await repo.deleteAccount(acc.id);
@@ -193,9 +220,10 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
   });
 
   it('réactivation : réécrire une clé supprimée porte la version de la ligne supprimée → v + 1, active', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const acc = await repo.createAccount(account('Compte'));
     const backup = await repo.exportBackup();
@@ -210,9 +238,10 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
   });
 
   it('une création sur une clé déjà connue du serveur (même supprimée) est un conflit', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const a = device(u, server);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('Test');
     const acc = await a.repo.createAccount(account('X'));
     await a.repo.deleteAccount(acc.id);
@@ -230,9 +259,10 @@ describe('protocole v1 : versions (création, modification, suppression, réacti
 
 describe('protocole v1 : conflits entre clients', () => {
   it('scénario de référence : deux appareils, même version initiale ; le second est refusé en entier, rien n’est perdu', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const a = device(u, server);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('Test');
     const acc = await a.repo.createAccount(account('Initial'));
     // 1. Deux repositories disposent de la même version initiale (récupération simulée).
@@ -265,9 +295,10 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('deux écritures concurrentes sur la même clé (deux appareils) : une acceptée, l’autre en conflit', async () => {
-    const mem = new MemoryTransport({ legacy: true });
+    const mem = new MemoryTransport();
     const u = uid();
     const a = device(u, mem);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('Test');
     const acc = await a.repo.createAccount(account('Initial'));
     const g = gated(mem);
@@ -287,9 +318,10 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('même cache partagé (deux onglets) : la version attendue est celle de la LECTURE, pas celle du moment de l’envoi', async () => {
-    const mem = new MemoryTransport({ legacy: true });
+    const mem = new MemoryTransport();
     const u = uid();
     const a = device(u, mem);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('Test');
     const acc = await a.repo.createAccount(account('Initial'));
     const g = gated(mem);
@@ -308,9 +340,10 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('lecture HORS transaction puis écriture : un autre onglet écrit entre les deux → conflit, pas d’écrasement', async () => {
-    const mem = new MemoryTransport({ legacy: true });
+    const mem = new MemoryTransport();
     const u = uid();
     const a = device(u, mem);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('Test');
     const acc = await a.repo.createAccount(account('Initial'));
     const tab1 = new CloudRepository(u, { transport: mem, cache: a.cache });
@@ -330,9 +363,10 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('lot multi-tables : un seul conflit (objectif modifié ailleurs) → la contribution n’est pas créée non plus', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const a = device(u, server);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('Test');
     const goal = await a.repo.saveGoal(goalInput);
     const b = device(u, server);
@@ -348,9 +382,10 @@ describe('protocole v1 : conflits entre clients', () => {
   });
 
   it('clé déterministe créée sur deux appareils (état de notification) : le second est en conflit', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const a = device(u, server);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('Test');
     const b = device(u, server);
     await pull(a.cache, b.cache);
@@ -367,9 +402,10 @@ describe('protocole v1 : conflits entre clients', () => {
 
 describe('protocole v1 : atomicité et idempotence', () => {
   it('lot multi-tables accepté : toutes les lignes et toutes les versions appliquées ensemble', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const bank = await repo.createAccount(account('Banque'));
     const debt = await repo.createDebt({ label: 'D', type: 'loan', direction: 'payable', principal: 100000, currency: 'MAD', startDate: '2026-03-01', status: 'active' });
@@ -380,9 +416,10 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('rejeu idempotent : même changesetId et même contenu → résultat d’origine, aucune seconde modification', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const acc = await repo.createAccount(account('A'));
     await repo.updateAccount(acc.id, { name: 'B' });
@@ -401,49 +438,62 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('réutilisation frauduleuse d’un changesetId : autre contenu ou autre utilisateur → refus, rien appliqué', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const acc = await repo.createAccount(account('A'));
     const lot = server.commits.at(-1)!;
     const forgedRow = { ...(lot.ops[0] as { row: Record<string, unknown> }).row, name: 'Falsifié' };
     const forged: ChangeSet = { ...lot, ops: [{ ...lot.ops[0], row: forgedRow } as ChangeSet['ops'][number]] };
-    for (const bad of [forged, { ...lot, userId: 'autre' }]) {
+    // Mode aligné : l'identifiant de lot est propre à chaque utilisateur. Réutilisé par le MÊME
+    // utilisateur avec un autre contenu → `changeset_id_reused` ; soumis au nom d'un AUTRE
+    // utilisateur → lot distinct, refusé car la ligne appartient à u → `unauthorized`.
+    for (const [bad, code] of [
+      [forged, 'changeset_id_reused'],
+      [{ ...lot, userId: uid() }, 'unauthorized'],
+    ] as const) {
       const err = await server.commit(bad).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(CloudProtocolError);
-      expect((err as CloudProtocolError).code).toBe('changeset_id_reused');
+      expect((err as CloudProtocolError).code).toBe(code);
     }
     expect(server.entry(u, 'accounts', acc.id)).toMatchObject({ version: 1, row: { name: 'A' } });
   });
 
   it('lots mal formés refusés en entier (protocole, identifiant, doublon de clé, clé incohérente, version)', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
-    const row = { id: 'k1', userId: u, ...account('A'), createdAt: 'x', updatedAt: 'x' };
-    const base = (): ChangeSet => ({ protocol: 1, changesetId: globalThis.crypto.randomUUID(), userId: u, ops: [{ table: 'accounts', type: 'put', key: 'k1', expectedVersion: null, row }] });
-    const cases: [string, ChangeSet][] = [
-      ['protocole', { ...base(), protocol: 2 as never }],
-      ['identifiant', { ...base(), changesetId: 'pas-un-uuid' }],
-      ['vide', { ...base(), ops: [] }],
-      ['doublon', { ...base(), ops: [...base().ops, ...base().ops] }],
-      ['clé incohérente', { ...base(), ops: [{ table: 'accounts', type: 'put', key: 'autre', expectedVersion: null, row }] }],
-      ['version 0', { ...base(), ops: [{ table: 'accounts', type: 'put', key: 'k1', expectedVersion: 0, row }] }],
-      ['version décimale', { ...base(), ops: [{ table: 'accounts', type: 'put', key: 'k1', expectedVersion: 1.5, row }] }],
-      ['table inconnue', { ...base(), ops: [{ table: 'inconnue' as TableName, type: 'put', key: 'k1', expectedVersion: null, row }] }],
+    // Clés canoniques et horodatages valides (mode aligné).
+    const k1 = uid();
+    const row = { id: k1, userId: u, ...account('A'), createdAt: '2026-03-01T10:00:00.000Z', updatedAt: '2026-03-01T10:00:00.000Z' };
+    const base = (): ChangeSet => ({ protocol: 1, changesetId: globalThis.crypto.randomUUID(), userId: u, ops: [{ table: 'accounts', type: 'put', key: k1, expectedVersion: null, row }] });
+    // Codes d'erreur du serveur (migration 8, § 7.7), dans l'ordre de ses contrôles.
+    const cases: [string, ChangeSet, string][] = [
+      ['protocole', { ...base(), protocol: 2 as never }, 'unsupported_protocol'],
+      ['identifiant', { ...base(), changesetId: 'pas-un-uuid' }, 'invalid_changeset'],
+      ['vide', { ...base(), ops: [] }, 'invalid_changeset'],
+      ['doublon', { ...base(), ops: [...base().ops, ...base().ops] }, 'invalid_changeset'],
+      ['clé incohérente', { ...base(), ops: [{ table: 'accounts', type: 'put', key: uid(), expectedVersion: null, row }] }, 'invalid_key'],
+      ['version 0', { ...base(), ops: [{ table: 'accounts', type: 'put', key: k1, expectedVersion: 0, row }] }, 'invalid_operation'],
+      ['version décimale', { ...base(), ops: [{ table: 'accounts', type: 'put', key: k1, expectedVersion: 1.5, row }] }, 'invalid_operation'],
+      ['table inconnue', { ...base(), ops: [{ table: 'inconnue' as TableName, type: 'put', key: k1, expectedVersion: null, row }] }, 'unsupported_table'],
     ];
-    for (const [label, cs] of cases) {
+    for (const [label, cs, code] of cases) {
       const err = await server.commit(cs).catch((e: unknown) => e);
       expect(err, label).toBeInstanceOf(CloudProtocolError);
-      expect((err as CloudProtocolError).code, label).toBe('invalid_changeset');
+      expect((err as CloudProtocolError).code, label).toBe(code);
     }
-    expect(server.users()).toEqual([]);
+    // Rien n'est appliqué : aucun lot accepté ; seul le profil existe (créé à l'inscription, mode aligné).
+    expect(server.users()).toEqual([u]);
+    expect(server.commits).toEqual([]);
   });
 
   it('échec avant confirmation : rien dans le cache ; résolu (abandonné) avant l’écriture suivante ; jamais appliqué ensuite', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const before = await dumpCache(cache);
     let sent: ChangeSet | null = null;
@@ -468,9 +518,10 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('réponse perdue après acceptation : signalé non enregistré, puis le cache rattrape le serveur sans doublon ni conflit', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const acc = await repo.createAccount(account('A'));
     server.loseResponseNext = new Error('réponse perdue');
@@ -489,9 +540,10 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('réponse ambiguë (résultat incohérent) : non confirmée, cache inchangé ; résolue ensuite', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const garbles: ((r: CommitResult) => unknown)[] = [
       (r) => ({ ...r, changesetId: globalThis.crypto.randomUUID() }),
@@ -515,9 +567,10 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('résolution impossible (réseau) : l’écriture suivante est refusée et rien n’est écrit, jusqu’au retour du réseau', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     server.loseResponseNext = new Error('réponse perdue');
     await expect(repo.createAccount(account('A'))).rejects.toBeInstanceOf(CloudTransportError);
@@ -538,9 +591,10 @@ describe('protocole v1 : atomicité et idempotence', () => {
   });
 
   it('échec d’écriture du cache après acceptation : ni ligne ni version partielles ; réappliqué avant l’écriture suivante', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const before = await dumpCache(cache);
     const original = cache.transaction.bind(cache);
@@ -578,9 +632,10 @@ describe('protocole v1 : atomicité et idempotence', () => {
 
 describe('protocole v1 : stockage des versions', () => {
   it('persistance : versions conservées à la réouverture du cache ; l’écriture suivante part de la bonne version', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const first = device(u, server);
+    await preload(first.repo); // V3.4-d (A3)
     await first.repo.ensureUser('Test');
     const acc = await first.repo.createAccount(account('A'));
     await first.repo.updateAccount(acc.id, { name: 'B' });
@@ -593,13 +648,15 @@ describe('protocole v1 : stockage des versions', () => {
   });
 
   it('isolation : chaque utilisateur a ses versions dans son propre cache', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const factory = new IDBFactory();
     const u1 = uid();
     const u2 = uid();
     const c1 = device(u1, server, factory);
     const c2 = device(u2, server, factory);
+    await preload(c1.repo); // V3.4-d (A3)
     await c1.repo.ensureUser('Un');
+    await preload(c2.repo); // V3.4-d (A3)
     await c2.repo.ensureUser('Deux');
     const a1 = await c1.repo.createAccount(account('U1'));
     await c2.repo.createAccount(account('U2'));
@@ -615,9 +672,10 @@ describe('protocole v1 : stockage des versions', () => {
   });
 
   it('les versions n’apparaissent ni dans les lignes, ni dans snapshot(), ni dans exportBackup()', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const acc = await repo.createAccount(account('A'));
     await repo.updateAccount(acc.id, { name: 'B' });
@@ -644,11 +702,12 @@ describe('protocole v1 : stockage des versions', () => {
 describe('protocole v1 : compatibilité', () => {
   it('54 méthodes inchangées ; suite d’opérations variée : cache et serveur cohérents (versions comprises)', async () => {
     expect(REPOSITORY_METHODS).toHaveLength(54);
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, cache } = device(u, server);
     for (const m of REPOSITORY_METHODS) expect(typeof (repo as unknown as Record<string, unknown>)[m], m).toBe('function');
     const r: NexoraRepository = repo;
+    await preload(r); // V3.4-d (A3)
     await r.ensureUser('Test');
     const bank = await r.createAccount(account('Banque'));
     const savings = await r.createAccount({ ...account('Épargne'), type: 'savings' });
@@ -695,10 +754,11 @@ describe('protocole v1 : tables locales (meta)', () => {
   }
 
   it('meta reste dans le cache, n’est jamais transmise ; les autres tables le sont normalement', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const s = spy(server);
     const u = uid();
-    const { repo, cache } = device(u, s.transport);
+    const { repo, cache } = device(u, s.transport, undefined, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     await repo.createAccount(account('Banque'));
     await repo.resetToEmpty({ displayName: 'Nouveau' }); // réécrit meta via ensureUser
@@ -710,9 +770,10 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('versions serveur : uniquement pour les tables synchronisées', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, cache, storage } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     await repo.createAccount(account('Banque'));
     const tables = new Set((await cache.serverVersions.toArray()).map((r) => r.table));
@@ -722,9 +783,10 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('atomicité : meta n’est écrite qu’avec le lot confirmé (conflit → rien ; échec du cache → ni meta ni lignes)', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const a = device(u, server);
+    await preload(a.repo); // V3.4-d (A3)
     await a.repo.ensureUser('A');
     // Appareil sans récupération : son ensureUser entre en conflit → rien d'écrit, meta comprise.
     const b = device(u, server);
@@ -733,6 +795,7 @@ describe('protocole v1 : tables locales (meta)', () => {
     for (const t of ALL_TABLES) expect(await b.cache.table(t).count(), t).toBe(0);
     // Échec d'écriture du cache après acceptation : la transaction Dexie annule tout.
     const c = device(uid(), server);
+    await preload(c.repo); // V3.4-d (A3) : avant l'espion, qui ferait échouer la transaction du chargement
     const original = c.cache.transaction.bind(c.cache);
     let failed = false;
     const spyTx = vi.spyOn(c.cache, 'transaction').mockImplementation(((mode: string, ...rest: unknown[]) => {
@@ -752,9 +815,10 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('atomicité : une panne sur l’écriture locale (meta) annule aussi les lignes et les versions confirmées', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3) : avant l'espion (le chargement n'écrit pas dans meta)
     // `cache.table('meta')` n'est pas l'objet `cache.meta` : on intercepte le prototype commun.
     const proto = Object.getPrototypeOf(cache.meta) as { put: (...a: unknown[]) => unknown };
     const originalPut = proto.put;
@@ -769,8 +833,9 @@ describe('protocole v1 : tables locales (meta)', () => {
     await expect(repo.ensureUser('Test')).rejects.toBeInstanceOf(CloudCacheWriteError);
     spyMeta.mockRestore();
     expect(server.rows(u, 'settings')).toHaveLength(1); // accepté par le serveur
-    for (const t of ALL_TABLES) expect(await cache.table(t).count(), t).toBe(0); // rien de partiel
-    expect(await cache.serverVersions.count()).toBe(0);
+    // Rien de partiel : le cache est resté tel que chargé (seul le profil, version 1, mode aligné).
+    for (const t of ALL_TABLES) expect(await cache.table(t).count(), t).toBe(t === 'users' ? 1 : 0);
+    expect(await cache.serverVersions.count()).toBe(1);
     await storage.resolveUnconfirmed();
     expect(await cache.meta.count()).toBe(1);
     expect(await cache.settings.count()).toBe(1);
@@ -778,9 +843,10 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('réponse perdue : meta appliquée seulement à la résolution (rejouée) ; abandonnée avec un lot jamais appliqué', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const { repo, storage, cache } = device(u, server);
+    await preload(repo); // V3.4-d (A3)
     server.loseResponseNext = new Error('réponse perdue');
     await expect(repo.ensureUser('Test')).rejects.toBeInstanceOf(CloudTransportError);
     expect(await cache.meta.count()).toBe(0);
@@ -800,10 +866,11 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('lot purement local : appliqué au cache sans aucun appel serveur', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const s = spy(server);
     const u = uid();
-    const { repo, storage, cache } = device(u, s.transport);
+    const { repo, storage, cache } = device(u, s.transport, undefined, server);
+    await preload(repo); // V3.4-d (A3)
     await repo.ensureUser('Test');
     const calls = s.seen.length;
     await storage.transaction(['meta'], async () => {
@@ -820,7 +887,7 @@ describe('protocole v1 : tables locales (meta)', () => {
   });
 
   it('MemoryTransport refuse toute table exclue du mapping (meta), rien n’est appliqué', async () => {
-    const server = new MemoryTransport({ legacy: true });
+    const server = new MemoryTransport();
     const u = uid();
     const cs: ChangeSet = {
       protocol: 1,
@@ -832,10 +899,13 @@ describe('protocole v1 : tables locales (meta)', () => {
       ],
     };
     const err = await server.commit(cs).catch((e: unknown) => e);
+    // Code du serveur (aligné) : `unsupported_table`, désignant l'opération 1 (meta).
     expect(err).toBeInstanceOf(CloudProtocolError);
-    expect((err as CloudProtocolError).code).toBe('invalid_changeset');
-    expect((err as Error).message).toMatch(/meta/);
-    expect(server.users()).toEqual([]);
+    expect((err as CloudProtocolError).code).toBe('unsupported_table');
+    expect((err as Error).message).toMatch(/opération 1 : table hors liste blanche/);
+    // Rien n'est appliqué (ni paramètres, ni meta) ; seul le profil existe, créé à l'inscription.
+    expect(server.users()).toEqual([u]);
+    expect(server.rows(u, 'settings')).toEqual([]);
     expect(Object.keys(EXCLUDED_TABLES)).toEqual(['meta']);
   });
 });
@@ -896,9 +966,9 @@ describe('CloudCacheDB : protection du constructeur', () => {
 
   it('CloudRepository construit toujours un cache contrôlé ; un cache d’un autre utilisateur est refusé', () => {
     const u = uid();
-    const repo = new CloudRepository(u, { transport: new MemoryTransport({ legacy: true }) });
+    const repo = new CloudRepository(u, { transport: new MemoryTransport() });
     expect(repo.cacheName).toBe(cloudCacheName(u));
     const other = new CloudCacheDB(cloudCacheName('autre_u'), { userId: 'autre_u', dexie: { indexedDB: new IDBFactory(), IDBKeyRange } });
-    expect(() => new CloudRepository(u, { transport: new MemoryTransport({ legacy: true }), cache: other })).toThrow(/refusé/);
+    expect(() => new CloudRepository(u, { transport: new MemoryTransport(), cache: other })).toThrow(/refusé/);
   });
 });

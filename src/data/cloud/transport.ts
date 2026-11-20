@@ -131,7 +131,6 @@ export type CloudProtocolErrorCode =
   | 'invalid_changeset'
   | 'changeset_id_reused'
   | 'changeset_abandoned'
-  | 'unknown_changeset'
   // Codes de `apply_changeset` / `resolve_changeset` (migration 8, docs/LOT4_PLAN.md § 7.7).
   | 'unauthorized'
   | 'unsupported_protocol'

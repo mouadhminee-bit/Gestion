@@ -1869,7 +1869,12 @@ const zh: Messages = {
   'auth.config.text': "已选择云模式，但其配置缺失或无效：无法访问。详情请查看浏览器控制台。",
   'cloud.title': "云空间",
   'cloud.signedInAs': "已登录：{email}",
-  'cloud.pending': "您的云数据将在后续步骤中启用：目前不会读取或保存任何财务数据。",
+  'cloud.pending': "您的云数据已加载到此设备。查看和编辑功能将在后续步骤中启用。",
+  'cloud.loading': "正在加载您的云数据…",
+  'cloud.loadError.title': "无法加载数据",
+  'cloud.loadError.unavailable': "服务暂时无法访问。请检查网络连接，然后重试。",
+  'cloud.loadError.denied': "访问您的数据被拒绝。请重试；如果问题仍然存在，请退出登录后重新登录。",
+  'cloud.loadError.failed': "未能完整加载您的数据：未保存任何不完整的数据。请重试；如果问题仍然存在，请退出登录。",
 };
 
 export default zh;

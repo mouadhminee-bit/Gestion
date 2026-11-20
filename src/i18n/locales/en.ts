@@ -1869,7 +1869,12 @@ const en: Messages = {
   'auth.config.text': "Cloud mode is selected, but its configuration is missing or invalid: no access is possible. Details are in the browser console.",
   'cloud.title': "Cloud space",
   'cloud.signedInAs': "Signed in as {email}",
-  'cloud.pending': "Your Cloud data will be enabled in an upcoming step: no financial data is read or saved for now.",
+  'cloud.pending': "Your Cloud data is loaded on this device. Viewing and editing it will be enabled in an upcoming step.",
+  'cloud.loading': "Loading your Cloud data…",
+  'cloud.loadError.title': "Unable to load your data",
+  'cloud.loadError.unavailable': "The service is temporarily unreachable. Check your connection, then try again.",
+  'cloud.loadError.denied': "Access to your data was denied. Try again; if the problem persists, sign out and sign back in.",
+  'cloud.loadError.failed': "Your data could not be fully loaded: no incomplete data was saved. Try again; if the problem persists, sign out.",
 };
 
 export default en;

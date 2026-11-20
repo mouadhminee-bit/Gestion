@@ -1869,7 +1869,12 @@ const pl: Messages = {
   'auth.config.text': "Wybrano tryb Cloud, ale jego konfiguracji brakuje lub jest nieprawidłowa: dostęp jest niemożliwy. Szczegóły znajdują się w konsoli przeglądarki.",
   'cloud.title': "Przestrzeń Cloud",
   'cloud.signedInAs': "Zalogowano jako {email}",
-  'cloud.pending': "Dane Cloud zostaną włączone na jednym z kolejnych etapów: obecnie żadne dane finansowe nie są odczytywane ani zapisywane.",
+  'cloud.pending': "Dane Cloud zostały wczytane na tym urządzeniu. Przeglądanie i edycja zostaną włączone na jednym z kolejnych etapów.",
+  'cloud.loading': "Wczytywanie danych Cloud…",
+  'cloud.loadError.title': "Nie udało się wczytać danych",
+  'cloud.loadError.unavailable': "Usługa jest chwilowo niedostępna. Sprawdź połączenie, a następnie spróbuj ponownie.",
+  'cloud.loadError.denied': "Odmówiono dostępu do Twoich danych. Spróbuj ponownie; jeśli problem nie ustąpi, wyloguj się i zaloguj ponownie.",
+  'cloud.loadError.failed': "Nie udało się wczytać wszystkich danych: nie zapisano żadnych niepełnych danych. Spróbuj ponownie; jeśli problem nie ustąpi, wyloguj się.",
 };
 
 export default pl;
