@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { useRepository } from '@/app/AppContext';
 import { ErrorBoundary, Splash, Workspace } from '@/app/Workspace';
@@ -16,29 +16,41 @@ function Root() {
   return <Workspace repo={useRepository()} />;
 }
 
+/** Fournisseurs communs aux deux modes (aucun n'utilise le routeur). */
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <TooltipProvider>
+      <ToastProvider>
+        <ConfirmProvider>
+          {/* Filet global : une donnée inattendue dans AppProvider / AppShell (hors pages)
+              affiche un écran d'erreur au lieu d'une page blanche. */}
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </ConfirmProvider>
+      </ToastProvider>
+    </TooltipProvider>
+  );
+}
+
 export function App() {
   return (
     <I18nProvider>
-      <HashRouter>
-        <TooltipProvider>
-          <ToastProvider>
-            <ConfirmProvider>
-              {/* Filet global : une donnée inattendue dans AppProvider / AppShell (hors pages)
-                  affiche un écran d'erreur au lieu d'une page blanche. */}
-              <ErrorBoundary>
-                {getBackendSelection().requested === 'supabase' ? (
-                  // Mode Cloud : barrière d'authentification ; la base locale n'est jamais ouverte.
-                  <Suspense fallback={<Splash />}>
-                    <CloudApp />
-                  </Suspense>
-                ) : (
-                  <Root />
-                )}
-              </ErrorBoundary>
-            </ConfirmProvider>
-          </ToastProvider>
-        </TooltipProvider>
-      </HashRouter>
+      {getBackendSelection().requested === 'supabase' ? (
+        // Mode Cloud : PAS de routeur ici. `CloudApp` monte le HashRouter lui-même, APRÈS
+        // l'initialisation du SDK (échange du code PKCE du lien de confirmation, V3.2 / V3.7) ;
+        // barrière d'authentification ; la base locale n'est jamais ouverte.
+        <Providers>
+          <Suspense fallback={<Splash />}>
+            <CloudApp />
+          </Suspense>
+        </Providers>
+      ) : (
+        // Mode local : arbre inchangé (routeur autour des fournisseurs).
+        <HashRouter>
+          <Providers>
+            <Root />
+          </Providers>
+        </HashRouter>
+      )}
     </I18nProvider>
   );
 }

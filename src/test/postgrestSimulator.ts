@@ -24,7 +24,7 @@
  * voir `handleAuth`. Réservé aux tests, comme le reste de ce fichier.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { MemoryTransport, REGISTERED_AT, orderSqlRows } from '@/data/cloud/MemoryTransport';
+import { MemoryTransport, REGISTERED_AT, REGISTERED_AT_SQL, orderSqlRows } from '@/data/cloud/MemoryTransport';
 import {
   MAPPING,
   SERVER_METADATA_COLUMNS,
@@ -94,14 +94,14 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
   const maxRows = options.maxRows ?? 1000;
 
   /** Ligne SQL reçue → ligne TS ; `null` si elle ne correspond pas exactement aux colonnes écrites. */
-  function rowFromWire(table: CloudTableName, uid: string, values: unknown): Record<string, unknown> | null {
+  function rowFromWire(table: CloudTableName, _uid: string, values: unknown): Record<string, unknown> | null {
     if (!values || typeof values !== 'object' || Array.isArray(values)) return null;
     const cols = writeCols(table);
     const got = Object.keys(values);
     if (got.length !== cols.length || !cols.every((c) => got.includes(c))) return null; // « colonnes attendues »
-    const full: Record<string, unknown> = { version: 1, sync_txid: '1', server_updated_at: REGISTERED_AT, deleted_at: null };
+    const full: Record<string, unknown> = { version: 1, sync_txid: '1', server_updated_at: REGISTERED_AT_SQL, deleted_at: null };
     for (const c of sqlColumnsOf(table)) full[c] = c in (values as object) ? (values as Record<string, unknown>)[c] : null;
-    if (table === 'users') full.created_at = server.entry(uid, 'users', uid)?.row.createdAt ?? REGISTERED_AT;
+    if (table === 'users') full.created_at = REGISTERED_AT_SQL; // fixée par le serveur, à la microseconde
     try {
       return deserializeRow(table, full).row as Record<string, unknown>;
     } catch {

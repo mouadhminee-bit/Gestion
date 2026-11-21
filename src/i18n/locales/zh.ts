@@ -1865,6 +1865,8 @@ const zh: Messages = {
   'auth.err.required': "请输入您的电子邮件地址和密码。",
   'auth.err.sessionExpired': "您的会话已过期。请重新登录。",
   'auth.err.verifyFailed': "会话未验证",
+  'auth.link.noSession': "无法在此浏览器中通过此链接打开会话。请登录：如果您的地址已确认，即可成功登录。",
+  'auth.link.invalid': "此链接无效或已过期。如果您的地址已确认，请登录。",
   'auth.config.title': "云配置无效",
   'auth.config.text': "已选择云模式，但其配置缺失或无效：无法访问。详情请查看浏览器控制台。",
   'cloud.title': "云空间",

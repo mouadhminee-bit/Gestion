@@ -127,7 +127,7 @@ obligatoire avant V3.5) et **P35** ci-dessous.
 
 | # | Point | Statut | Lot |
 |---|---|---|---|
-| P35 | **Chemin de succès non validé réellement sur NEXORA-DEV** : V3.3 n'a exécuté sur DEV que des refus (décision du 19/11/2026 : aucune donnée des comptes de test modifiée) ; le chemin de succès n'est couvert qu'en simulation et **ne doit pas être considéré comme acquis**. Critère restant : exécuter réellement un `apply_changeset` accepté ; appeler ensuite `resolve_changeset` sur le même lot ; vérifier le résultat `replayed` ; vérifier que les données persistées correspondent exactement au lot soumis | ouvert | **V3.7** (report acté en V3.5, arbitrage A6 : essai dédié sous autorisation d'écriture sur DEV) |
+| P35 | **Chemin de succès non validé réellement sur NEXORA-DEV** : V3.3 n'a exécuté sur DEV que des refus (décision du 19/11/2026 : aucune donnée des comptes de test modifiée) ; le chemin de succès n'est couvert qu'en simulation et **ne doit pas être considéré comme acquis**. Critère restant : exécuter réellement un `apply_changeset` accepté ; appeler ensuite `resolve_changeset` sur le même lot ; vérifier le résultat `replayed` ; vérifier que les données persistées correspondent exactement au lot soumis | **levée (V3.7, 21/11/2026)** : lot accepté puis `replayed`, voir section V3.7 | **V3.7** (report acté en V3.5, arbitrage A6 : essai dédié sous autorisation d'écriture sur DEV) |
 
 ## Plan directeur V1 — V3.4 : chargement initial des données Cloud (19 et 20/11/2026)
 
@@ -170,12 +170,12 @@ Points consignés en clôture de V3.4 :
 | # | Point | Statut | Lot |
 |---|---|---|---|
 | P36 | **D2 — mutation équivalente** (V3.4-d) : dans `MemoryTransport`, la comparaison « clé non canonique » est inatteignable, la conversion préalable par le mapping refusant déjà toute clé non canonique (UUID en minuscules exigés) ; ce refus est couvert par `transportContract.test.ts` (clé en majuscules → `invalid_key`) | acté, sans action | — |
-| P37 | **Validation dans un vrai navigateur** : ordre « fin de la transaction, puis suppression » prévu par la norme IndexedDB (fake-indexeddb 6.0.0 supprime d'abord ; seul l'état final est vérifié), comportement multi-onglets (`BroadcastChannel` du SDK : testé sous jsdom avec le vrai SDK et le `BroadcastChannel` de Node, non dans un navigateur), quota IndexedDB réel (simulé), réouverture du cache après suppression | ouvert | V3.7 |
+| P37 | **Validation dans un vrai navigateur** : ordre « fin de la transaction, puis suppression » prévu par la norme IndexedDB (fake-indexeddb 6.0.0 supprime d'abord ; seul l'état final est vérifié), comportement multi-onglets (`BroadcastChannel` du SDK : testé sous jsdom avec le vrai SDK et le `BroadcastChannel` de Node, non dans un navigateur), quota IndexedDB réel (simulé), réouverture du cache après suppression | **levée (V3.7)**, une limite consignée (suppression pendant une écriture en cours non testée) | V3.7 |
 | P38 | **Hypothèse H1** (preuve d'intégralité de la lecture) : aucune ligne métier n'est effacée physiquement pendant un chargement (`authenticated` sans `DELETE`, suppression logique par `apply_changeset`, clés jamais modifiées). À réexaminer avant toute purge (P5, P14, P31) ou toute suppression de compte | ouvert | avant V7 |
-| P39 | **Lecture et chargement non validés sur NEXORA-DEV** : lecture seule, sans aucune écriture — distinct de **P35**, qui porte sur l'écriture (lot accepté, puis `replayed`). les essais réels en lecture seule prévus au cadrage (chargement du compte B comparé à une lecture directe, profil du compte A, isolation, conversion des 18 tables réelles, jeton falsifié, déconnexion réelle) n'ont pas été réalisés ; seule une ligne `accounts` réelle a été convertie (V3.3) | ouvert | **V3.7**, sur autorisation (report acté en V3.5, arbitrage A6) |
+| P39 | **Lecture et chargement non validés sur NEXORA-DEV** : lecture seule, sans aucune écriture — distinct de **P35**, qui porte sur l'écriture (lot accepté, puis `replayed`). les essais réels en lecture seule prévus au cadrage (chargement du compte B comparé à une lecture directe, profil du compte A, isolation, conversion des 18 tables réelles, jeton falsifié, déconnexion réelle) n'ont pas été réalisés ; seule une ligne `accounts` réelle a été convertie (V3.3) | **levée (V3.7)** après la correction C1 | **V3.7**, sur autorisation (report acté en V3.5, arbitrage A6) |
 | P40 | **Lecture non transactionnelle entre les 18 tables** : une modification sur place pendant un chargement laisse une version antérieure dans le cache (sans danger : l'écriture suivante est refusée par conflit) ; un instantané exact relève de V4 (M9, borne P8). Pièces jointes chargées sans fichier (`blob` local, jamais transmis) : sans effet tant qu'elles sont désactivées en mode Cloud | accepté | V4 / V5 |
-| P41 | Comportements de V3.2 conservés : une déconnexion faite dans un autre onglet s'affiche « session expirée » dans les onglets restants ; un `SIGNED_IN` venu d'un autre onglet est accepté sans nouvelle vérification (le changement de compte entre onglets repose sur ce comportement). Suppression du cache en arrière-plan, bornée à 5 s ; un cache dont la suppression est bloquée est purgé à l'ouverture de session suivante. Traductions des 5 nouvelles clés et de `cloud.pending` non relues par des locuteurs natifs | ouvert | V3.7 / V6 |
-| P42 | **SMTP personnalisé** (réserve de clôture de V2, 19/11/2026) : NEXORA-DEV exige la confirmation de l'e-mail (V2.3) et utilise le serveur d'e-mail par défaut de Supabase, limité ; l'inscription réelle d'un nouvel utilisateur requiert un SMTP personnalisé, à configurer avant l'étape 2 (confirmation de l'e-mail) du parcours de V3.7 | ouvert | avant l'étape 2 de V3.7 |
+| P41 | Comportements de V3.2 conservés : une déconnexion faite dans un autre onglet s'affiche « session expirée » dans les onglets restants ; un `SIGNED_IN` venu d'un autre onglet est accepté sans nouvelle vérification (le changement de compte entre onglets repose sur ce comportement). Suppression du cache en arrière-plan, bornée à 5 s ; un cache dont la suppression est bloquée est purgé à l'ouverture de session suivante. Traductions des 5 nouvelles clés et de `cloud.pending` non relues par des locuteurs natifs | comportements **constatés en vrai navigateur et acceptés (V3.7, B4)** ; traductions : ouvert | V6 |
+| P42 | **SMTP personnalisé** (réserve de clôture de V2, 19/11/2026) : NEXORA-DEV exige la confirmation de l'e-mail (V2.3) et utilise le serveur d'e-mail par défaut de Supabase, limité ; l'inscription réelle d'un nouvel utilisateur requiert un SMTP personnalisé, à configurer avant l'étape 2 (confirmation de l'e-mail) du parcours de V3.7 | **levée (V3.7)** : SMTP sandbox actif, inscription réelle confirmée | avant l'étape 2 de V3.7 |
 
 Réserves toujours ouvertes après V3.4 : **P35** (chemin de succès réel sur DEV, au plus tard
 V3.5 ou V3.7), **P42** (SMTP, avant l'étape 2 du parcours V3.7), P37, P39, P41.
@@ -236,7 +236,66 @@ Points consignés en clôture de V3.5 :
 | P43 | **Onboarding Cloud en 4 lots** (A1, parcours inchangé) : profil + paramètres + catégories ; paramètres ; premier compte ; fin d'onboarding. Une interruption laisse un état repris par l'accueil (`ensureUser` n'écrit rien la seconde fois, testé) ; cas résiduel : compte en double si le 3ᵉ lot est accepté et le 4ᵉ échoue | accepté | — |
 | P44 | **Date de création du profil** : après `ensureUser`, le cache porte la date du client, le serveur conserve la sienne (`profiles.created_at` jamais écrit par le client) ; écart corrigé au chargement suivant (A3) | accepté | — |
 | P45 | **Lots volumineux** en mode Cloud (« Effacer toutes les données », « Repartir de zéro », import CSV) : un seul lot, soumis aux limites du serveur (5 000 opérations, 4 Mio) ; sans effet sur un compte récent | ouvert | V5 (P30) |
-| P46 | Traductions des 8 nouvelles clés non relues par des locuteurs natifs ; comportement réel du lecteur O1 (suivi de Dexie, multi-onglets) à confirmer dans un vrai navigateur | ouvert | V3.7 / V6 |
+| P46 | Traductions des 8 nouvelles clés non relues par des locuteurs natifs ; comportement réel du lecteur O1 (suivi de Dexie, multi-onglets) à confirmer dans un vrai navigateur | lecteur O1 **validé en vrai navigateur (V3.7)** ; traductions : ouvert | V6 |
 
 Réserves toujours ouvertes après V3.5 : **P35** et **P39** (V3.7, sur autorisation), **P42**
 (SMTP, avant l'étape 2 du parcours V3.7), P37, P41, P45, P46.
+
+## Plan directeur V1 — V3.7 : validation de bout en bout sur NEXORA-DEV (20 et 21/11/2026)
+
+Périmètre (ligne V3.7 du plan directeur V1) : test de bout en bout du parcours 1 à 9 sur DEV ;
+non-régression du mode local. Chaque opération sur DEV a été faite sur autorisation explicite
+et bornée (lecture A3 ; écritures A4 limitées à un compte, une table et un volume maximal ;
+inscriptions et lots du parcours plafonnés avant envoi par les scripts). Aucune opération sur
+PROD ; aucune modification du schéma, des migrations ni de la RLS. Configuration Auth de DEV
+faite par l'utilisateur dans le tableau de bord (SMTP sandbox, adresse de retour
+`http://localhost:5173/**`). Outils (Playwright, Chromium) installés hors dépôt ; preuves hors
+dépôt (dossier de travail V3.7 : index `LISEZMOI.txt`, empreintes `SHA256SUMS.txt`), sans
+secret ni adresse e-mail.
+
+Corrections apportées au dépôt pendant V3.7 :
+
+| Correction | Cause constatée | Contenu | Fichiers |
+|---|---|---|---|
+| C1 — horodatages du serveur | Premier essai P39 sur DEV : `profiles.created_at` (`DEFAULT now()`) relu en **microsecondes**, refusé par la conversion (précision milliseconde) ; le serveur simulé ne produisait que des millisecondes (écart de simulation) | À la lecture seulement, les colonnes `timestamptz` **non modifiables par le client** sont tronquées à la milliseconde avant conversion ; les colonnes modifiables restent refusées au-delà ; serveur simulé aligné (horodatages serveur en microsecondes) ; 6 tests | `src/data/cloud/mapping.ts`, `MemoryTransport.ts`, `src/test/postgrestSimulator.ts`, `mapping.test.ts`, `CloudReader.test.ts` |
+| Test smoke daté | Défaut antérieur (reproduit sur `ee8def0`) : le relevé CSV de test est daté d'octobre 2026, le test dépendait de la date du jour | Horloge du navigateur fixée au 15/10/2026 (`SMOKE_NOW` pour la changer) | `e2e/smoke.cjs` |
+| Flux PKCE (P47) | Constaté sur DEV (P42) : lien de confirmation revenu avec `#access_token=…` (flux implicite, défaut du SDK) alors que le plan (V3.1, V3.2) exige PKCE | `createClient(url, clé, { auth: { flowType: 'pkce' } })` ; test (défi S256 envoyé à l'inscription) | `src/data/cloud/supabaseClient.ts`, `supabaseClient.test.ts` |
+| Ordre de démarrage (P47) | Le `HashRouter` était monté (dans `App`) avant la fin de l'échange du code | Mode Cloud : `App` ne crée plus de routeur ; `CloudBoot` attend `auth.initialize()` (échange du code PKCE par le SDK), nettoie l'adresse (`code`, `error*`, fragment non-route → `#/`), puis monte le `HashRouter` et la barrière de session. Lien ouvert ailleurs (code non échangé) ou expiré / refusé : message sur l'écran de connexion (2 clés, 24 langues). Mode local : arbre inchangé | `src/App.tsx`, `src/features/auth/CloudApp.tsx`, `authCallback.ts`, `src/data/cloud/auth.ts`, 24 dictionnaires |
+| Script du parcours | — | Parcours 1 à 9 dans un vrai navigateur contre DEV, sans secret (environnement) ; garde-fou avant envoi : 1 inscription, 7 lots au plus (constante), `resolve_changeset` et toute autre écriture bloqués ; comparaison des instantanés hors horodatages (`undefined` ≡ absent) | `e2e/parcours-cloud.cjs` |
+
+| Contrôle | Résultat |
+|---|---|
+| Suite complète (tests simulés) | 1 834 / 1 834 (63 fichiers) ; typage et build réussis |
+| Tests ajoutés en V3.7 | 22 : horodatages serveur et alignement du simulateur 6 ; PKCE 1 ; ordre de démarrage et retour de lien 15 (application entière en mode Cloud, initialisation retenue, `HashRouter` instrumenté : ordre vérifié par journal) |
+| Défauts introduits volontairement | horodatages : arrondi détecté ; PKCE : option retirée détectée ; ordre de démarrage : 5 / 5 détectés (routeur avant `CloudBoot`, routeur remis dans `App`, adresse non nettoyée, message non transmis, initialisation non attendue) |
+| Mode local | smoke 11 / 11 ; journal réseau : 68 requêtes, 0 hors origine, **0 vers Supabase**, 0 WebSocket ; module Cloud jamais chargé ; seule base `nexora` |
+| Build | aucune clé `service_role` ; build Cloud : seule la clé publique (`anon`) |
+| P39 (lecture, compte B) | API 4 / 4 : 18 tables, 27 lignes et 27 versions identiques à une lecture directe ; conversion des 18 tables réelles ; 0 ligne d'autrui ; jeton falsifié → 401 ; 0 appel de fonction d'écriture |
+| Vrai navigateur, lecture (compte B) | 17 / 17 : route protégée sans session → connexion ; cache = serveur ; base `nexora` jamais créée ; rechargement et réouverture ; deux onglets (déconnexion dans l'un : retour à la connexion dans l'autre, cache supprimé en 6 ms malgré la connexion ouverte) ; reconnexion suivie par l'autre onglet ; quota observé |
+| Vrai navigateur, écritures bornées (A4, compte B) | 21 / 21 : 2 lots sur `user_settings.privacy_mode` (false → true → false, version 1 → 3) ; réponse retenue 1,2 s : rien d'affiché avant confirmation alors que le serveur avait appliqué le lot ; rafraîchissement sans rechargement dans les deux onglets ; valeur initiale restaurée |
+| P42 (SMTP) | inscription réelle unique ; message reçu dans le sandbox (API en lecture seule) ; adresse de retour d'abord refusée par Auth (repli sur l'URL du site) puis autorisée par l'utilisateur ; renvoi pour le même compte : 18 / 18 (confirmation, connexion, déconnexion) |
+| Démarrage Cloud en vrai navigateur, sans écriture | 11 / 11 : code sans vérificateur, lien expiré, sans lien |
+| **Parcours 1 à 8, 3 fois de suite** | **S2 34 / 34, S3 34 / 34, S4 étapes 1 à 8 réussies** : inscription avec défi PKCE, retour `?code=`, échange, code retiré ; onboarding (4 lots, P43) ; dépense, second compte, transfert (3 lots) ; 7 lots `applied` ; cache = serveur ; rechargement et second appareil : instantané identique (hors horodatages) ; 0 contenu de pièce jointe ; 0 envoi bloqué ; 0 erreur JavaScript |
+| **Étape 9 (S4 = A, compte B)** | déconnexion de A : cache et session supprimés ; B dans le même navigateur : aucune donnée de A (4 écrans), seul le cache de B ; API avec le jeton de B : 0 ligne de A et 0 ligne d'autrui sur les 18 tables ; écriture de B sur le compte « Épargne » de A refusée (HTTP 403, `unauthorized` : ligne attribuée à un autre utilisateur) ; comptes de A inchangés (2 comptes, version 1) |
+| **P35** (compte S4) | 16 / 16 : `apply_changeset` accepté (`privacy_mode` → true, version 3 → 4, seule colonne modifiée) ; `resolve_changeset` du même lot → `replayed`, résultat identique ; ligne DEV identique après le rejeu ; persistance après rechargement |
+| Exécutions interrompues (non comptées) | exécution 1 : défaut d'attente du script (étape 3) ; S1 : comparaison trop stricte du script (étape 7 : champ `undefined` écrit par le client ≡ champ absent relu du serveur) ; S4 étape 9 : prédicat « clé de A » erroné (clé SQL de `accounts` = `{id}`). Aucune anomalie de l'application ; scripts corrigés |
+| Git | aucun commit ni push à la date de cette clôture documentaire |
+
+Critères du § 7 : **« SaaS Cloud fonctionnel »** atteint (parcours 1 à 8 automatisé, 3 fois de
+suite ; instantané identique après rechargement ; mode local ≥ 1 512 tests, test de bout en bout
+11 / 11, 0 requête vers Supabase ; 0 contenu de pièce jointe) ; **« multi-utilisateurs
+sécurisé »** atteint (étape 9 interface et API ; cache de A supprimé après sa déconnexion ;
+0 clé `service_role` ; aucune route sans session).
+
+Points consignés en clôture de V3.7 :
+
+| # | Point | Statut | Lot |
+|---|---|---|---|
+| P47 | **Flux PKCE absent jusqu'à V3.7** (écart à V3.1 / V3.2, constaté sur DEV) : corrigé (client PKCE, échange terminé avant le montage du `HashRouter`, adresse nettoyée, liens ouverts ailleurs ou expirés traités) ; validé en réel dans les 3 exécutions | clos | — |
+| P48 | Messages de retour de lien (`auth.link.noSession`, `auth.link.invalid`) : traductions non relues par des locuteurs natifs ; le message « session non ouverte » s'affiche pour tout code sans vérificateur (y compris un code forgé), sans affirmer la confirmation ; aucun renvoi d'e-mail dans l'application (mot de passe oublié : V4.5) | ouvert | V6 / V4.5 |
+| P49 | **Comptes de test sur NEXORA-DEV** (A6, à décider) : compte P42 (confirmé, sans données), exécution 1 (confirmé, sans données), S1 à S4 (données du parcours ; S4 : `privacy_mode` = true) ; messages du sandbox ; sessions Auth de S1 et de B restées ouvertes côté serveur (déconnexion finale non atteinte), sans effet sur les données | ouvert | décision A6 |
+| P50 | Représentation dans le cache : une propriété facultative écrite par le client avec la valeur `undefined` est absente après rechargement depuis le serveur (même donnée ; aucun effet sur l'instantané) | accepté | — |
+| P51 | Étape 9 : l'absence de ligne « Intrusion » chez B après la tentative refusée n'a pas été relue (le refus annule le lot entier, réponse 403) ; la tentative portait sur une ligne attribuée à A (refus par l'attribution de la ligne) | accepté | — |
+
+Réserves toujours ouvertes après V3.7 : P38 (avant V7), P41 et P46 (traductions, V6), P45 (V5),
+P48, P49 (décision A6).

@@ -1865,6 +1865,8 @@ const de: Messages = {
   'auth.err.required': "Geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.",
   'auth.err.sessionExpired': "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
   'auth.err.verifyFailed': "Sitzung nicht überprüft",
+  'auth.link.noSession': "Die Sitzung konnte über diesen Link in diesem Browser nicht geöffnet werden. Melden Sie sich an: Wenn Ihre Adresse bestätigt wurde, gelingt die Anmeldung.",
+  'auth.link.invalid': "Dieser Link ist ungültig oder abgelaufen. Wenn Ihre Adresse bereits bestätigt ist, melden Sie sich an.",
   'auth.config.title': "Ungültige Cloud-Konfiguration",
   'auth.config.text': "Der Cloud-Modus ist ausgewählt, aber seine Konfiguration fehlt oder ist ungültig: Kein Zugriff möglich. Details finden Sie in der Browserkonsole.",
   'cloud.title': "Cloud-Bereich",

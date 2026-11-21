@@ -764,6 +764,18 @@ export interface DeserializedRow<N extends CloudTableName> {
   readonly meta: ServerMetadata;
 }
 
+/**
+ * Lecture d'une colonne horodatée REMPLIE PAR LE SERVEUR et jamais écrite par le client
+ * (`writable: false`, ex. `profiles.created_at`, `DEFAULT now()`) : PostgreSQL la renvoie à la
+ * MICROSECONDE ; elle est ramenée à la milliseconde (troncature, comme les métadonnées serveur)
+ * avant la conversion canonique (V3.7, P39). Jamais appliqué aux colonnes écrites par le
+ * client, qui restent refusées au-delà de la milliseconde ; la valeur normalisée n'est jamais
+ * renvoyée au serveur (`serializeRow` n'émet que les colonnes `writable`).
+ */
+function serverOwnedTimestamp(v: unknown): unknown {
+  return typeof v === 'string' ? v.replace(/(\.\d{3})\d+/, '$1') : v;
+}
+
 function rawTimestamp(v: unknown, table: string, field: string): string {
   canonicalTimestamp(String(v).replace(/(\.\d{3})\d+/, '$1'), table, field); // validation seulement
   return v as string;
@@ -789,7 +801,7 @@ export function deserializeRow<N extends CloudTableName>(table: N, sqlRow: unkno
       if (f.presence !== 'optional') row[field] = null;
       continue;
     }
-    row[field] = convert(f.type, v, table, f.column, true);
+    row[field] = convert(f.type, !f.writable && f.type === 'timestamptz' ? serverOwnedTimestamp(v) : v, table, f.column, true);
   }
   for (const [field, compute] of Object.entries(DERIVED[table] ?? {})) row[field] = compute(row);
   // Ordre des champs : celui du mapping (stable, indépendant de la réponse).

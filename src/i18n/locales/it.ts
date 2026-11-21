@@ -1865,6 +1865,8 @@ const it: Messages = {
   'auth.err.required': "Inserisci il tuo indirizzo e-mail e la password.",
   'auth.err.sessionExpired': "La sessione è scaduta. Accedi di nuovo.",
   'auth.err.verifyFailed': "Sessione non verificata",
+  'auth.link.noSession': "Non è stato possibile aprire la sessione da questo link in questo browser. Accedi: se il tuo indirizzo è stato confermato, l’accesso riuscirà.",
+  'auth.link.invalid': "Questo link non è valido o è scaduto. Se il tuo indirizzo è già confermato, accedi.",
   'auth.config.title': "Configurazione Cloud non valida",
   'auth.config.text': "La modalità Cloud è selezionata, ma la sua configurazione è assente o non valida: nessun accesso è possibile. I dettagli sono nella console del browser.",
   'cloud.title': "Spazio Cloud",

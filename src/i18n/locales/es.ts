@@ -1865,6 +1865,8 @@ const es: Messages = {
   'auth.err.required': "Introduce tu correo electrónico y tu contraseña.",
   'auth.err.sessionExpired': "Tu sesión ha caducado. Vuelve a iniciar sesión.",
   'auth.err.verifyFailed': "Sesión no verificada",
+  'auth.link.noSession': "No se pudo abrir la sesión desde este enlace en este navegador. Inicia sesión: si tu dirección se ha confirmado, el inicio de sesión funcionará.",
+  'auth.link.invalid': "Este enlace no es válido o ha caducado. Si tu dirección ya está confirmada, inicia sesión.",
   'auth.config.title': "Configuración Cloud no válida",
   'auth.config.text': "El modo Cloud está seleccionado, pero su configuración falta o no es válida: no es posible acceder. Los detalles están en la consola del navegador.",
   'cloud.title': "Espacio Cloud",

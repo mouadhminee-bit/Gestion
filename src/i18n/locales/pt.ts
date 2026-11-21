@@ -1865,6 +1865,8 @@ const pt: Messages = {
   'auth.err.required': "Introduza o seu endereço de e-mail e a sua palavra-passe.",
   'auth.err.sessionExpired': "A sua sessão expirou. Inicie sessão novamente.",
   'auth.err.verifyFailed': "Sessão não verificada",
+  'auth.link.noSession': "Não foi possível abrir a sessão a partir deste link neste navegador. Inicie sessão: se o seu endereço tiver sido confirmado, o início de sessão será bem-sucedido.",
+  'auth.link.invalid': "Este link é inválido ou expirou. Se o seu endereço já estiver confirmado, inicie sessão.",
   'auth.config.title': "Configuração Cloud inválida",
   'auth.config.text': "O modo Cloud está selecionado, mas a sua configuração está em falta ou é inválida: o acesso não é possível. Os detalhes estão na consola do navegador.",
   'cloud.title': "Espaço Cloud",

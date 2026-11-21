@@ -1865,6 +1865,8 @@ const tr: Messages = {
   'auth.err.required': "E-posta adresinizi ve parolanızı girin.",
   'auth.err.sessionExpired': "Oturumunuzun süresi doldu. Lütfen yeniden giriş yapın.",
   'auth.err.verifyFailed': "Oturum doğrulanamadı",
+  'auth.link.noSession': "Bu bağlantıdan bu tarayıcıda oturum açılamadı. Giriş yapın: adresiniz doğrulandıysa giriş başarılı olacaktır.",
+  'auth.link.invalid': "Bu bağlantı geçersiz veya süresi dolmuş. Adresiniz zaten doğrulandıysa giriş yapın.",
   'auth.config.title': "Geçersiz Cloud yapılandırması",
   'auth.config.text': "Cloud modu seçili, ancak yapılandırması eksik veya geçersiz: erişim mümkün değil. Ayrıntılar tarayıcı konsolunda.",
   'cloud.title': "Cloud alanı",

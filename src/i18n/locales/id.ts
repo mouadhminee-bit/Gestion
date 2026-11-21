@@ -1865,6 +1865,8 @@ const id: Messages = {
   'auth.err.required': "Masukkan alamat email dan kata sandi Anda.",
   'auth.err.sessionExpired': "Sesi Anda telah berakhir. Silakan masuk kembali.",
   'auth.err.verifyFailed': "Sesi tidak terverifikasi",
+  'auth.link.noSession': "Sesi tidak dapat dibuka dari tautan ini di peramban ini. Silakan masuk: jika alamat Anda sudah dikonfirmasi, proses masuk akan berhasil.",
+  'auth.link.invalid': "Tautan ini tidak valid atau sudah kedaluwarsa. Jika alamat Anda sudah dikonfirmasi, silakan masuk.",
   'auth.config.title': "Konfigurasi Cloud tidak valid",
   'auth.config.text': "Mode Cloud dipilih, tetapi konfigurasinya tidak ada atau tidak valid: akses tidak memungkinkan. Detailnya ada di konsol peramban.",
   'cloud.title': "Ruang Cloud",

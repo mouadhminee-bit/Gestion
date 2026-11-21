@@ -1865,6 +1865,8 @@ const vi: Messages = {
   'auth.err.required': "Nhập địa chỉ email và mật khẩu của bạn.",
   'auth.err.sessionExpired': "Phiên của bạn đã hết hạn. Hãy đăng nhập lại.",
   'auth.err.verifyFailed': "Phiên chưa được xác minh",
+  'auth.link.noSession': "Không thể mở phiên từ liên kết này trên trình duyệt này. Hãy đăng nhập: nếu địa chỉ của bạn đã được xác nhận, việc đăng nhập sẽ thành công.",
+  'auth.link.invalid': "Liên kết này không hợp lệ hoặc đã hết hạn. Nếu địa chỉ của bạn đã được xác nhận, hãy đăng nhập.",
   'auth.config.title': "Cấu hình Cloud không hợp lệ",
   'auth.config.text': "Chế độ Cloud đã được chọn nhưng cấu hình bị thiếu hoặc không hợp lệ: không thể truy cập. Chi tiết có trong bảng điều khiển của trình duyệt.",
   'cloud.title': "Không gian Cloud",

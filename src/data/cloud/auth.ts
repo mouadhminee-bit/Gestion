@@ -13,8 +13,8 @@
 import { isAuthApiError, isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js';
 import type { MessageKey } from '@/i18n/core';
 
-/** Méthodes d'authentification utilisées (celles du client Supabase). */
-export type AuthPort = Pick<SupabaseClient['auth'], 'onAuthStateChange' | 'getUser' | 'signInWithPassword' | 'signUp' | 'signOut'>;
+/** Méthodes d'authentification utilisées (celles du client Supabase). `initialize` : fin de l'initialisation du SDK, échange du code PKCE compris (V3.7). */
+export type AuthPort = Pick<SupabaseClient['auth'], 'initialize' | 'onAuthStateChange' | 'getUser' | 'signInWithPassword' | 'signUp' | 'signOut'>;
 
 /** Délai maximal d'un appel au service d'authentification. */
 export const AUTH_TIMEOUT_MS = 15_000;

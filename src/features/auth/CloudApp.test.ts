@@ -56,6 +56,7 @@ function fakeAuth(o: {
   const calls = { subscribe: 0, unsubscribe: 0, getUser: 0, signIn: [] as string[], signUp: [] as unknown[], signOut: [] as unknown[] };
   const emit = (e: AuthChangeEvent, s: Session | null) => [...listeners].forEach((l) => l(e, s));
   const port = {
+    initialize: async () => ({ error: null }),
     onAuthStateChange(cb: Listener) {
       calls.subscribe++;
       listeners.add(cb);

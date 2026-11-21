@@ -1865,6 +1865,8 @@ const ko: Messages = {
   'auth.err.required': "이메일 주소와 비밀번호를 입력하세요.",
   'auth.err.sessionExpired': "세션이 만료되었습니다. 다시 로그인하세요.",
   'auth.err.verifyFailed': "세션을 확인하지 못했습니다",
+  'auth.link.noSession': "이 브라우저에서는 이 링크로 세션을 열 수 없었습니다. 로그인하세요. 주소가 확인되었다면 로그인에 성공합니다.",
+  'auth.link.invalid': "이 링크는 유효하지 않거나 만료되었습니다. 주소가 이미 확인된 경우 로그인하세요.",
   'auth.config.title': "잘못된 클라우드 구성",
   'auth.config.text': "클라우드 모드가 선택되었지만 구성이 없거나 잘못되었습니다. 접근할 수 없습니다. 자세한 내용은 브라우저 콘솔을 확인하세요.",
   'cloud.title': "클라우드 공간",

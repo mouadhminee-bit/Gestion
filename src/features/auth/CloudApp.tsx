@@ -13,13 +13,19 @@
  *    nouvel utilisateur → onboarding (`ensureUser` après le chargement).
  *
  * La base locale `nexora` n'est jamais ouverte.
+ *
+ * Ordre de démarrage (Plan directeur V1, V3.2 ; V3.7) : `CloudBoot` attend la fin de
+ * l'initialisation du SDK (`auth.initialize()`, qui échange le code PKCE du lien de confirmation),
+ * nettoie l'adresse, et SEULEMENT ENSUITE monte le `HashRouter` (créé ici, pas dans `App`) puis la
+ * barrière de session. Aucun routeur, aucune route avant la fin de l'échange.
  */
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { HashRouter } from 'react-router-dom';
 import { AlertTriangle, LogOut, RefreshCw } from 'lucide-react';
 import { Logo } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/Button';
 import { getBackendSelection, type BackendSelection } from '@/data/backend';
-import type { AuthMessageKey, AuthPort } from '@/data/cloud/auth';
+import { withTimeout, type AuthMessageKey, type AuthPort } from '@/data/cloud/auth';
 import { createCloudDataPort, type CloudDataPort } from '@/data/cloud/cloudLoadCycle';
 import { createCloudWorkspacePort, type CloudWorkspace, type CloudWorkspacePort } from '@/data/cloud/cloudWorkspace';
 import { HttpReadSource } from '@/data/cloud/HttpReadSource';
@@ -30,6 +36,7 @@ import { clearUiStateOnSessionEnd } from '@/app/uiState';
 import { getSupabaseClient } from '@/data/cloud/supabaseClient';
 import { t } from '@/i18n/core';
 import { AuthScreen } from './AuthScreen';
+import { authCallbackNotice, cleanAuthCallbackHref, readAuthCallback } from './authCallback';
 import { useCloudData, type CloudLoadMessageKey } from './useCloudData';
 import { useCloudSession, type CloudUser } from './useCloudSession';
 
@@ -161,8 +168,13 @@ export function CloudWorkspaceView({ port, user, signOut }: CloudSessionView & {
  * Barrière d'authentification et de chargement : seul un état `signedIn` vérifié, dont le
  * chargement initial a RÉUSSI pour ce même utilisateur, donne accès à l'espace Cloud.
  */
-export function CloudGate({ auth, cloud, workspace, timeoutMs }: { auth: AuthPort; cloud: CloudDataPort; workspace: (session: CloudSessionView) => ReactNode; timeoutMs?: number }) {
+export function CloudGate({ auth, cloud, workspace, timeoutMs, notice }: { auth: AuthPort; cloud: CloudDataPort; workspace: (session: CloudSessionView) => ReactNode; timeoutMs?: number; notice?: AuthMessageKey }) {
   const { state, retry, signOut } = useCloudSession(auth, timeoutMs);
+  // Message du retour de lien (CloudBoot) : affiché jusqu'à la première connexion seulement.
+  const [linkNotice, setLinkNotice] = useState(notice);
+  useEffect(() => {
+    if (state.status === 'signedIn') setLinkNotice(undefined);
+  }, [state.status]);
   const data = useCloudData(state, cloud, auth, timeoutMs);
   // Fin de session ou changement de compte : états d'interface mémorisés effacés (identifiants,
   // filtres, mois), pour qu'aucun ne passe d'un utilisateur à l'autre.
@@ -179,7 +191,7 @@ export function CloudGate({ auth, cloud, workspace, timeoutMs }: { auth: AuthPor
     case 'error':
       return <VerifyError message={state.message} onRetry={retry} />;
     case 'signedOut':
-      return <AuthScreen auth={auth} notice={state.notice} timeoutMs={timeoutMs} />;
+      return <AuthScreen auth={auth} notice={state.notice ?? linkNotice} timeoutMs={timeoutMs} />;
     case 'signedIn': {
       const d = data.state;
       // Clé = utilisateur : un changement de compte démonte entièrement l'espace précédent.
@@ -188,6 +200,42 @@ export function CloudGate({ auth, cloud, workspace, timeoutMs }: { auth: AuthPor
       return <Splash label={t('cloud.loading')} />;
     }
   }
+}
+
+type BootState = { readonly status: 'pending' } | { readonly status: 'ready'; readonly notice?: AuthMessageKey } | { readonly status: 'error' };
+
+/**
+ * Démarrage du mode Cloud : rien n'est rendu d'autre qu'un écran d'attente tant que le SDK n'a pas
+ * terminé son initialisation (échange du code PKCE compris). L'adresse est lue AVANT, nettoyée
+ * APRÈS ; `children` (routeur et barrière) n'est rendu qu'ensuite. Délai dépassé → écran d'erreur
+ * sans routeur, nouvel essai possible (même initialisation, jamais relancée en double par le SDK).
+ */
+export function CloudBoot({ auth, timeoutMs, children }: { auth: AuthPort; timeoutMs?: number; children: (notice?: AuthMessageKey) => ReactNode }) {
+  const [boot, setBoot] = useState<BootState>({ status: 'pending' });
+  const [attempt, setAttempt] = useState(0);
+  const callback = useRef(typeof window === 'undefined' ? null : readAuthCallback(window.location.href));
+  useEffect(() => {
+    let active = true;
+    setBoot({ status: 'pending' });
+    withTimeout(auth.initialize(), timeoutMs)
+      .then(({ error }) => {
+        if (!active) return;
+        const href = window.location.href;
+        const codeStillInUrl = new URL(href).searchParams.has('code');
+        const clean = cleanAuthCallbackHref(href);
+        if (clean !== href) window.history.replaceState(window.history.state, '', clean);
+        setBoot({ status: 'ready', notice: callback.current ? authCallbackNotice(callback.current, error, codeStillInUrl) : undefined });
+      })
+      .catch(() => {
+        if (active) setBoot({ status: 'error' });
+      });
+    return () => {
+      active = false;
+    };
+  }, [auth, timeoutMs, attempt]);
+  if (boot.status === 'pending') return <Splash label={t('auth.checking')} />;
+  if (boot.status === 'error') return <VerifyError message="auth.err.timeout" onRetry={() => setAttempt((n) => n + 1)} />;
+  return <>{children(boot.notice)}</>;
 }
 
 let reported = false;
@@ -219,5 +267,13 @@ export default function CloudApp({ selection = getBackendSelection(), auth, clou
   }, [auth, cloud, workspace, selection]);
   if (!ports) return <ConfigError />;
   const port = ports.workspace;
-  return <CloudGate auth={ports.auth} cloud={ports.cloud} workspace={(session) => <CloudWorkspaceView port={port} {...session} />} />;
+  return (
+    <CloudBoot auth={ports.auth}>
+      {(notice) => (
+        <HashRouter>
+          <CloudGate auth={ports.auth} cloud={ports.cloud} notice={notice} workspace={(session) => <CloudWorkspaceView port={port} {...session} />} />
+        </HashRouter>
+      )}
+    </CloudBoot>
+  );
 }

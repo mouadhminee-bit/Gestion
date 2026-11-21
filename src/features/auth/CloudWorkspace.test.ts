@@ -14,7 +14,6 @@ import { randomUUID } from 'node:crypto';
 import { IDBKeyRange } from 'fake-indexeddb';
 import { act, createElement as h, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { HashRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/i18n/I18nProvider';
 import { TooltipProvider } from '@/components/ui/Tooltip';
@@ -95,7 +94,7 @@ async function openApp(b: SimBrowser, options: { wrapTransport?: (t: CloudTransp
   document.body.append(host);
   const root = createRoot(host);
   mounted.push({ root, host });
-  const app = h(I18nProvider, null, h(HashRouter, null, h(TooltipProvider, null, h(ToastProvider, null, h(ConfirmProvider, null, h(CloudApp, { selection: selectBackend({}), auth: client.auth, cloud, workspace }))))));
+  const app = h(I18nProvider, null, h(TooltipProvider, null, h(ToastProvider, null, h(ConfirmProvider, null, h(CloudApp, { selection: selectBackend({}), auth: client.auth, cloud, workspace })))));
   await act(async () => root.render(options.strict ? h(StrictMode, null, app) : app));
   const text = () => host.textContent ?? '';
   const button = (label: string) => [...host.querySelectorAll('button')].find((x) => x.textContent?.includes(label)) ?? null;

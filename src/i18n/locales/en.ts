@@ -1865,6 +1865,8 @@ const en: Messages = {
   'auth.err.required': "Enter your email address and password.",
   'auth.err.sessionExpired': "Your session has expired. Please sign in again.",
   'auth.err.verifyFailed': "Session not verified",
+  'auth.link.noSession': "The session could not be opened from this link in this browser. Sign in: if your address has been confirmed, sign-in will succeed.",
+  'auth.link.invalid': "This link is invalid or has expired. If your address is already confirmed, sign in.",
   'auth.config.title': "Invalid Cloud configuration",
   'auth.config.text': "Cloud mode is selected, but its configuration is missing or invalid: no access is possible. Details are in the browser console.",
   'cloud.title': "Cloud space",

@@ -1865,6 +1865,8 @@ const ro: Messages = {
   'auth.err.required': "Introduceți adresa de e-mail și parola.",
   'auth.err.sessionExpired': "Sesiunea a expirat. Conectați-vă din nou.",
   'auth.err.verifyFailed': "Sesiune neverificată",
+  'auth.link.noSession': "Sesiunea nu a putut fi deschisă din acest link în acest browser. Conectați-vă: dacă adresa dvs. a fost confirmată, conectarea va reuși.",
+  'auth.link.invalid': "Acest link nu este valid sau a expirat. Dacă adresa dvs. este deja confirmată, conectați-vă.",
   'auth.config.title': "Configurație Cloud nevalidă",
   'auth.config.text': "Modul Cloud este selectat, dar configurația sa lipsește sau este nevalidă: accesul nu este posibil. Detaliile se află în consola browserului.",
   'cloud.title': "Spațiul Cloud",

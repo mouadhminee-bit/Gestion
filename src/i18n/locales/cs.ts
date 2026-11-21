@@ -1865,6 +1865,8 @@ const cs: Messages = {
   'auth.err.required': "Zadejte e-mailovou adresu a heslo.",
   'auth.err.sessionExpired': "Vaše relace vypršela. Přihlaste se znovu.",
   'auth.err.verifyFailed': "Relace nebyla ověřena",
+  'auth.link.noSession': "Z tohoto odkazu se v tomto prohlížeči nepodařilo otevřít relaci. Přihlaste se: pokud byla vaše adresa potvrzena, přihlášení proběhne.",
+  'auth.link.invalid': "Tento odkaz je neplatný nebo vypršel. Pokud je vaše adresa již potvrzena, přihlaste se.",
   'auth.config.title': "Neplatná konfigurace Cloud",
   'auth.config.text': "Je vybrán režim Cloud, ale jeho konfigurace chybí nebo je neplatná: přístup není možný. Podrobnosti najdete v konzoli prohlížeče.",
   'cloud.title': "Prostor Cloud",

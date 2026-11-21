@@ -1865,6 +1865,8 @@ const pl: Messages = {
   'auth.err.required': "Wpisz adres e-mail i hasło.",
   'auth.err.sessionExpired': "Sesja wygasła. Zaloguj się ponownie.",
   'auth.err.verifyFailed': "Sesja niezweryfikowana",
+  'auth.link.noSession': "Nie udało się otworzyć sesji z tego linku w tej przeglądarce. Zaloguj się: jeśli Twój adres został potwierdzony, logowanie się powiedzie.",
+  'auth.link.invalid': "Ten link jest nieprawidłowy lub wygasł. Jeśli Twój adres jest już potwierdzony, zaloguj się.",
   'auth.config.title': "Nieprawidłowa konfiguracja Cloud",
   'auth.config.text': "Wybrano tryb Cloud, ale jego konfiguracji brakuje lub jest nieprawidłowa: dostęp jest niemożliwy. Szczegóły znajdują się w konsoli przeglądarki.",
   'cloud.title': "Przestrzeń Cloud",

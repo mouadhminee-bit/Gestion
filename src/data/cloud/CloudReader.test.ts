@@ -341,3 +341,20 @@ describe('V3.4-a [I] — lecture par MemoryTransport aligné', () => {
     }
   });
 });
+
+describe('V3.7 (P39) — serveur simulé aligné sur la précision de PostgreSQL', () => {
+  it('profil : created_at renvoyé à la microseconde (forme réelle) ; chargé à la milliseconde, = REGISTERED_AT', async () => {
+    const { MemoryTransport: MT, REGISTERED_AT, REGISTERED_AT_SQL } = await import('./MemoryTransport');
+    const { readCloudData: read } = await import('./CloudReader');
+    const { prepareCloudLoad } = await import('./CloudLoader');
+    expect(REGISTERED_AT_SQL).toMatch(/\.\d{6}\+00:00$/);
+    const server = new MT();
+    const uid = '22222222-2222-4222-8222-222222222222';
+    server.registerUser(uid);
+    const [sql] = server.sqlRows(uid, 'users');
+    expect(sql.created_at).toBe(REGISTERED_AT_SQL);
+    expect(sql.server_updated_at).toBe(REGISTERED_AT_SQL);
+    const prepared = prepareCloudLoad(await read(server.readSource(uid), uid), uid);
+    expect(prepared.rows.users).toEqual([{ id: uid, displayName: '', createdAt: REGISTERED_AT }]);
+  });
+});

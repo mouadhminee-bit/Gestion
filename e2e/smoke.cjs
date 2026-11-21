@@ -3,6 +3,10 @@
  * Prérequis : serveur lancé (npm run dev ou npm run preview) et Playwright disponible
  * (npm i -D playwright && npx playwright install chromium).
  * Usage : BASE_URL=http://localhost:5173 node e2e/smoke.cjs
+ *
+ * Horloge du navigateur FIGÉE (V3.7) : le relevé `fixtures/releve.csv` est daté d'octobre 2026
+ * et les attentes (dépenses du mois, solde) en dépendent ; sans date fixe, le test n'est juste
+ * qu'en octobre 2026. Date modifiable par SMOKE_NOW (ISO), défaut 2026-10-15T10:00:00.
  */
 const { chromium } = require('playwright');
 const path = require('path');
@@ -10,6 +14,7 @@ const BASE = process.env.BASE_URL || 'http://localhost:5173';
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.clock.install({ time: new Date(process.env.SMOKE_NOW || '2026-10-15T10:00:00') }); // le temps s'écoule normalement à partir de cette date
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };

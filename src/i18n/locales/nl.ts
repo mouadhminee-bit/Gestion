@@ -1865,6 +1865,8 @@ const nl: Messages = {
   'auth.err.required': "Voer je e-mailadres en wachtwoord in.",
   'auth.err.sessionExpired': "Je sessie is verlopen. Log opnieuw in.",
   'auth.err.verifyFailed': "Sessie niet gecontroleerd",
+  'auth.link.noSession': "De sessie kon via deze link niet in deze browser worden geopend. Log in: als je adres is bevestigd, lukt het inloggen.",
+  'auth.link.invalid': "Deze link is ongeldig of verlopen. Is je adres al bevestigd, log dan in.",
   'auth.config.title': "Ongeldige Cloud-configuratie",
   'auth.config.text': "De Cloud-modus is geselecteerd, maar de configuratie ontbreekt of is ongeldig: toegang is niet mogelijk. Details staan in de browserconsole.",
   'cloud.title': "Cloud-omgeving",

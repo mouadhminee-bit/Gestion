@@ -748,3 +748,62 @@ describe('mapping : cas limites et valeurs invalides', () => {
 // Garde de type : `SqlRow` est bien la forme produite.
 const _typecheck: SqlRow = serializeRow('rates', fullRows().rates).values;
 void _typecheck;
+
+// ---------------------------------------------------------------------------
+// V3.7 (P39) — colonnes horodatées remplies par le serveur : précision PostgreSQL
+// ---------------------------------------------------------------------------
+
+describe('V3.7 (P39) — horodatage remplie par le serveur (`profiles.created_at`) à la microseconde', () => {
+  /** Ligne `profiles` telle que renvoyée par PostgREST sur NEXORA-DEV (forme réelle). */
+  const profileSql = (createdAt: unknown) => ({ id: U, display_name: 'Sara', created_at: createdAt, version: 3, sync_txid: '812', server_updated_at: '2026-11-18T12:34:56.654321+00:00', deleted_at: null });
+  const accountSql = (createdAt: string) => ({ ...serializeRow('accounts', fullRows().accounts).values, created_at: createdAt, version: 1, sync_txid: '9', server_updated_at: '2026-11-18T12:34:56.654321+00:00', deleted_at: null });
+  const mappingCode = (fn: () => unknown): MappingErrorCode | 'aucune' => {
+    try {
+      fn();
+      return 'aucune';
+    } catch (e) {
+      return e instanceof MappingError ? e.code : (String(e) as never);
+    }
+  };
+
+  it('six chiffres après la seconde : acceptés, ramenés à la milliseconde par troncature (forme canonique)', () => {
+    expect(deserializeRow('users', profileSql('2026-11-18T12:34:56.123456+00:00')).row.createdAt).toBe('2026-11-18T12:34:56.123Z');
+    expect(deserializeRow('users', profileSql('2026-11-18T12:34:56.999999+00:00')).row.createdAt).toBe('2026-11-18T12:34:56.999Z'); // troncature, jamais d'arrondi à la seconde suivante
+    expect(deserializeRow('users', profileSql('2026-11-18T12:34:56.123999+00:00')).row.createdAt).toBe('2026-11-18T12:34:56.123Z'); // troncature, comme les métadonnées serveur
+    expect(deserializeRow('users', profileSql('2026-11-18T13:34:56.000001+01:00')).row.createdAt).toBe('2026-11-18T12:34:56.000Z'); // fuseau converti en UTC
+    expect(deserializeRow('users', profileSql('2026-11-18 12:34:56.5+00')).row.createdAt).toBe('2026-11-18T12:34:56.500Z');
+    expect(deserializeRow('users', profileSql('2026-11-18T12:34:56+00:00')).row.createdAt).toBe('2026-11-18T12:34:56.000Z');
+  });
+
+  it('la tolérance ne lève que la précision : sans fuseau, date invalide, type erroné ou NULL restent refusés', () => {
+    expect(mappingCode(() => deserializeRow('users', profileSql('2026-11-18T12:34:56.123456')))).toBe('invalid_value');
+    expect(mappingCode(() => deserializeRow('users', profileSql('2026-02-30T12:34:56.123456+00:00')))).toBe('invalid_value');
+    expect(mappingCode(() => deserializeRow('users', profileSql(1_763_469_296)))).toBe('invalid_value');
+    expect(mappingCode(() => deserializeRow('users', profileSql(null)))).toBe('invalid_value');
+  });
+
+  it('colonnes écrites par le client : toute précision au-delà de la milliseconde reste REFUSÉE, à la lecture comme à l’écriture', () => {
+    const writable = Object.entries(MAPPING).flatMap(([t, m]) => Object.values(m.fields).filter((f): f is ColumnSpec => f.kind === 'column' && f.type === 'timestamptz' && f.writable).map((f) => `${t}.${f.column}`));
+    expect(writable.length).toBeGreaterThan(10);
+    const serverOwned = Object.entries(MAPPING).flatMap(([t, m]) => Object.values(m.fields).filter((f): f is ColumnSpec => f.kind === 'column' && f.type === 'timestamptz' && !f.writable).map((f) => `${t}.${f.column}`));
+    expect(serverOwned).toEqual(['users.created_at']); // seule colonne concernée par la tolérance
+    expect(mappingCode(() => deserializeRow('accounts', accountSql('2026-11-18T12:34:56.123456+00:00')))).toBe('invalid_value');
+    expect(mappingCode(() => deserializeRow('accounts', accountSql('2026-11-18T12:34:56.123+00:00')))).toBe('aucune');
+    expect(mappingCode(() => serializeRow('accounts', { ...fullRows().accounts, updatedAt: '2026-11-18T12:34:56.123456Z' }))).toBe('invalid_value');
+  });
+
+  it('valeurs destinées au serveur inchangées : le profil relu puis réécrit n’envoie jamais created_at', () => {
+    const read = deserializeRow('users', profileSql('2026-11-18T12:34:56.123456+00:00')).row;
+    const out = serializeRow('users', read);
+    expect(out.values).toEqual({ id: U, display_name: 'Sara' });
+    expect(out.key).toEqual({ id: U });
+    expect(JSON.stringify(out)).not.toContain('2026-11-18');
+    // Écriture d'un profil : comportement d'avant V3.7 strictement inchangé (forme validée).
+    expect(serializeRow('users', fullRows().users).values).toEqual({ id: U, display_name: 'Sara' });
+  });
+
+  it('métadonnées serveur : conservées telles que renvoyées (opaques), validées à la milliseconde', () => {
+    const { meta } = deserializeRow('users', profileSql('2026-11-18T12:34:56.123456+00:00'));
+    expect(meta).toEqual({ version: 3, syncTxid: '812', serverUpdatedAt: '2026-11-18T12:34:56.654321+00:00', deletedAt: null });
+  });
+});

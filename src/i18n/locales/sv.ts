@@ -1865,6 +1865,8 @@ const sv: Messages = {
   'auth.err.required': "Ange din e-postadress och ditt lösenord.",
   'auth.err.sessionExpired': "Din session har gått ut. Logga in igen.",
   'auth.err.verifyFailed': "Sessionen är inte verifierad",
+  'auth.link.noSession': "Sessionen kunde inte öppnas från den här länken i den här webbläsaren. Logga in: om din adress har bekräftats lyckas inloggningen.",
+  'auth.link.invalid': "Länken är ogiltig eller har gått ut. Om din adress redan är bekräftad loggar du in.",
   'auth.config.title': "Ogiltig Cloud-konfiguration",
   'auth.config.text': "Cloud-läget är valt, men dess konfiguration saknas eller är ogiltig: ingen åtkomst är möjlig. Detaljer finns i webbläsarens konsol.",
   'cloud.title': "Cloud-utrymme",

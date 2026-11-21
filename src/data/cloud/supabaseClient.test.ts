@@ -76,4 +76,19 @@ describe('V2.4 — client Supabase', () => {
     expect(fetchProbe).toHaveBeenCalledTimes(1);
     await client.auth.stopAutoRefresh();
   });
+
+  it('V3.7 — flux PKCE : le client est en mode PKCE et l’inscription envoie un défi S256 avec l’adresse de retour', async () => {
+    const client = getSupabaseClient(VALID);
+    expect((client.auth as unknown as { flowType: string }).flowType).toBe('pkce');
+    await client.auth.signUp({ email: 'fictif@example.com', password: 'mot-de-passe-fictif', options: { emailRedirectTo: 'http://localhost:5173/' } });
+    const call = fetchProbe.mock.calls.find(([url]) => String(url).includes('/auth/v1/signup'));
+    expect(call).toBeTruthy();
+    const [url, init] = call as [string, RequestInit];
+    expect(new URL(url).searchParams.get('redirect_to')).toBe('http://localhost:5173/');
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(body.code_challenge_method).toBe('s256');
+    expect(typeof body.code_challenge).toBe('string');
+    expect((body.code_challenge as string).length).toBeGreaterThanOrEqual(43);
+    await client.auth.stopAutoRefresh();
+  });
 });

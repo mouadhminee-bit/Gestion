@@ -8,8 +8,11 @@
  *    clé `service_role`, aucune valeur codée en dur.
  *  - Refusé si le backend demandé n'est pas `supabase` ou si la configuration n'est pas valide.
  *  - La création n'émet aucune requête. Session : mécanismes natifs du SDK (conservation dans
- *    le stockage du navigateur, rafraîchissement automatique). Lectures et écritures de données
- *    Cloud : phases suivantes (`CloudRepository` garde `DisabledTransport`).
+ *    le stockage du navigateur, rafraîchissement automatique).
+ *  - Flux PKCE (Plan directeur V1, V3.1 ; V3.7) : le lien de confirmation revient avec `?code=…`
+ *    (jamais de jeton dans l'adresse) ; le SDK échange ce code à son initialisation
+ *    (`auth.initialize()`), attendue par `CloudBoot` AVANT le montage du `HashRouter`, puis retire
+ *    `code` de l'adresse. Le défaut du SDK (flux implicite, `#access_token=…`) est exclu.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getBackendSelection, type BackendSelection } from '../backend';
@@ -29,7 +32,7 @@ export function getSupabaseClient(selection: BackendSelection = getBackendSelect
   if (selection.requested !== 'supabase') throw new CloudConfigError('backend « supabase » non sélectionné (VITE_DATA_BACKEND).');
   const status = selection.supabase;
   if (status.status !== 'ok') throw new CloudConfigError(`configuration Cloud ${status.status === 'absent' ? 'absente' : status.status === 'incomplete' ? 'incomplète' : 'invalide'}.`);
-  if (!client) client = createClient(status.config.url, status.config.anonKey);
+  if (!client) client = createClient(status.config.url, status.config.anonKey, { auth: { flowType: 'pkce' } });
   return client;
 }
 

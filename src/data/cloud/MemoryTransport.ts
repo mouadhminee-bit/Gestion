@@ -55,8 +55,14 @@ import {
 
 /** Limite du nombre d'opérations d'un lot (identique à la migration 8). */
 const MAX_OPS = 5000;
-/** Date d'inscription fictive des profils créés par `registerUser`. */
+/** Date d'inscription fictive des profils créés par `registerUser` (forme TS canonique). */
 export const REGISTERED_AT = '2026-01-01T00:00:00.000Z';
+/**
+ * Même instant au format RÉEL de PostgreSQL / PostgREST pour une colonne `timestamptz` remplie
+ * par le serveur (`DEFAULT now()`) : précision à la MICROSECONDE, fuseau `+00:00` (V3.7, P39).
+ * Ramené à la milliseconde par le mapping, il redonne exactement `REGISTERED_AT`.
+ */
+export const REGISTERED_AT_SQL = '2026-01-01T00:00:00.000456+00:00';
 const UUID_ANY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OP_FIELDS = new Set(['table', 'type', 'key', 'expectedVersion', 'row']);
 
@@ -313,9 +319,10 @@ export class MemoryTransport implements CloudTransport {
   /**
    * Lignes SQL d'un utilisateur pour une table (V3.4-a), ACTIVES ET SUPPRIMÉES, au format
    * renvoyé par PostgREST pour `select=*` : colonnes du mapping (ligne convertie par
-   * `serializeRow` ; date d'inscription du profil, seule colonne non modifiable, reprise de la
-   * ligne) et métadonnées serveur. Métadonnées simulées : `sync_txid` = version, horodatages
-   * fixes (`REGISTERED_AT`) ; seules la version et la suppression sont significatives ici.
+   * `serializeRow` ; date d'inscription du profil, seule colonne non modifiable, fixée par le
+   * serveur) et métadonnées serveur. Métadonnées simulées : `sync_txid` = version, horodatages
+   * fixes à la microseconde comme PostgreSQL (`REGISTERED_AT_SQL`) ; seules la version et la
+   * suppression sont significatives ici.
    */
   sqlRows(userId: ID, table: CloudTableName): Record<string, unknown>[] {
     const out: Record<string, unknown>[] = [];
@@ -323,13 +330,15 @@ export class MemoryTransport implements CloudTransport {
       const sql: Record<string, unknown> = { ...serializeRow(table, e.row).values };
       for (const column of sqlColumnsOf(table)) {
         if (column in sql) continue;
-        if (table === 'users' && column === 'created_at') sql.created_at = e.row.createdAt;
+        // Colonne remplie par le serveur à l'inscription, jamais écrite par le client : valeur et
+        // précision du serveur réel (une valeur envoyée par le client n'y est jamais reprise).
+        if (table === 'users' && column === 'created_at') sql.created_at = REGISTERED_AT_SQL;
         else throw new Error(`MemoryTransport.sqlRows : colonne ${table}.${column} non simulée`);
       }
       sql.version = e.version;
       sql.sync_txid = String(e.version);
-      sql.server_updated_at = REGISTERED_AT;
-      sql.deleted_at = e.deleted ? REGISTERED_AT : null;
+      sql.server_updated_at = REGISTERED_AT_SQL;
+      sql.deleted_at = e.deleted ? REGISTERED_AT_SQL : null;
       out.push(structuredClone(sql));
     }
     return out;

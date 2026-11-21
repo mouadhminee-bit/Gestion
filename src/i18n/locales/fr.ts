@@ -1905,6 +1905,8 @@ const fr = {
   'auth.err.required': "Saisissez votre adresse e-mail et votre mot de passe.",
   'auth.err.sessionExpired': "Votre session a expiré. Reconnectez-vous.",
   'auth.err.verifyFailed': "Session non vérifiée",
+  'auth.link.noSession': "La session n’a pas pu être ouverte depuis ce lien dans ce navigateur. Connectez-vous : si votre adresse a été confirmée, la connexion aboutira.",
+  'auth.link.invalid': "Ce lien est invalide ou a expiré. Si votre adresse est déjà confirmée, connectez-vous.",
   'auth.config.title': "Configuration Cloud invalide",
   'auth.config.text': "Le mode Cloud est sélectionné, mais sa configuration est absente ou invalide : aucun accès n’est possible. Le détail figure dans la console du navigateur.",
   'cloud.title': "Espace Cloud",
