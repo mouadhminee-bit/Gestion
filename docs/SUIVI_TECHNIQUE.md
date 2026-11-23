@@ -86,7 +86,7 @@ ils sont consignés pour être traités dans le lot indiqué.
 | P25 | `service_role` conserve tous les privilèges (suppression physique et `TRUNCATE` compris) et contourne la RLS ; aucun test ne l'encadre. Sa clé ne doit jamais atteindre le frontend ni un dépôt | ouvert, risque à encadrer | qualification hébergée / Lot 8 |
 | P26 | Profil PostgreSQL 17 **éphémère** (binaires du paquet npm, comme à l'étape 3b) non exécuté au Lot 0 ; PostgreSQL 17 n'est couvert que par l'image 17.11 de la pile Supabase locale | ouvert, à clarifier (exécuter ou retirer de l'étape 4.5) | Lot 0 (avant validation technique) |
 | P27 | Couverture HTTP des clés étrangères composites : 6 sur 25 par l'API ; les 25 sont couvertes par la suite SQL 02 | ouvert, non bloquant | optionnel |
-| P28 | Synchronisation incrémentale : aucune fonction serveur de lecture des changements n'existe (seul un prototype figure dans l'outillage de test) ; une nouvelle migration et sa qualification seront nécessaires | **partiellement levé (V4.1, 22/11/2026)** : fonction `public.pull_changes` livrée (migration 9) et qualifiée sur la pile Supabase **locale** ; application et vérification sur NEXORA-DEV restantes (P52) — voir section V4.1 | récupération des changements (Plan directeur V1, V4.1) |
+| P28 | Synchronisation incrémentale : aucune fonction serveur de lecture des changements n'existe (seul un prototype figure dans l'outillage de test) ; une nouvelle migration et sa qualification seront nécessaires | **levé (V4.1)** : fonction `public.pull_changes` livrée (migration 9), qualifiée sur la pile Supabase **locale** (22/11/2026) et **appliquée sur NEXORA-DEV** (23/11/2026, P52 levé) ; validation fonctionnelle sur DEV distincte (P55) — voir section V4.1 | récupération des changements (Plan directeur V1, V4.1) |
 | P29 | Contrôles de sécurité par mutation (10) : **versionnés par la remédiation** (`scripts/security-mutations/`, portage vérifié identique à l'original ; 10 / 10 détectées, mêmes nombres d'échecs qu'au Lot 0). Restent : pas d'automatisation côté HTTP ; exige les binaires PostgreSQL 16 | traité, en attente de validation | Lot 0 |
 | P30 | Délai d'exécution (`statement_timeout` d'`authenticated` = 8 s) : lot de 5 000 opérations appliqué en 3,09 s sur la pile locale du Codespace (2,2 s dans la session cloud) ; mesure hébergée manquante (voir P13) | partiellement traité | qualification hébergée |
 | P31 | Quotas et purge : aucun quota par utilisateur ; purges des lignes supprimées (P5) et de `private.changesets` (P14) non définies | ouvert, à traiter avant l'ouverture publique | Lot 8 |
@@ -303,10 +303,11 @@ P48, P49 (décision A6).
 ## Plan directeur V1 — V4.1 : récupération des changements (M9), développement et qualification locale (22/11/2026)
 
 Périmètre (ligne V4.1 du plan directeur V1) : fonction serveur de récupération des changements
-(P28), avec une borne sûre (P8) ; **qualification locale réalisée, application sur DEV non
-réalisée** (autorisation distincte). Décision A3 : `SECURITY INVOKER`, RLS existante. Aucun code
-client de synchronisation (V4.2), aucun accès à DEV ni à PROD, aucune modification d'Auth ni de la
-RLS ; les migrations 1 à 8 sont inchangées.
+(P28), avec une borne sûre (P8) ; **qualification locale réalisée** (22/11/2026) ; **application sur
+DEV réalisée le 23/11/2026** (autorisation distincte, voir « Application sur NEXORA-DEV » ci-dessous).
+Décision A3 : `SECURITY INVOKER`, RLS existante. Aucun code client de synchronisation (V4.2) ; partie
+locale : aucun accès à DEV ni à PROD ; aucune modification d'Auth ni de la RLS ; les migrations 1 à 8
+sont inchangées.
 
 | Élément | Contenu | Fichiers |
 |---|---|---|
@@ -321,8 +322,16 @@ RLS ; les migrations 1 à 8 sont inchangées.
 migration 9, prévue par le plan (V4.1), la lecture se lit **« lecture + exécution des 3 RPC
 uniquement »** : `apply_changeset` et `resolve_changeset` (écriture, `SECURITY DEFINER`) et
 `pull_changes` (lecture seule, `SECURITY INVOKER`), vérifiées par l'inventaire exact des suites 01
-et P1. Sur NEXORA-DEV, l'inventaire reste de 2 fonctions tant que la migration 9 n'y est pas
-appliquée (P52).
+et P1. Sur NEXORA-DEV, depuis l'application de la migration 9 (23/11/2026), les 3 RPC applicatives
+sont présentes : `apply_changeset`, `pull_changes`, `resolve_changeset` ; le schéma `public` de DEV
+contient en outre `rls_auto_enable()`, fonction de la **plateforme** préexistante (déclencheur
+`ensure_rls`, P32), qui n'est pas une RPC applicative de NEXORA ; ses droits ne relèvent pas de la
+migration 9 : ACL par défaut constatée le 18/11/2026 (preuves V2.1 / V2.2, donc privilège PostgreSQL
+`EXECUTE` accordé à `PUBLIC`), non revérifiée depuis. Ce privilège ne dit rien, à lui seul, de
+l'invocation directe de la fonction (fonction de déclencheur d'événement) ni de son exposition comme
+RPC par PostgREST : aucun de ces deux points n'a été vérifié, et ce constat ne fait pas d'elle une
+quatrième RPC utilisable. La formule « 3 RPC uniquement » s'applique aux RPC applicatives de NEXORA ;
+le cas de cette fonction de plateforme relève de P32.
 
 **Qualification locale** (`EVIDENCE=v41-local bash scripts/qualify-supabase.sh local`, GitHub
 Codespaces, pile recréée puis détruite : 0 conteneur, 0 volume restants ; CLI Supabase 2.122.0 ;
@@ -339,18 +348,47 @@ code testé : commit `a56fe36` + modifications non commitées de V4.1 ; empreint
 | Contrôleur de preuves | « propres, cohérents et complets » pour `v41-local` ; 22 / 22 tests du contrôleur ; références `3b-local` et `lot4-local` toujours acceptées |
 | Défauts introduits volontairement | fonction SQL : 6 / 7 détectés (borne `xmax`, borne haute retirée, lignes supprimées exclues, reprise sans clé de tri, `SECURITY DEFINER`, curseur ignoré) ; le 7ᵉ (filtre utilisateur explicite retiré) est équivalent : la RLS seule garantit l'isolation, le filtre ne sert qu'aux index ; serveur simulé : 4 / 4 |
 | Suite applicative | `npm run check` : 64 fichiers, **1 849 / 1 849** tests, typage et build réussis |
-| Essais sur NEXORA-DEV | aucun |
+| Essais sur NEXORA-DEV | aucun pendant la qualification locale (application sur DEV le 23/11/2026 : voir ci-dessous) |
 | Git | aucun commit ni push à la date de cette clôture documentaire |
 
 Points consignés en clôture de V4.1 (partie locale) :
 
 | # | Point | Statut | Lot |
 |---|---|---|---|
-| P52 | **Migration 9 non appliquée sur NEXORA-DEV** : application (`db push`), comparaison des migrations entre local et DEV, contrôles en lecture seule de `pull_changes` (inventaire des 3 fonctions, isolation, pagination). Sur DEV, les privilèges par défaut diffèrent de la pile locale (P34) : propriétaire et droits de la fonction à vérifier | ouvert, sur autorisation | V4.1 (partie DEV) |
+| P52 | **Migration 9 non appliquée sur NEXORA-DEV** : application (`db push`), comparaison des migrations entre local et DEV, contrôles en lecture seule de `pull_changes` (inventaire des 3 fonctions, isolation, pagination). Sur DEV, les privilèges par défaut diffèrent de la pile locale (P34) : propriétaire et droits de la fonction à vérifier | **levé (23/11/2026)** pour l'application et les contrôles en lecture seule de la structure : migration 9 appliquée sur DEV par le mécanisme atomique qualifié, `COMMIT` confirmé, constat APPLIQUÉ, inventaire des 3 RPC applicatives, propriétaire et droits conformes (voir « Application sur NEXORA-DEV ») ; **isolation et pagination non vérifiées sur DEV**, reportées en P55 | V4.1 (partie DEV) |
 | P53 | **Qualification PostgreSQL 16 non refaite** : 17 écarts déclarés et 129 assertions sans référence PG16 (dont 75 apportées par V4.1) ; référence `pg16.json` non régénérée (binaires absents). Seule la pile Supabase locale (PostgreSQL 17.11, version de la plateforme) qualifie la migration 9 | accepté (option A), à reconsidérer à la qualification complète | V6 (E5) |
 | P54 | Prototype `tests.pull` conservé dans l'outillage de test (`_setup.sql`) mais plus appelé par les suites | accepté, sans effet | — |
 
-Réserves toujours ouvertes après V4.1 (partie locale) : **P52** (DEV), P53, P8 (propriété assumée),
-P40 (lecture non transactionnelle du chargement complet, inchangée : décision A2-b), P38, P41, P45,
-P46, P48, P49.
+**Application sur NEXORA-DEV (23/11/2026, autorisation explicite)** — projet `nmrjwyfloqnypaawlqxd`,
+pooler en mode session, TLS `verify-full` (certificat épinglé). Méthode : application **atomique** dérivée
+de la procédure V2.2 (une seule transaction : contrôle de l'état de départ, migration 9 telle quelle, ligne
+d'historique identique à celle de Supabase CLI 2.122.0, contrôles, `COMMIT` conditionné), qualifiée au
+préalable sur une pile locale jetable partant des migrations 1 à 8 (30 / 30 : nominal, erreur dans la
+transaction, contrôle faux, interruption du client, refus avant connexion et avant `BEGIN`, relance
+refusée ; état final identique à `supabase db push` du CLI 2.122.0, `migration list` Local = Remote).
+Scripts et preuves hors dépôt : `/workspaces/nexora-n2/v4-1/` (manifeste des scripts `ca239a79…`,
+manifeste des preuves DEV `resultats/SHA256SUMS-DEV-M9` `2a666f25…`).
+
+| Contrôle sur DEV | Résultat |
+|---|---|
+| Préflight en lecture seule, juste avant (transaction `READ ONLY` vérifiée par le serveur) | 8 migrations (1 à 8, historique identique à V2.2), `pull_changes` absente, empreintes identiques au préflight du 23/11/2026 00:13 (`resultats/preflight-avant-application-20261123T184013Z.txt`) |
+| Application (`run-m9.sh --appliquer`, profil `nexora-dev`) | pré-contrôle INITIAL-CONFORME ; 7 déclencheurs d'événements, tous autorisés ; **18 / 18 contrôles transactionnels vrais** ; **un seul `COMMIT`, confirmé par le serveur** ; constat en lecture seule **APPLIQUÉ** ; code 0 ; aucune relance (`resultats/dev-20261123T184029Z-appliquer/`) |
+| Historique | **9 migrations** ; ligne `20261101000900` identique à la référence CLI (`md5` de la ligne `067bd23d…`) ; lignes 1 à 8 inchangées |
+| `pull_changes` | fonction unique, signature `(p_cursor text, p_bound text, p_after jsonb, p_limit integer)`, retour `jsonb` ; `SECURITY INVOKER`, `STABLE`, `search_path` vide ; propriétaire `nexora_writer` ; ACL exacte `{nexora_writer=X/nexora_writer,authenticated=X/nexora_writer}` (ni `anon`, ni `service_role`, ni `PUBLIC`) |
+| Empreintes avant / après (session distincte en lecture seule) | politiques RLS (108) `fed8d71f…` = `fed8d71f…` ; RLS activée et forcée (18 tables) `2b167013…` = `2b167013…` ; droits des tables `b32d17e3…` = `b32d17e3…` ; fonctions : 7 → 8 (seule `pull_changes` ajoutée, les 7 autres vérifiées inchangées dans la transaction) (`resultats/preflight-apres-application-20261123T184050Z.txt`) |
+| Appels de contrôle minimaux (lecture seule, aucune donnée métier lue ; **ne valent pas validation fonctionnelle**, voir P55) | identité inexistante : borne renvoyée, 0 ligne, `next` nul ; `authenticated` sans utilisateur : `unauthorized` ; `anon` : `permission denied` (`resultats/verification-fonctionnelle-20261123T184050Z.txt`) |
+| Auth, politiques RLS, données métier, PROD | non modifiés ; aucun accès à PROD |
+
+Point consigné après l'application sur DEV :
+
+| # | Point | Statut | Lot |
+|---|---|---|---|
+| P55 | **Validation fonctionnelle de `pull_changes` sur NEXORA-DEV non réalisée** : isolation entre utilisateurs réels, pagination et scénarios multi-utilisateurs complets ne sont qualifiés qu'en **local** (suites 07 et 12, suite HTTP) ; sur DEV, seuls la structure, les droits et des appels sans données ont été vérifiés. Une validation sur DEV exige des appels sous l'identité de comptes de test (lecture de leurs données) : autorisation distincte | ouvert | à décider : non prévue explicitement par le plan directeur (V4.1 : « qualification locale, puis application sur DEV ») ; rattachement possible aux essais sur DEV de V4.2 ou à la clôture de V4 |
+
+État global : **V4.1** : migration M9 appliquée sur DEV, contrôles après application conformes ;
+**V4.2** : non commencée (aucun lancement automatique de phase suivante).
+
+Réserves toujours ouvertes après V4.1 : P55 (validation fonctionnelle sur DEV), P53, P8 (propriété
+assumée), P40 (lecture non transactionnelle du chargement complet, inchangée : décision A2-b), P38,
+P41, P45, P46, P48, P49.
 
