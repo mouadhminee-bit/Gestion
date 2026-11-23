@@ -5,7 +5,8 @@
 // GoTrue, jetons JWT signés par GoTrue, appels PostgREST via Kong).
 //
 // État final du schéma (migration 8, décision D4-1) : un utilisateur authentifié LIT ses
-// lignes par l'API REST et n'ÉCRIT que par /rpc/apply_changeset. Toute écriture directe
+// lignes par l'API REST (et, migration 9, par /rpc/pull_changes) et n'ÉCRIT que par
+// /rpc/apply_changeset. Toute écriture directe
 // (POST / PATCH / DELETE sur une table) doit être refusée : ces cas sont des tests de refus.
 //
 // Données entièrement fictives (@example.test). Aucune dépendance (Node ≥ 22, fetch).
@@ -450,6 +451,73 @@ async function main() {
     ok(!mutations.some((f) => /^(insertInto|update|deleteFrom)/.test(f)), 'GraphQL (B) : aucune mutation d\'écriture directe sur les tables', mutations.join(', ') || 'aucune mutation');
     ok(true, 'CONSTAT mutations GraphQL exposées à un utilisateur authentifié', mutations.join(', ') || 'aucune');
   }
+
+  // --- M9 (migration 9, V4.1) : récupération des changements /rpc/pull_changes ----
+  // Sous l'identité de chaque utilisateur (jeton GoTrue réel) ; RLS de la plateforme.
+  const pull = (u, args) => call('POST', '/rest/v1/rpc/pull_changes', { token: u?.token, body: args });
+  const owner = (e) => e.row.user_id ?? e.row.id;
+  const sortKey = (e) => (e.table === 'user_settings' ? e.key.user_id : e.table === 'recurring_occurrences' ? `${e.key.rule_id}|${e.key.due_date}` : e.key.id);
+  const before = (x, y) => {
+    const a = BigInt(x.row.sync_txid), b = BigInt(y.row.sync_txid);
+    if (a !== b) return a < b;
+    if (x.table !== y.table) return Buffer.compare(Buffer.from(x.table), Buffer.from(y.table)) < 0;
+    return Buffer.compare(Buffer.from(sortKey(x)), Buffer.from(sortKey(y))) < 0;
+  };
+  /** Toutes les pages d'un intervalle [cursor, borne). */
+  async function pullAll(u, cursor, limit) {
+    let bound = null, after = null, pages = 0, stable = true;
+    const rows = [];
+    for (;;) {
+      const res = await pull(u, { p_cursor: cursor, p_bound: bound, p_after: after, p_limit: limit });
+      if (res.status !== 200) throw new Error(`pull_changes : ${describe(res)}`);
+      if (bound !== null && res.json.bound !== bound) stable = false;
+      bound = res.json.bound;
+      rows.push(...res.json.rows);
+      pages++;
+      after = res.json.next;
+      if (after === null) break;
+      if (pages > 100000) throw new Error('pagination sans fin');
+    }
+    return { bound, rows, pages, stable };
+  }
+  const fullA = await pullAll(A, '0', 1000);
+  ok(typeof fullA.bound === 'string' && /^\d+$/.test(fullA.bound), 'M9 A : borne renvoyée en texte (xid8)', fullA.bound);
+  ok(new Set(fullA.rows.map((e) => e.table)).size === 18, 'M9 A : les 18 tables récupérées', [...new Set(fullA.rows.map((e) => e.table))].join(', '));
+  ok(fullA.rows.every((e) => owner(e) === A.id), 'M9 A : uniquement ses propres lignes (aucune de B)');
+  ok(fullA.rows.every((e) => typeof e.row.sync_txid === 'string' && BigInt(e.row.sync_txid) < BigInt(fullA.bound)), 'M9 A : sync_txid en texte, toujours < borne');
+  const nowA = await snapshot(A);
+  ok(Object.keys(SPEC).every((t) => fullA.rows.filter((e) => e.table === t).length === nowA[t].length), 'M9 A : récupération = lecture REST, table par table');
+  ok(fullA.rows.every((e, i) => i === 0 || before(fullA.rows[i - 1], e)), 'M9 A : ordre strict (sync_txid, table, clé)');
+  const fullB = await pullAll(B, '0', 1000);
+  ok(fullB.rows.length > 0 && fullB.rows.every((e) => owner(e) === B.id), 'M9 B : uniquement ses propres lignes (aucune de A)');
+  const pagedB = await pullAll(B, '0', 97);
+  ok(pagedB.pages > 1 && pagedB.stable, 'M9 B : pagination par 97 (plusieurs pages, borne constante)', `${fullB.rows.length} lignes, ${pagedB.pages} pages`);
+  const sig = (rows) => rows.map((e) => `${e.table}:${sortKey(e)}:${e.row.version}`).join(',');
+  ok(sig(pagedB.rows) === sig(fullB.rows), 'M9 B : pages de 97 = pages de 1 000 (mêmes lignes, même ordre, aucune en double)');
+  // Changements de B (écrits par le protocole), puis récupération incrémentale depuis la borne.
+  const extra = account(B.id, { name: 'M9 nouvelle' });
+  const victim = beforeB.budgets[0];
+  const vVictim = (await rest('GET', `budgets?select=version&id=eq.${victim.id}`, { token: B.token })).json[0].version;
+  r = await apply(B, [put('accounts', extra), del('budgets', victim, vVictim)]);
+  ok(applied(r, 2), 'M9 B : lot de changements (création + suppression) appliqué', describe(r));
+  const incB = await pullAll(B, fullB.bound, 1000);
+  ok(incB.rows.length === 2 && incB.rows.some((e) => e.table === 'accounts' && e.key.id === extra.id && e.row.deleted_at === null)
+     && incB.rows.some((e) => e.table === 'budgets' && e.key.id === victim.id && e.row.deleted_at !== null),
+    'M9 B : récupération incrémentale = exactement la création et la suppression (deleted_at renseigné)', `${incB.rows.length} lignes`);
+  ok(BigInt(incB.bound) >= BigInt(fullB.bound), 'M9 B : la borne ne recule pas');
+  const incA = await pullAll(A, fullA.bound, 1000);
+  ok(incA.rows.length === 0, 'M9 A : les changements de B n\'apparaissent pas dans la récupération de A', `${incA.rows.length} lignes`);
+  // Refus.
+  r = await pull(null, { p_cursor: '0' });
+  ok(r.status >= 400 && r.status !== 404 && code(r) === '42501', 'M9 anon : pull_changes refusé (privilège)', describe(r));
+  r = await pull({ token: forged }, { p_cursor: '0' });
+  ok(r.status === 401, 'M9 jeton modifié (sub remplacé, signature invalide) : récupération refusée', describe(r));
+  r = await pull(A, { p_cursor: 'abc' });
+  ok(refused(r, 400, 'invalid_pull'), 'M9 curseur invalide : 400 invalid_pull', describe(r));
+  r = await pull(A, { p_cursor: '0', p_limit: 1001 });
+  ok(refused(r, 400, 'invalid_pull'), 'M9 limite > 1 000 : 400 invalid_pull', describe(r));
+  r = await pull(A, { p_cursor: '0', p_bound: String(BigInt(fullA.bound) + 1000000n) });
+  ok(refused(r, 400, 'invalid_pull'), 'M9 borne future : 400 invalid_pull', describe(r));
 
   // --- Contrôle final : les lignes de A n'ont jamais bougé -----------------------
   ok(JSON.stringify(await snapshot(A)) === JSON.stringify(beforeA), 'fin de suite : lignes de A strictement inchangées (18 tables, versions comprises)');

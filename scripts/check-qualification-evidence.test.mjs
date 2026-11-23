@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECKER = join(ROOT, 'scripts', 'check-qualification-evidence.mjs');
 const EVIDENCE = join(ROOT, 'docs', 'qualification');
-const PREFIXES = ['3b-local', 'lot4-local'];
+const PREFIXES = ['3b-local', 'lot4-local', 'v41-local'];
 const sha = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
 const evidenceHashes = () => Object.fromEntries(readdirSync(EVIDENCE).map((f) => [f, sha(join(EVIDENCE, f))]));
 

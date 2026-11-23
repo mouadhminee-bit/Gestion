@@ -4,6 +4,8 @@
  * Reproduit, au format filaire RÉEL, les deux fonctions de la migration 8 :
  *  - `POST /rest/v1/rpc/apply_changeset`   `{ p_changeset }`    (noms, clés et lignes SQL) ;
  *  - `POST /rest/v1/rpc/resolve_changeset` `{ p_changeset_id }` ;
+ *  - `POST /rest/v1/rpc/pull_changes` `{ p_cursor, p_bound, p_after, p_limit }` (V4.1,
+ *    migration 9 ; logique : `MemoryTransport.pull`) ; refus `PT400 invalid_pull` ;
  *  - erreurs `{ code, message, details, hint }` avec les statuts du § 7.7 de
  *    docs/LOT4_PLAN.md (`PT403`, `PT409`, `PT400`, `PT413`), refus d'authentification de
  *    PostgREST (`42501`, `PGRST301`, `PGRST303`).
@@ -24,7 +26,7 @@
  * voir `handleAuth`. Réservé aux tests, comme le reste de ce fichier.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { MemoryTransport, REGISTERED_AT, REGISTERED_AT_SQL, orderSqlRows } from '@/data/cloud/MemoryTransport';
+import { MemoryTransport, PullRequestError, REGISTERED_AT, REGISTERED_AT_SQL, orderSqlRows } from '@/data/cloud/MemoryTransport';
 import {
   MAPPING,
   SERVER_METADATA_COLUMNS,
@@ -250,7 +252,7 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
     if (auth) return auth;
     if ((method === 'GET' || method === 'HEAD') && /^\/rest\/v1\/[a-z_]+$/.test(url.pathname)) return handleRead(method, url, headers);
     const fn = url.pathname.replace(/^\/rest\/v1\/rpc\//, '');
-    if (method !== 'POST' || !['apply_changeset', 'resolve_changeset'].includes(fn) || !url.pathname.startsWith('/rest/v1/rpc/')) {
+    if (method !== 'POST' || !['apply_changeset', 'resolve_changeset', 'pull_changes'].includes(fn) || !url.pathname.startsWith('/rest/v1/rpc/')) {
       return pgError(404, 'PGRST202', `Could not find the function public.${fn}`);
     }
     const uid = authenticate(headers, `permission denied for function ${fn}`);
@@ -260,6 +262,14 @@ export function postgrestSimulator(server: MemoryTransport = new MemoryTransport
       body = JSON.parse(rawBody ?? '');
     } catch {
       return pgError(400, 'PGRST102', 'Empty or invalid json');
+    }
+    if (fn === 'pull_changes') {
+      try {
+        return json(200, server.pull(uid, { cursor: body.p_cursor, bound: body.p_bound, after: body.p_after, limit: body.p_limit }));
+      } catch (e) {
+        if (e instanceof PullRequestError) return pgError(400, 'PT400', 'invalid_pull', { reason: e.reason });
+        throw e;
+      }
     }
     try {
       const session = server.as(uid);

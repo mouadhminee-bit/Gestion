@@ -1,0 +1,1925 @@
+{
+  "server_version": "Supabase API (PostgREST/GoTrue)",
+  "results": [
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "deux utilisateurs distincts inscrits via GoTrue",
+      "ok": true,
+      "detail": "0247ee8f-d00b-490b-b656-e1c060153ce7 / 5a0743ff-78fd-4d2c-be3d-e525148ad727"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "jeton JWT réel émis par GoTrue (rôle authenticated)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "profil de A créé à l'inscription et seul visible par A",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"0247ee8f-d00b-490b-b656-e1c060153ce7\",\"display_name\":\"qualif-a\",\"version\":1}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "nom du profil repris des métadonnées d'inscription",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"0247ee8f-d00b-490b-b656-e1c060153ce7\",\"display_name\":\"qualif-a\",\"version\":1}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "aucun user_settings pré-créé à l'inscription",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "profiles : écriture directe refusée (A sur le profil de B)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.profiles TO authenticated;\",\"message\":\"permission denied for table profiles\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "profiles : écriture directe refusée même sur son propre profil",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.profiles TO authenticated;\",\"message\":\"permission denied for table profiles\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "profiles : A ne renomme pas le profil de B par le protocole (unauthorized)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "A : jeu complet (18 tables, références circulaires) appliqué en un lot",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"0247ee8f-d00b-490b-b656-e1c060153ce7\"},\"table\":\"profiles\",\"deleted\":false,\"version\":2},{\"key\":{\"user_id\":\"0247ee8f-d00b-490b-b656-e1c060153ce7\"},\"table\":\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "B : jeu complet (18 tables, références circulaires) appliqué en un lot",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"},\"table\":\"profiles\",\"deleted\":false,\"version\":2},{\"key\":{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"},\"table\":\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "chaque utilisateur relit ses lignes dans les 18 tables",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "profil renommé par le protocole (version 2)",
+      "ok": true,
+      "detail": "{\"created_at\":\"2026-11-22T23:52:31.887838+00:00\",\"deleted_at\":null,\"display_name\":\"Test\",\"id\":\"0247ee8f-d00b-490b-b656-e1c060153ce7\",\"server_updated_at\":\"2026-11-22T23:52:32.090326+00:00\",\"sync_txid\":\"2032\",\"version\":2}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.user_settings TO authenticated;\",\"message\":\"permission denied for table user_setti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.user_settings TO authenticated;\",\"message\":\"permission denied for table user_setti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.user_settings TO authenticated;\",\"message\":\"permission denied for table us"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.user_settings TO authenticated;\",\"message\":\"permission denied for table user_setti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.user_settings TO authenticated;\",\"message\":\"permission denied for table user_setti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne modifie pas la ligne de A (protocole)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne supprime pas la ligne de A (protocole)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "user_settings : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"},{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.accounts TO authenticated;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.accounts TO authenticated;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.accounts TO authenticated;\",\"message\":\"permission denied for table account"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.accounts TO authenticated;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.accounts TO authenticated;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"57f00595-6d06-4050-b7fc-e204061e7d00\\\"}, \\\"table\\\": \\\"accounts\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"57f00595-6d06-4050-b7fc-e204061e7d00\\\"}, \\\"table\\\": \\\"accounts\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"accounts\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "accounts : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"},{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.categories TO authenticated;\",\"message\":\"permission denied for table categories\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.categories TO authenticated;\",\"message\":\"permission denied for table categories\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.categories TO authenticated;\",\"message\":\"permission denied for table categ"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.categories TO authenticated;\",\"message\":\"permission denied for table categories\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.categories TO authenticated;\",\"message\":\"permission denied for table categories\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"3c9411f8-f6b3-45a5-9071-ea9133857926\\\"}, \\\"table\\\": \\\"categories\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"3c9411f8-f6b3-45a5-9071-ea9133857926\\\"}, \\\"table\\\": \\\"categories\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"categories\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "categories : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"},{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.transactions TO authenticated;\",\"message\":\"permission denied for table transaction"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.transactions TO authenticated;\",\"message\":\"permission denied for table transaction"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.transactions TO authenticated;\",\"message\":\"permission denied for table tra"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.transactions TO authenticated;\",\"message\":\"permission denied for table transaction"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.transactions TO authenticated;\",\"message\":\"permission denied for table transaction"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"5b4d4685-1517-452d-837c-6cf42b8cb5a3\\\"}, \\\"table\\\": \\\"transactions\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersi"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"5b4d4685-1517-452d-837c-6cf42b8cb5a3\\\"}, \\\"table\\\": \\\"transactions\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersi"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"transactions\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.attachments TO authenticated;\",\"message\":\"permission denied for table attachments\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.attachments TO authenticated;\",\"message\":\"permission denied for table attachments\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.attachments TO authenticated;\",\"message\":\"permission denied for table atta"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.attachments TO authenticated;\",\"message\":\"permission denied for table attachments\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.attachments TO authenticated;\",\"message\":\"permission denied for table attachments\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"9564f086-2dab-4d6f-802f-0e61271370e5\\\"}, \\\"table\\\": \\\"attachments\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersio"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"9564f086-2dab-4d6f-802f-0e61271370e5\\\"}, \\\"table\\\": \\\"attachments\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersio"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"attachments\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "attachments : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.import_batches TO authenticated;\",\"message\":\"permission denied for table import_ba"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.import_batches TO authenticated;\",\"message\":\"permission denied for table import_ba"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.import_batches TO authenticated;\",\"message\":\"permission denied for table i"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.import_batches TO authenticated;\",\"message\":\"permission denied for table import_ba"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.import_batches TO authenticated;\",\"message\":\"permission denied for table import_ba"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"2744d921-ce1c-499c-aae1-582e43b80b1c\\\"}, \\\"table\\\": \\\"import_batches\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVer"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"2744d921-ce1c-499c-aae1-582e43b80b1c\\\"}, \\\"table\\\": \\\"import_batches\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVer"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"import_batches\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "import_batches : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.budgets TO authenticated;\",\"message\":\"permission denied for table budgets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.budgets TO authenticated;\",\"message\":\"permission denied for table budgets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.budgets TO authenticated;\",\"message\":\"permission denied for table budgets\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.budgets TO authenticated;\",\"message\":\"permission denied for table budgets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.budgets TO authenticated;\",\"message\":\"permission denied for table budgets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"3bd83d31-3bec-4b48-9b7d-679dc3e6da41\\\"}, \\\"table\\\": \\\"budgets\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\":"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"3bd83d31-3bec-4b48-9b7d-679dc3e6da41\\\"}, \\\"table\\\": \\\"budgets\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\":"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"budgets\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "budgets : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.savings_goals TO authenticated;\",\"message\":\"permission denied for table savings_go"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.savings_goals TO authenticated;\",\"message\":\"permission denied for table savings_go"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.savings_goals TO authenticated;\",\"message\":\"permission denied for table sa"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.savings_goals TO authenticated;\",\"message\":\"permission denied for table savings_go"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.savings_goals TO authenticated;\",\"message\":\"permission denied for table savings_go"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"b7b32d23-67c5-4429-a13f-2283029c00ff\\\"}, \\\"table\\\": \\\"savings_goals\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVers"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"b7b32d23-67c5-4429-a13f-2283029c00ff\\\"}, \\\"table\\\": \\\"savings_goals\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVers"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"savings_goals\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "savings_goals : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.goal_contributions TO authenticated;\",\"message\":\"permission denied for table goal_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.goal_contributions TO authenticated;\",\"message\":\"permission denied for table goal_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.goal_contributions TO authenticated;\",\"message\":\"permission denied for tab"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.goal_contributions TO authenticated;\",\"message\":\"permission denied for table goal_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.goal_contributions TO authenticated;\",\"message\":\"permission denied for table goal_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"caa6b4ce-a003-4fe4-9478-fcf97b0fcb1f\\\"}, \\\"table\\\": \\\"goal_contributions\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expecte"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"caa6b4ce-a003-4fe4-9478-fcf97b0fcb1f\\\"}, \\\"table\\\": \\\"goal_contributions\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expecte"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"goal_contributions\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.recurring_rules TO authenticated;\",\"message\":\"permission denied for table recurrin"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.recurring_rules TO authenticated;\",\"message\":\"permission denied for table recurrin"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.recurring_rules TO authenticated;\",\"message\":\"permission denied for table "
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_rules TO authenticated;\",\"message\":\"permission denied for table recurrin"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_rules TO authenticated;\",\"message\":\"permission denied for table recurrin"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"c835be28-47c2-43b0-aebb-b5aa874b36ad\\\"}, \\\"table\\\": \\\"recurring_rules\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVe"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"c835be28-47c2-43b0-aebb-b5aa874b36ad\\\"}, \\\"table\\\": \\\"recurring_rules\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVe"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"recurring_rules\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_rules : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.recurring_occurrences TO authenticated;\",\"message\":\"permission denied for table re"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.recurring_occurrences TO authenticated;\",\"message\":\"permission denied for table re"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.recurring_occurrences TO authenticated;\",\"message\":\"permission denied for "
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_occurrences TO authenticated;\",\"message\":\"permission denied for table re"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.recurring_occurrences TO authenticated;\",\"message\":\"permission denied for table re"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"rule_id\\\": \\\"c835be28-47c2-43b0-aebb-b5aa874b36ad\\\", \\\"due_date\\\": \\\"2026-03-03\\\"}, \\\"table\\\": \\\"recurring_occurrences\\\", \\\"actualDeleted\\\": nu"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"rule_id\\\": \\\"c835be28-47c2-43b0-aebb-b5aa874b36ad\\\", \\\"due_date\\\": \\\"2026-03-03\\\"}, \\\"table\\\": \\\"recurring_occurrences\\\", \\\"actualDeleted\\\": nu"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"recurring_occurrences\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.debts TO authenticated;\",\"message\":\"permission denied for table debts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.debts TO authenticated;\",\"message\":\"permission denied for table debts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.debts TO authenticated;\",\"message\":\"permission denied for table debts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debts TO authenticated;\",\"message\":\"permission denied for table debts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debts TO authenticated;\",\"message\":\"permission denied for table debts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"85c0eecf-f1e8-4ef9-9635-7b484554efdc\\\"}, \\\"table\\\": \\\"debts\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\": 1"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"85c0eecf-f1e8-4ef9-9635-7b484554efdc\\\"}, \\\"table\\\": \\\"debts\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\": 1"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"debts\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debts : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.debt_payments TO authenticated;\",\"message\":\"permission denied for table debt_payme"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.debt_payments TO authenticated;\",\"message\":\"permission denied for table debt_payme"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.debt_payments TO authenticated;\",\"message\":\"permission denied for table de"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debt_payments TO authenticated;\",\"message\":\"permission denied for table debt_payme"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.debt_payments TO authenticated;\",\"message\":\"permission denied for table debt_payme"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"e2f98f28-a629-4c16-9468-f385d31d75b4\\\"}, \\\"table\\\": \\\"debt_payments\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVers"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"e2f98f28-a629-4c16-9468-f385d31d75b4\\\"}, \\\"table\\\": \\\"debt_payments\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVers"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"debt_payments\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "debt_payments : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.assets TO authenticated;\",\"message\":\"permission denied for table assets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.assets TO authenticated;\",\"message\":\"permission denied for table assets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.assets TO authenticated;\",\"message\":\"permission denied for table assets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.assets TO authenticated;\",\"message\":\"permission denied for table assets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.assets TO authenticated;\",\"message\":\"permission denied for table assets\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"bad485a8-ac76-467e-8e71-40e37fffa788\\\"}, \\\"table\\\": \\\"assets\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\": "
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"bad485a8-ac76-467e-8e71-40e37fffa788\\\"}, \\\"table\\\": \\\"assets\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVersion\\\": "
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"assets\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "assets : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.asset_valuations TO authenticated;\",\"message\":\"permission denied for table asset_v"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.asset_valuations TO authenticated;\",\"message\":\"permission denied for table asset_v"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.asset_valuations TO authenticated;\",\"message\":\"permission denied for table"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.asset_valuations TO authenticated;\",\"message\":\"permission denied for table asset_v"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.asset_valuations TO authenticated;\",\"message\":\"permission denied for table asset_v"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"1c6a7ddf-cbf6-4b15-9f9d-8c5050754e89\\\"}, \\\"table\\\": \\\"asset_valuations\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedV"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"1c6a7ddf-cbf6-4b15-9f9d-8c5050754e89\\\"}, \\\"table\\\": \\\"asset_valuations\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedV"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"asset_valuations\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.exchange_rates TO authenticated;\",\"message\":\"permission denied for table exchange_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.exchange_rates TO authenticated;\",\"message\":\"permission denied for table exchange_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.exchange_rates TO authenticated;\",\"message\":\"permission denied for table e"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.exchange_rates TO authenticated;\",\"message\":\"permission denied for table exchange_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.exchange_rates TO authenticated;\",\"message\":\"permission denied for table exchange_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne modifie pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"9ffed8e2-ac8d-47e8-a15f-b93e9ce818a6\\\"}, \\\"table\\\": \\\"exchange_rates\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVer"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne supprime pas la ligne de A (protocole : conflit, aucune version révélée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"9ffed8e2-ac8d-47e8-a15f-b93e9ce818a6\\\"}, \\\"table\\\": \\\"exchange_rates\\\", \\\"actualDeleted\\\": null, \\\"actualVersion\\\": null, \\\"expectedVer"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne crée pas de ligne sur la clé d'une ligne de A (duplicate_key, aucun détail)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"op\\\": 0, \\\"table\\\": \\\"exchange_rates\\\"}\",\"hint\":null,\"message\":\"duplicate_key\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "exchange_rates : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne lit que ses propres lignes",
+      "ok": true,
+      "detail": "HTTP 200 [{\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : filtrer sur A ne renvoie rien à B",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : PATCH direct refusé (lignes de A)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.notification_states TO authenticated;\",\"message\":\"permission denied for table noti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : PATCH direct refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT UPDATE ON public.notification_states TO authenticated;\",\"message\":\"permission denied for table noti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : POST direct (insertion / upsert) refusé",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT, UPDATE ON public.notification_states TO authenticated;\",\"message\":\"permission denied for ta"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : DELETE refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.notification_states TO authenticated;\",\"message\":\"permission denied for table noti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : DELETE refusé même sur ses lignes",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT DELETE ON public.notification_states TO authenticated;\",\"message\":\"permission denied for table noti"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne modifie pas la ligne de A (protocole)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne supprime pas la ligne de A (protocole)",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne peut pas écrire au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne peut pas soumettre un lot au nom de A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"reason\\\": \\\"userId différent de l’utilisateur authentifié\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "notification_states : B ne peut pas transférer sa ligne à A",
+      "ok": true,
+      "detail": "HTTP 403 {\"code\":\"PT403\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"ligne attribuée à un autre utilisateur\\\"}\",\"hint\":null,\"message\":\"unauthorized\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "lignes de A strictement inchangées après les tentatives de B (18 tables, versions comprises)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "aucune tentative refusée de B n'a modifié ses propres lignes",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas référencer compte de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"accounts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_account_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas référencer catégorie de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"categories\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_category_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "transactions : B ne peut pas référencer dette de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"debts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_debt_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "goal_contributions : B ne peut pas référencer objectif de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"savings_goals\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"goal_contributions\\\" violates foreign key constraint \\\"goal_contributions_"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "asset_valuations : B ne peut pas référencer actif de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"assets\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"asset_valuations\\\" violates foreign key constraint \\\"asset_valuations_asset_fk\\\"\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "recurring_occurrences : B ne peut pas référencer règle récurrente de A (clé composite)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"recurring_rules\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"recurring_occurrences\\\" violates foreign key constraint \\\"recurring_occu"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "contrôle positif : B référence sa propre catégorie",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"d14534c0-6ea2-4720-ae9a-665a098a3c2e\"},\"table\":\"transactions\",\"deleted\":false,\"version\":1}],\"changesetId\":\"d62d414d-37ef-46f7-aed4-6c3d3177fc46\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "Q6 référence pendante : erreur différée (23503) renvoyée à la validation",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"debts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_debt_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "dette ↔ transaction en deux lots séparés : le premier est refusé (un lot = une transaction)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"23503\",\"details\":\"Key is not present in table \\\"debts\\\".\",\"hint\":null,\"message\":\"insert or update on table \\\"transactions\\\" violates foreign key constraint \\\"transactions_debt_fk\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "dette ↔ transaction dans le MÊME lot : appliqué (écriture multi-tables atomique)",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"4efe9c35-3d70-48f1-a946-55acc1e929a2\"},\"table\":\"transactions\",\"deleted\":false,\"version\":1},{\"key\":{\"id\":\"1e27c705-db29-4f85-b7d6-5805684132ae\"},\"table\":\"d"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "unicité différée (budget en double) renvoyée par PostgREST",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"23P01\",\"details\":\"Key conflicts with existing key.\",\"hint\":null,\"message\":\"conflicting key value violates exclusion constraint \\\"budgets_one_per_month_category\\\"\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "atomicité : lot refusé (invalid_row, CHECK 23514, opération désignée)",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"op\\\": 1, \\\"table\\\": \\\"accounts\\\", \\\"sqlstate\\\": \\\"23514\\\", \\\"constraint\\\": \\\"accounts_type_check\\\"}\",\"hint\":null,\"message\":\"invalid_row\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "atomicité : l'opération valide du lot refusé n'a pas été écrite",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : métadonnée serveur version envoyée par le client → lot refusé",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"métadonnées serveur interdites\\\", \\\"columns\\\": [\\\"version\\\"]}\",\"hint\":null,\"message\":\"invalid_row\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : métadonnée serveur sync_txid envoyée par le client → lot refusé",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"métadonnées serveur interdites\\\", \\\"columns\\\": [\\\"sync_txid\\\"]}\",\"hint\":null,\"message\":\"invalid_row\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : métadonnée serveur server_updated_at envoyée par le client → lot refusé",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"métadonnées serveur interdites\\\", \\\"columns\\\": [\\\"server_updated_at\\\"]}\",\"hint\":null,\"message\":\"invalid_row\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : métadonnée serveur deleted_at envoyée par le client → lot refusé",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"op\\\": 0, \\\"reason\\\": \\\"métadonnées serveur interdites\\\", \\\"columns\\\": [\\\"deleted_at\\\"]}\",\"hint\":null,\"message\":\"invalid_row\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : création confirmée en version 1",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"50bd0929-9c84-4d57-a4dd-7ac2bd32eb5a\"},\"table\":\"accounts\",\"deleted\":false,\"version\":1}],\"changesetId\":\"4e02c401-c482-4856-8a38-bf197fbb467b\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : version imposée par le serveur",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"50bd0929-9c84-4d57-a4dd-7ac2bd32eb5a\",\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\",\"name\":\"X\",\"type\":\"bank\",\"currency\":\"MAD\",\"initial_balance\":0,\"initial_balance_date\":\"2026-03-01\",\"archiv"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : sync_txid et server_updated_at imposés par le serveur",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"50bd0929-9c84-4d57-a4dd-7ac2bd32eb5a\",\"user_id\":\"5a0743ff-78fd-4d2c-be3d-e525148ad727\",\"name\":\"X\",\"type\":\"bank\",\"currency\":\"MAD\",\"initial_balance\":0,\"initial_balance_date\":\"2026-03-01\",\"archiv"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : created_at métier du client conservé à la milliseconde",
+      "ok": true,
+      "detail": "2020-01-02T03:04:05.678+00:00"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : suppression logique confirmée (version + 1, supprimée)",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"50bd0929-9c84-4d57-a4dd-7ac2bd32eb5a\"},\"table\":\"accounts\",\"deleted\":true,\"version\":2}],\"changesetId\":\"5925649f-8868-4165-b6bd-b82736046311\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : ligne supprimée logiquement, horodatée par le serveur, toujours lisible par son propriétaire",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"50bd0929-9c84-4d57-a4dd-7ac2bd32eb5a\",\"deleted_at\":\"2026-11-22T23:52:33.208689+00:00\",\"version\":2}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : réécriture d'une ligne supprimée = réactivation (version + 1)",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"50bd0929-9c84-4d57-a4dd-7ac2bd32eb5a\"},\"table\":\"accounts\",\"deleted\":false,\"version\":3}],\"changesetId\":\"d0700d3a-abd3-450a-8fbc-998e4d7566d4\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API : ligne réactivée (deleted_at null)",
+      "ok": true,
+      "detail": "HTTP 200 [{\"deleted_at\":null}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "R3 : première écriture acceptée (version 1 → 2)",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"9258211c-c4e4-4e9e-a984-eec31bea3abf\"},\"table\":\"accounts\",\"deleted\":false,\"version\":2}],\"changesetId\":\"876945f2-5b8a-460e-a54c-be997ac98bf5\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "R3 : seconde écriture sur la version périmée refusée (version_conflict, version réelle indiquée)",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"9258211c-c4e4-4e9e-a984-eec31bea3abf\\\"}, \\\"table\\\": \\\"accounts\\\", \\\"actualDeleted\\\": false, \\\"actualVersion\\\": 2, \\\"expectedVersion\\\": "
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "R3 : l'écriture acceptée n'est pas écrasée",
+      "ok": true,
+      "detail": "HTTP 200 [{\"name\":\"Appareil 1\",\"version\":2}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "R3 : deux requêtes simultanées sur la même version → exactement une acceptée, une en conflit",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"9258211c-c4e4-4e9e-a984-eec31bea3abf\"},\"table\":\"accounts\",\"deleted\":false,\"version\":3}],\"changesetId\":\"81cbb473-8133-4b03-8e93-6a2a984e34c4\"} | HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"conflicts\\\": [{\\\"key\\\": {\\\"id\\\": \\\"9258211c-c4e4-4e9e-a984-eec31bea3abf\\\"}, \\\"table\\\": \\\"accounts\\\", \\\"actualDeleted\\\": false, \\\"actualVersion\\\": 3, \\\"expectedVersion\\\": "
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "R3 : une seule des deux écritures simultanées est enregistrée (version 3)",
+      "ok": true,
+      "detail": "HTTP 200 [{\"name\":\"Course A\",\"version\":3}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "idempotence : le même lot rejoué renvoie le résultat d'origine (replayed), sans nouvelle version",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"7382356d-a4c4-4409-84a0-79b6ba1490a9\"},\"table\":\"accounts\",\"deleted\":false,\"version\":1}],\"changesetId\":\"83a9c2fd-8a5a-45b4-9d31-35c8793bdb60\"} | HTTP 200 {\"status\":\"replayed\",\"versions\":[{\"key\":{\"id\":\"7382356d-a4c4-4409-84a0-79b6ba1490a9\"},\"table\":\"accounts\",\"deleted\":false,\"version\":1}],\"changesetId\":\"83a9c2fd-8a5a-45b4-9d31-35c8793bdb60\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "idempotence : le lot rejoué n'a été appliqué qu'une fois",
+      "ok": true,
+      "detail": "HTTP 200 [{\"version\":1}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "idempotence : même identifiant, autre contenu → changeset_id_reused",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"changesetId\\\": \\\"83a9c2fd-8a5a-45b4-9d31-35c8793bdb60\\\"}\",\"hint\":null,\"message\":\"changeset_id_reused\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "résolution : lot appliqué → résultat d'origine (replayed)",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"replayed\",\"versions\":[{\"key\":{\"id\":\"7382356d-a4c4-4409-84a0-79b6ba1490a9\"},\"table\":\"accounts\",\"deleted\":false,\"version\":1}],\"changesetId\":\"83a9c2fd-8a5a-45b4-9d31-35c8793bdb60\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "résolution : l'identifiant de lot de B est inconnu pour A (périmètre utilisateur, aucune fuite)",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"abandoned\",\"changesetId\":\"83a9c2fd-8a5a-45b4-9d31-35c8793bdb60\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "résolution : lot inconnu → abandonné",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"abandoned\",\"changesetId\":\"bdbdd955-63f7-4ca1-bf6e-e7e4d1665fec\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "résolution : un lot abandonné n'est jamais appliqué ensuite",
+      "ok": true,
+      "detail": "HTTP 409 {\"code\":\"PT409\",\"details\":\"{\\\"changesetId\\\": \\\"bdbdd955-63f7-4ca1-bf6e-e7e4d1665fec\\\"}\",\"hint\":null,\"message\":\"changeset_abandoned\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 0.1 + 0.2 : écriture par lot appliquée",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"302d7cfa-16ed-441b-9142-c98912966c6a\"},\"table\":\"exchange_rates\",\"deleted\":false,\"version\":1}],\"changesetId\":\"54b30ed8-c57b-4ec1-a6cf-d1270f84c0dc\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 0.1 + 0.2 : valeur relue identique (0.30000000000000004)",
+      "ok": true,
+      "detail": "réponse brute [{\"rate\":0.30000000000000004}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 1/3 : écriture par lot appliquée",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"9169025a-48c1-4562-8fe0-0fb54fe49304\"},\"table\":\"exchange_rates\",\"deleted\":false,\"version\":1}],\"changesetId\":\"f0976da8-700f-4b6c-b4f2-94380db859d1\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 1/3 : valeur relue identique (0.3333333333333333)",
+      "ok": true,
+      "detail": "réponse brute [{\"rate\":0.3333333333333333}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 10.86 : écriture par lot appliquée",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"b4c74273-7fd6-4ae1-8836-a7de942701db\"},\"table\":\"exchange_rates\",\"deleted\":false,\"version\":1}],\"changesetId\":\"1ebf7d1a-9646-4059-8fce-54057d4f6371\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux 10.86 : valeur relue identique (10.86)",
+      "ok": true,
+      "detail": "réponse brute [{\"rate\":10.86}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux d'intérêt : écriture par lot appliquée",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"51548c67-36ae-4137-93ad-8be36c3f35cd\"},\"table\":\"debts\",\"deleted\":false,\"version\":2}],\"changesetId\":\"c3b7ed7f-37a6-43e4-bb3e-65df952da662\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "API taux d'intérêt : valeur relue identique (4.123456789012345)",
+      "ok": true,
+      "detail": "réponse brute [{\"interest_rate\":4.123456789012345}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "limites : lot de 1 000 opérations appliqué par l'API",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"a4c206a7-2597-441d-b297-c — 587 ms"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "CONSTAT durée d'un lot de 1 000 opérations par l'API",
+      "ok": true,
+      "detail": "587 ms"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "CONSTAT lot de 5 000 opérations (taille maximale) par l'API",
+      "ok": true,
+      "detail": "HTTP 200 applied — 1.60 Mio — 3025 ms"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "limites : lot de 5 000 opérations appliqué en entier ou refusé en entier",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"24cc8b7a-9623-4be1-b6e8-ee5521e85f90\"},\"table\":\"exchange_rates\",\"deleted\":false,\"version\":1},{\"key\":{\"id\":\"5b5db33b-ff12-4628-893a-3be4a655be6e\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "limites : lecture possible après les gros lots",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"a4c206a7-2597-441d-b297-c715b929a4f5\"}]"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "limites : plus de 5 000 opérations → changeset_too_large (HTTP 413)",
+      "ok": true,
+      "detail": "HTTP 413 {\"code\":\"PT413\",\"details\":\"{\\\"ops\\\": 5001, \\\"maxOps\\\": 5000}\",\"hint\":null,\"message\":\"changeset_too_large\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "limites : lot de plus de 4 Mio refusé",
+      "ok": true,
+      "detail": "HTTP 413 {\"code\":\"PT413\",\"details\":\"{\\\"maxBytes\\\": 4194304}\",\"hint\":null,\"message\":\"changeset_too_large\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "CONSTAT refus d'un lot de plus de 4 Mio (fonction : 413 changeset_too_large ; sinon limite de la passerelle)",
+      "ok": true,
+      "detail": "HTTP 413 changeset_too_large"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "limites : rien n'est écrit par un lot trop volumineux",
+      "ok": true,
+      "detail": "HTTP 200 []"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "anon (clé publique sans session) : lecture refusée",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT SELECT ON public.accounts TO anon;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "anon : écriture directe refusée",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT INSERT ON public.accounts TO anon;\",\"message\":\"permission denied for table accounts\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "anon : apply_changeset refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"permission denied for function apply_changeset\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "anon : resolve_changeset refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"permission denied for function resolve_changeset\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "fonction privée handle_new_user non exposée par l'API",
+      "ok": true,
+      "detail": "HTTP 404 {\"code\":\"PGRST202\",\"details\":\"Searched for the function public.handle_new_user without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.\",\"hint\":"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "fonction privée tg_sync_metadata non exposée par l'API",
+      "ok": true,
+      "detail": "HTTP 404 {\"code\":\"PGRST202\",\"details\":\"Searched for the function public.tg_sync_metadata without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.\",\"hint\""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "fonction privée request_uid non exposée par l'API",
+      "ok": true,
+      "detail": "HTTP 404 {\"code\":\"PGRST202\",\"details\":\"Searched for the function public.request_uid without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.\",\"hint\":null"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "fonction privée changeset_error non exposée par l'API",
+      "ok": true,
+      "detail": "HTTP 404 {\"code\":\"PGRST202\",\"details\":\"Searched for the function public.changeset_error without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.\",\"hint\":"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "jeton modifié (sub remplacé, signature invalide) : lecture refusée",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"PGRST301\",\"details\":\"None of the keys was able to decode the JWT\",\"hint\":null,\"message\":\"No suitable key or wrong key type\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "jeton modifié (sub remplacé, signature invalide) : écriture refusée",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"PGRST301\",\"details\":\"None of the keys was able to decode the JWT\",\"hint\":null,\"message\":\"No suitable key or wrong key type\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "GraphQL (anon) : aucune table NEXORA exposée",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "GraphQL (B) : uniquement ses propres comptes",
+      "ok": true,
+      "detail": "HTTP 200 {\"errors\":[{\"message\":\"pg_graphql extension is not enabled.\"}]}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "GraphQL (B) : aucune mutation d'écriture directe sur les tables",
+      "ok": true,
+      "detail": "aucune mutation"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "CONSTAT mutations GraphQL exposées à un utilisateur authentifié",
+      "ok": true,
+      "detail": "aucune"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 A : borne renvoyée en texte (xid8)",
+      "ok": true,
+      "detail": "2129"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 A : les 18 tables récupérées",
+      "ok": true,
+      "detail": "accounts, asset_valuations, assets, attachments, budgets, categories, debt_payments, debts, exchange_rates, goal_contributions, import_batches, notification_states, profiles, recurring_occurrences, recurring_rules, savings_goals, transactions, user_settings"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 A : uniquement ses propres lignes (aucune de B)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 A : sync_txid en texte, toujours < borne",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 A : récupération = lecture REST, table par table",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 A : ordre strict (sync_txid, table, clé)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 B : uniquement ses propres lignes (aucune de A)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 B : pagination par 97 (plusieurs pages, borne constante)",
+      "ok": true,
+      "detail": "6030 lignes, 63 pages"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 B : pages de 97 = pages de 1 000 (mêmes lignes, même ordre, aucune en double)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 B : lot de changements (création + suppression) appliqué",
+      "ok": true,
+      "detail": "HTTP 200 {\"status\":\"applied\",\"versions\":[{\"key\":{\"id\":\"1a3fc9b6-afdf-4092-b84c-f78b03509455\"},\"table\":\"accounts\",\"deleted\":false,\"version\":1},{\"key\":{\"id\":\"5d266d86-94fb-4894-96c9-4ef54508fd16\"},\"table\":\"budge"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 B : récupération incrémentale = exactement la création et la suppression (deleted_at renseigné)",
+      "ok": true,
+      "detail": "2 lignes"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 B : la borne ne recule pas",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 A : les changements de B n'apparaissent pas dans la récupération de A",
+      "ok": true,
+      "detail": "0 lignes"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 anon : pull_changes refusé (privilège)",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"permission denied for function pull_changes\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 jeton modifié (sub remplacé, signature invalide) : récupération refusée",
+      "ok": true,
+      "detail": "HTTP 401 {\"code\":\"PGRST301\",\"details\":\"None of the keys was able to decode the JWT\",\"hint\":null,\"message\":\"No suitable key or wrong key type\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 curseur invalide : 400 invalid_pull",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"reason\\\": \\\"p_cursor : entier xid8 en texte attendu\\\"}\",\"hint\":null,\"message\":\"invalid_pull\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 limite > 1 000 : 400 invalid_pull",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"reason\\\": \\\"p_limit : entier de 1 à 1000 attendu\\\"}\",\"hint\":null,\"message\":\"invalid_pull\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "M9 borne future : 400 invalid_pull",
+      "ok": true,
+      "detail": "HTTP 400 {\"code\":\"PT400\",\"details\":\"{\\\"reason\\\": \\\"p_bound : borne postérieure à la borne sûre actuelle\\\"}\",\"hint\":null,\"message\":\"invalid_pull\"}"
+    },
+    {
+      "file": "H1_http_rls.mjs",
+      "name": "fin de suite : lignes de A strictement inchangées (18 tables, versions comprises)",
+      "ok": true,
+      "detail": null
+    }
+  ]
+}

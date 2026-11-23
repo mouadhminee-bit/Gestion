@@ -22,7 +22,7 @@ uniquement par un lot validé qui la traite explicitement (test à l'appui).
 | P5 | Purge des lignes supprimées logiquement (croissance des tombstones) | Cadrage Lot 3 | 8 |
 | P6 | `restoreBackup` ne valide aucune ligne : une sauvegarde corrompue ou modifiée à la main peut contenir des valeurs que le schéma refuse. Valider les sauvegardes avant écriture. **Traité par le correctif Backup / Restore v2 (en attente de validation)** : migration et validation stricte (structure, types, identifiants, relations) avant toute écriture, transaction unique contrôlée après écriture (`docs/BACKUP_RESTORE.md` § 2–4 ; 51 tests Local + Cloud) | Lot 3 (rapport § 8) | v2 |
 | P7 | Réutiliser l'UUID d'une ligne d'autrui provoque une collision de clé (23505) : révèle l'existence d'un UUID aléatoire, sans accès aux données | Lot 3 | 7 (avec R1) |
-| P8 | Une transaction longue retient la borne de récupération (`pg_snapshot_xmin`) : aucune perte, mais retard de synchronisation | Lot 3 | 4–5 |
+| P8 | Une transaction longue retient la borne de récupération (`pg_snapshot_xmin`) : aucune perte, mais retard de synchronisation | Lot 3 | 4–5 — **comportement vérifié sur la vraie fonction `pull_changes` (V4.1, suite 07 S1 : une transaction en cours retient la borne, la ligne validée après elle est différée puis récupérée, aucune perte)** ; reste une propriété assumée (retard, jamais de perte) |
 | P9 | Qualification du schéma sur la vraie pile Supabase. **Pile Supabase locale : qualification réussie** (étape 3b, Codespaces : SQL 1 152/1 152, HTTP 143/143, 7 migrations, `major_version = 17` aligné). **Validation sur un projet hébergé : non réalisée** (3b-4 reportée). **Lot 0 (migrations 1 à 8)** : pile Supabase locale, SQL 1 847 / 1 847, HTTP 302 / 302, PostgreSQL 17.11, 1 793 assertions identiques à la référence PG 16 ; résultats reproduits à l'identique dans le Codespace (preuves `docs/qualification/lot4-local-*`). Hébergé : toujours non réalisé (P22) | Lot 3 (étape 3b) | 3b-4 |
 | P10 | Inscription impossible si le rôle `postgres` n'a pas `BYPASSRLS` (déclencheur `handle_new_user`, RLS forcée sur `profiles`). **Résolu pour la pile Supabase locale testée** (Q1 positive ; profil créé à l'inscription vérifié par la suite HTTP 143/143). **Reste ouvert : vérification sur un projet hébergé**. Lot 0 : toujours vérifié sur la pile locale (inscription de deux utilisateurs réels, profil créé, HTTP 302 / 302) ; hébergé non réalisé (P22) | Étape 3b | 3b-4 |
 
@@ -86,7 +86,7 @@ ils sont consignés pour être traités dans le lot indiqué.
 | P25 | `service_role` conserve tous les privilèges (suppression physique et `TRUNCATE` compris) et contourne la RLS ; aucun test ne l'encadre. Sa clé ne doit jamais atteindre le frontend ni un dépôt | ouvert, risque à encadrer | qualification hébergée / Lot 8 |
 | P26 | Profil PostgreSQL 17 **éphémère** (binaires du paquet npm, comme à l'étape 3b) non exécuté au Lot 0 ; PostgreSQL 17 n'est couvert que par l'image 17.11 de la pile Supabase locale | ouvert, à clarifier (exécuter ou retirer de l'étape 4.5) | Lot 0 (avant validation technique) |
 | P27 | Couverture HTTP des clés étrangères composites : 6 sur 25 par l'API ; les 25 sont couvertes par la suite SQL 02 | ouvert, non bloquant | optionnel |
-| P28 | Synchronisation incrémentale : aucune fonction serveur de lecture des changements n'existe (seul un prototype figure dans l'outillage de test) ; une nouvelle migration et sa qualification seront nécessaires | ouvert | récupération des changements (Lot 5 du dépôt) |
+| P28 | Synchronisation incrémentale : aucune fonction serveur de lecture des changements n'existe (seul un prototype figure dans l'outillage de test) ; une nouvelle migration et sa qualification seront nécessaires | **partiellement levé (V4.1, 22/11/2026)** : fonction `public.pull_changes` livrée (migration 9) et qualifiée sur la pile Supabase **locale** ; application et vérification sur NEXORA-DEV restantes (P52) — voir section V4.1 | récupération des changements (Plan directeur V1, V4.1) |
 | P29 | Contrôles de sécurité par mutation (10) : **versionnés par la remédiation** (`scripts/security-mutations/`, portage vérifié identique à l'original ; 10 / 10 détectées, mêmes nombres d'échecs qu'au Lot 0). Restent : pas d'automatisation côté HTTP ; exige les binaires PostgreSQL 16 | traité, en attente de validation | Lot 0 |
 | P30 | Délai d'exécution (`statement_timeout` d'`authenticated` = 8 s) : lot de 5 000 opérations appliqué en 3,09 s sur la pile locale du Codespace (2,2 s dans la session cloud) ; mesure hébergée manquante (voir P13) | partiellement traité | qualification hébergée |
 | P31 | Quotas et purge : aucun quota par utilisateur ; purges des lignes supprimées (P5) et de `private.changesets` (P14) non définies | ouvert, à traiter avant l'ouverture publique | Lot 8 |
@@ -299,3 +299,58 @@ Points consignés en clôture de V3.7 :
 
 Réserves toujours ouvertes après V3.7 : P38 (avant V7), P41 et P46 (traductions, V6), P45 (V5),
 P48, P49 (décision A6).
+
+## Plan directeur V1 — V4.1 : récupération des changements (M9), développement et qualification locale (22/11/2026)
+
+Périmètre (ligne V4.1 du plan directeur V1) : fonction serveur de récupération des changements
+(P28), avec une borne sûre (P8) ; **qualification locale réalisée, application sur DEV non
+réalisée** (autorisation distincte). Décision A3 : `SECURITY INVOKER`, RLS existante. Aucun code
+client de synchronisation (V4.2), aucun accès à DEV ni à PROD, aucune modification d'Auth ni de la
+RLS ; les migrations 1 à 8 sont inchangées.
+
+| Élément | Contenu | Fichiers |
+|---|---|---|
+| Migration 9 | `public.pull_changes(p_cursor text = '0', p_bound text = null, p_after jsonb = null, p_limit integer = 1000) → jsonb` : lignes de l'utilisateur authentifié sur les 18 tables, **actives et supprimées**, telles que `curseur ≤ sync_txid < borne` ; borne `pg_snapshot_xmin(pg_current_snapshot())` au premier appel, imposée aux pages suivantes (jamais postérieure à la borne sûre) ; pages de 1 à 1 000 lignes triées par `(sync_txid, table, clé)` en collation « C », reprise par `next` ; `xid8` en texte ; clés SQL de la liste blanche de la migration 8. `SECURITY INVOKER`, `STABLE`, `search_path` vide, propriétaire `nexora_writer`, `EXECUTE` à `authenticated` seulement ; aucun accès à `private`, aucune écriture. Refus `PT403 unauthorized` (sans utilisateur) et `PT400 invalid_pull` (paramètre invalide). Réponse : `{ bound, rows: [{ table, key, row }], next }` ; `next` nul → nouveau curseur = `bound` | `supabase/migrations/20261101000900_pull_changes.sql` |
+| Suites SQL | `07_sync.sql` : les 16 scénarios (transactions concurrentes, annulations, suppressions, entrelacements aléatoires) exécutés contre la **vraie fonction** sous le rôle `authenticated`, par pages de 3 (assertions préfixées « M9 ») ; nouvelle suite `12_pull_changes.sql` (51 assertions : catalogue, accès, 16 refus de paramètres, couverture des 18 tables = lecture directe sous la RLS, isolation, suppression logique et réactivation, pagination de 2 500 lignes dont 1 500 d'une même transaction, modification et insertion pendant la pagination sans perte, lecture seule) ; `01_catalog.sql` et `P1_supabase_platform.sql` : inventaire **exact** des trois fonctions publiques ; `08_lifecycle.sql` (non modifiée) contrôle automatiquement la nouvelle fonction (5 assertions : droits, propriétaire, `search_path`) | `supabase/db-tests/` |
+| Suite HTTP | 18 assertions « M9 » avec de vrais jetons GoTrue (18 tables, isolation, pages de 97 = pages de 1 000, récupération incrémentale d'une création et d'une suppression, refus anon, jeton falsifié et paramètres invalides) | `supabase/db-tests/http/rls.mjs` |
+| Serveur simulé | `MemoryTransport.pull` et route `/rpc/pull_changes` : même contrat ; un `sync_txid` croissant par lot accepté (auparavant égal à la version). **Non modélisé** : transactions en cours retenant la borne (qualifié seulement sur PostgreSQL, suites 07 et 12) | `src/data/cloud/MemoryTransport.ts`, `src/test/postgrestSimulator.ts`, `src/data/cloud/pullChanges.sim.test.ts` (15 tests) |
+| Outillage de qualification | Comparateur : option `--declared` (écarts déclarés, contrôle exact : écart non déclaré, déclaration périmée ou remplacement absent → échec ; sans l'option, comportement inchangé) ; script de qualification : transmet la liste des écarts déclarés ; contrôleur de preuves : préfixe `v41-local` (9 migrations, traçabilité exigée), référence épinglée | `supabase/db-tests/compare-results.mjs`, `scripts/qualify-supabase.sh`, `scripts/check-qualification-evidence.mjs` (+ tests), `scripts/qualification-reference/` |
+
+**Critère « Backend DEV opérationnel » (§ 7 du plan directeur), actualisé** : le texte du plan
+(« `authenticated` : lecture + exécution des 2 RPC uniquement ») est conservé tel quel ; depuis la
+migration 9, prévue par le plan (V4.1), la lecture se lit **« lecture + exécution des 3 RPC
+uniquement »** : `apply_changeset` et `resolve_changeset` (écriture, `SECURITY DEFINER`) et
+`pull_changes` (lecture seule, `SECURITY INVOKER`), vérifiées par l'inventaire exact des suites 01
+et P1. Sur NEXORA-DEV, l'inventaire reste de 2 fonctions tant que la migration 9 n'y est pas
+appliquée (P52).
+
+**Qualification locale** (`EVIDENCE=v41-local bash scripts/qualify-supabase.sh local`, GitHub
+Codespaces, pile recréée puis détruite : 0 conteneur, 0 volume restants ; CLI Supabase 2.122.0 ;
+code testé : commit `a56fe36` + modifications non commitées de V4.1 ; empreinte des migrations
+`385ced586c63efd2…` ; preuves `docs/qualification/v41-local-*`, référence
+`scripts/qualification-reference/v41-local.json`, empreinte `e21d3f237f32d94e…`) :
+
+| Résultat | Valeur |
+|---|---|
+| **Obtenu sur PostgreSQL 17.11** (pile Supabase locale), 9 migrations | SQL **1 905 / 1 905** (01 : 809, 02 : 402, 03 : 34, 04 : 122, 05 : 10, 06 : 28, 07 : 16, 08 : 83, 09 : 15, 10 : 17, 11 : 266, 12 : 51, P1 : 52) ; HTTP **320 / 320** ; précision 4 / 4 ; chaîne numérique exacte 4 / 4 ; codes de sortie 0 / 0 / 0 |
+| Comparaison avec la référence PostgreSQL 16 (`baseline/pg16.json`, **inchangée**, 1 793 assertions) | identiques : **1 776** · régressions : **0** |
+| **Écarts déclarés** par rapport à PostgreSQL 16 (`baseline/pg16-declared-deltas.json`) | **17** assertions remplacées : les 16 de `07_sync.sql` (même scénario, vraie fonction, préfixe « M9 ») et l'inventaire des fonctions de `01_catalog.sql` (étendu à `pull_changes`) |
+| **Non requalifiées sur PostgreSQL 16** | les 17 remplacements ci-dessus et les **129** assertions sans référence PG16 : **75 apportées par V4.1** (12 : 51 ; 07 : 16 et 01 : 1, remplacements ; 08 : 5 et P1 : 2, ajoutées automatiquement par les boucles de ces suites sur les fonctions de `public` — droits, propriétaire, `search_path` de `pull_changes`) et **54 déjà sans référence PG16 au Lot 0** (P1 : 50, propre à la plateforme Supabase ; 10 : 4). La fonction `pull_changes` n'a **jamais** été exécutée sur PostgreSQL 16 (binaires absents du Codespace ; option A du 22/11/2026) |
+| Contrôleur de preuves | « propres, cohérents et complets » pour `v41-local` ; 22 / 22 tests du contrôleur ; références `3b-local` et `lot4-local` toujours acceptées |
+| Défauts introduits volontairement | fonction SQL : 6 / 7 détectés (borne `xmax`, borne haute retirée, lignes supprimées exclues, reprise sans clé de tri, `SECURITY DEFINER`, curseur ignoré) ; le 7ᵉ (filtre utilisateur explicite retiré) est équivalent : la RLS seule garantit l'isolation, le filtre ne sert qu'aux index ; serveur simulé : 4 / 4 |
+| Suite applicative | `npm run check` : 64 fichiers, **1 849 / 1 849** tests, typage et build réussis |
+| Essais sur NEXORA-DEV | aucun |
+| Git | aucun commit ni push à la date de cette clôture documentaire |
+
+Points consignés en clôture de V4.1 (partie locale) :
+
+| # | Point | Statut | Lot |
+|---|---|---|---|
+| P52 | **Migration 9 non appliquée sur NEXORA-DEV** : application (`db push`), comparaison des migrations entre local et DEV, contrôles en lecture seule de `pull_changes` (inventaire des 3 fonctions, isolation, pagination). Sur DEV, les privilèges par défaut diffèrent de la pile locale (P34) : propriétaire et droits de la fonction à vérifier | ouvert, sur autorisation | V4.1 (partie DEV) |
+| P53 | **Qualification PostgreSQL 16 non refaite** : 17 écarts déclarés et 129 assertions sans référence PG16 (dont 75 apportées par V4.1) ; référence `pg16.json` non régénérée (binaires absents). Seule la pile Supabase locale (PostgreSQL 17.11, version de la plateforme) qualifie la migration 9 | accepté (option A), à reconsidérer à la qualification complète | V6 (E5) |
+| P54 | Prototype `tests.pull` conservé dans l'outillage de test (`_setup.sql`) mais plus appelé par les suites | accepté, sans effet | — |
+
+Réserves toujours ouvertes après V4.1 (partie locale) : **P52** (DEV), P53, P8 (propriété assumée),
+P40 (lecture non transactionnelle du chargement complet, inchangée : décision A2-b), P38, P41, P45,
+P46, P48, P49.
+

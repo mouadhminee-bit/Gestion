@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # NEXORA — qualification du schéma sur la VRAIE pile Supabase LOCALE
-# (étape 3b : migrations 1 à 7 ; étapes 4.5 / 4.6 : état final avec la migration 8).
+# (étape 3b : migrations 1 à 7 ; étapes 4.5 / 4.6 : migration 8 ; V4.1 : migration 9, M9).
 #
 # À lancer dans GitHub Codespaces (Docker requis) :   bash scripts/qualify-supabase.sh local
 #
@@ -183,7 +183,11 @@ fi
 # -----------------------------------------------------------------------------
 step "5. Comparaison avec la référence PostgreSQL 16 et rapport"
 CMP_STATUS=0
-node supabase/db-tests/compare-results.mjs supabase/db-tests/baseline/pg16.json "$RUN/sql.json" --md "$RUN/compare.md" | tee "$RUN/compare.log" || CMP_STATUS=$?
+# V4.1 : écarts DÉCLARÉS par rapport à la référence PostgreSQL 16 (non régénérée), contrôlés
+# exactement par le comparateur ; jamais comptés comme identiques (voir compare-results.mjs).
+DECLARED=()
+[ -f supabase/db-tests/baseline/pg16-declared-deltas.json ] && DECLARED=(--declared supabase/db-tests/baseline/pg16-declared-deltas.json)
+node supabase/db-tests/compare-results.mjs supabase/db-tests/baseline/pg16.json "$RUN/sql.json" --md "$RUN/compare.md" "${DECLARED[@]}" | tee "$RUN/compare.log" || CMP_STATUS=$?
 
 mkdir -p "$OUT"
 mask() { sed -E 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[jeton masqué]/g; s/sb_(publishable|secret)_[A-Za-z0-9_-]+/[clé masquée]/g'; }

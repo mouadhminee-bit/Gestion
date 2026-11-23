@@ -1,0 +1,90 @@
+{
+  "description": "Écarts DÉCLARÉS de la qualification V4.1 (migration 9) par rapport à la référence PostgreSQL 16 baseline/pg16.json, qui n’a pas été régénérée (binaires PostgreSQL 16 absents ; option A validée le 22/11/2026). Ces assertions remplacées et toutes les assertions nouvelles ne sont qualifiées que sur la pile Supabase locale (PostgreSQL 17.11).",
+  "entries": [
+    {
+      "missing": "01_catalog.sql :: fonctions de public : exactement apply_changeset et resolve_changeset (aucun autre appel RPC exposé)",
+      "replacement": "01_catalog.sql :: fonctions de public : exactement apply_changeset, pull_changes et resolve_changeset (aucun autre appel RPC exposé)",
+      "reason": "Migration 9 (V4.1, M9) : troisième fonction publique autorisée, pull_changes ; inventaire exact étendu (décision de validation des gardes-fous du catalogue, 22/11/2026)."
+    },
+    {
+      "missing": "07_sync.sql :: S1 ordre inversé : la ligne de la transaction en cours n'est pas visible",
+      "replacement": "07_sync.sql :: M9 S1 ordre inversé : la ligne de la transaction en cours n'est pas visible",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S1 ordre inversé : la borne reste ≤ à la transaction en cours ; la ligne validée APRÈS elle est différée",
+      "replacement": "07_sync.sql :: M9 S1 ordre inversé : la borne reste ≤ à la transaction en cours ; la ligne validée APRÈS elle est différée",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S1 ordre inversé : après validation, la récupération suivante renvoie A1 et A2 (aucune perte)",
+      "replacement": "07_sync.sql :: M9 S1 ordre inversé : après validation, la récupération suivante renvoie A1 et A2 (aucune perte)",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S1 contrôle négatif : un curseur sur l'horodatage aurait PERDU A1 (justifie sync_txid)",
+      "replacement": "07_sync.sql :: M9 S1 contrôle négatif : un curseur sur l'horodatage aurait PERDU A1 (justifie sync_txid)",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S1b démarrage ≠ première écriture : B1 et B2 récupérées",
+      "replacement": "07_sync.sql :: M9 S1b démarrage ≠ première écriture : B1 et B2 récupérées",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S2 annulation : la ligne insérée par la transaction annulée n'apparaît jamais",
+      "replacement": "07_sync.sql :: M9 S2 annulation : la ligne insérée par la transaction annulée n'apparaît jamais",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S2 annulation : la modification annulée n'apparaît jamais",
+      "replacement": "07_sync.sql :: M9 S2 annulation : la modification annulée n'apparaît jamais",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S2 annulation : le curseur avance après l'annulation (pas de blocage)",
+      "replacement": "07_sync.sql :: M9 S2 annulation : le curseur avance après l'annulation (pas de blocage)",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S3 modifications successives : pendant la transaction en cours, le client a la dernière version VALIDÉE (v3)",
+      "replacement": "07_sync.sql :: M9 S3 modifications successives : pendant la transaction en cours, le client a la dernière version VALIDÉE (v3)",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S3 modifications successives : état final v5 et version identique au serveur",
+      "replacement": "07_sync.sql :: M9 S3 modifications successives : état final v5 et version identique au serveur",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S4 suppression logique : la suppression est récupérée (tombstone)",
+      "replacement": "07_sync.sql :: M9 S4 suppression logique : la suppression est récupérée (tombstone)",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S4 restauration : la réactivation est récupérée",
+      "replacement": "07_sync.sql :: M9 S4 restauration : la réactivation est récupérée",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S5 récupération complète depuis 0 = état du serveur",
+      "replacement": "07_sync.sql :: M9 S5 récupération complète depuis 0 = état du serveur",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S5 cache incrémental = état du serveur après actualisations successives du curseur",
+      "replacement": "07_sync.sql :: M9 S5 cache incrémental = état du serveur après actualisations successives du curseur",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: S6 entrelacements aléatoires : cache = serveur (216 écritures, 72 validations, 15 annulations, 143 récupérations)",
+      "replacement": "07_sync.sql :: M9 S6 entrelacements aléatoires : cache = serveur (216 écritures, 72 validations, 15 annulations, 143 récupérations)",
+      "reason": "Même scénario, exécuté contre la vraie fonction public.pull_changes (migration 9, rôle authenticated, RLS, pages de 3) au lieu du prototype tests.pull ; renommée « M9 » pour ne pas être comptée identique à la référence PostgreSQL 16."
+    },
+    {
+      "missing": "07_sync.sql :: récupération sous l'identité de A pour l'utilisateur B : aucune ligne (RLS)",
+      "replacement": "07_sync.sql :: M9 récupération sous l'identité de A : aucune ligne de l'utilisateur B (RLS)",
+      "reason": "Vraie fonction public.pull_changes (sans paramètre utilisateur, identité du jeton) au lieu du prototype tests.pull(uid, curseur)."
+    }
+  ]
+}

@@ -71,11 +71,12 @@ begin
     perform tests.ok(not has_table_privilege('anon', r.oid, 'SELECT') and not has_table_privilege('anon', r.oid, 'INSERT'),
       format('Q5 %s : invisible pour anon (API REST et GraphQL)', r.relname));
   end loop;
-  -- RPC exposées : exactement les deux portes du protocole ChangeSet (migration 8), exécutables
-  -- par authenticated seulement (ni anon, ni service_role, ni PUBLIC — malgré les privilèges
-  -- par défaut de la plateforme sur les fonctions de public).
+  -- RPC exposées : exactement les deux portes du protocole ChangeSet (migration 8) et la
+  -- récupération des changements (migration 9, V4.1 / M9), exécutables par authenticated
+  -- seulement (ni anon, ni service_role, ni PUBLIC — malgré les privilèges par défaut de la
+  -- plateforme sur les fonctions de public), toutes propriété de nexora_writer.
   perform tests.eq((select string_agg(p.proname, ', ' order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'),
-    'apply_changeset, resolve_changeset', 'Q5 fonctions RPC dans public : apply_changeset et resolve_changeset uniquement');
+    'apply_changeset, pull_changes, resolve_changeset', 'Q5 fonctions RPC dans public : apply_changeset, pull_changes et resolve_changeset uniquement');
   for r in select p.oid, p.proname, p.proacl, pg_get_userbyid(p.proowner) as owner from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' loop
     perform tests.ok(has_function_privilege('authenticated', r.oid, 'EXECUTE') and not has_function_privilege('anon', r.oid, 'EXECUTE')
         and not has_function_privilege('service_role', r.oid, 'EXECUTE')

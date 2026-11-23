@@ -3,7 +3,8 @@
 --
 -- Sessions réelles et concurrentes pilotées par dblink :
 --   s1, s2, s3 : écrivains (transactions explicites, ordre de validation contrôlé) ;
---   pull       : client qui récupère les changements (tests.pull), sans jamais écrire.
+--   pull       : client qui récupère les changements (public.pull_changes, migration 9, sous
+--                l'identité de l'utilisateur), sans jamais écrire.
 -- Le client applique les lignes reçues à un cache modèle (garde la version la plus
 -- haute par clé). Critère : après la dernière récupération, le cache est IDENTIQUE à
 -- l'état validé du serveur (mêmes clés, mêmes versions, mêmes suppressions), et aucune
@@ -44,13 +45,35 @@ begin
 end $$;
 
 -- Récupération depuis la session « pull » : renvoie la borne et les lignes.
+-- V4.1 (migration 9) : VRAIE fonction `public.pull_changes`, appelée sous l'identité de
+-- l'utilisateur (rôle authenticated + revendications JWT, RLS appliquée), PAGINÉE par pages
+-- de 3 lignes dans l'intervalle fixe [curseur, borne) jusqu'à `next` nul. La session revient
+-- ensuite au rôle administrateur (lecture de l'état validé par pg_temp.truth). Les assertions
+-- sont préfixées « M9 » : elles portent sur la vraie fonction (migration 9), non requalifiée sur
+-- PostgreSQL 16 ; la référence PG16 (prototype tests.pull) les déclare comme écarts.
 create function pg_temp.pull(u uuid, cur xid8, out hi xid8, out rows jsonb) language plpgsql as $$
 declare
-  j jsonb := tests.db_value('pull', format(
-    'select json_build_object(''hi'', hi::text, ''rows'', rows)::text from tests.pull(%L, %L)', u, cur))::jsonb;
+  j jsonb;
+  after jsonb := null;
+  bound text := null;
+  pages int := 0;
 begin
-  hi := (j ->> 'hi')::xid8;
-  rows := j -> 'rows';
+  rows := '[]'::jsonb;
+  perform tests.db_value('pull', format('select set_config(%L, %L, false)', 'request.jwt.claims',
+    json_build_object('sub', u, 'role', 'authenticated')::text));
+  perform tests.db_exec('pull', 'set role authenticated');
+  loop
+    j := tests.db_value('pull', format('select public.pull_changes(%L, %L, %L::jsonb, 3)::text', cur::text, bound, after))::jsonb;
+    bound := j ->> 'bound';
+    rows := rows || (j -> 'rows');
+    after := j -> 'next';
+    pages := pages + 1;
+    exit when after is null or after = 'null'::jsonb;
+    if pages > 10000 then raise exception 'pagination sans fin'; end if;
+  end loop;
+  perform tests.db_exec('pull', format('set role %I', (select admin_role from tests.config)));
+  perform tests.db_value('pull', format('select set_config(%L, %L, false)', 'request.jwt.claims', ''));
+  hi := bound::xid8;
 end $$;
 
 -- Applique des lignes reçues au cache modèle : garde la version la plus haute par clé.
@@ -60,7 +83,9 @@ declare
   k text;
   v bigint;
 begin
-  for e in select * from jsonb_array_elements(rows) loop
+  -- Modèle limité aux tables écrites par les scénarios (la vraie fonction renvoie aussi le
+  -- profil créé à l'inscription, que le prototype ne couvrait pas).
+  for e in select * from jsonb_array_elements(rows) where value ->> 'table' in ('accounts', 'transactions') loop
     k := (e ->> 'table') || ':' || (e -> 'row' ->> 'id');
     v := (e -> 'row' ->> 'version')::bigint;
     if not cache ? k or (cache -> k ->> 'v')::bigint < v then
@@ -131,9 +156,9 @@ begin
   perform pg_temp.x('s2', 'commit');
   select * into p from pg_temp.pull(u, cur);
   res := res || jsonb_build_array(jsonb_build_object('ok', not pg_temp.has(p.rows, a1),
-    'name', 'S1 ordre inversé : la ligne de la transaction en cours n''est pas visible'));
+    'name', 'M9 S1 ordre inversé : la ligne de la transaction en cours n''est pas visible'));
   res := res || jsonb_build_array(jsonb_build_object('ok', not pg_temp.has(p.rows, a2) and p.hi <= t1,
-    'name', 'S1 ordre inversé : la borne reste ≤ à la transaction en cours ; la ligne validée APRÈS elle est différée'));
+    'name', 'M9 S1 ordre inversé : la borne reste ≤ à la transaction en cours ; la ligne validée APRÈS elle est différée'));
   cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   -- Contrôle négatif : curseur naïf sur l'horodatage serveur
   naive_cursor := tests.db_value('pull', format(
@@ -141,12 +166,12 @@ begin
   perform pg_temp.x('s1', 'commit');
   select * into p from pg_temp.pull(u, cur);
   res := res || jsonb_build_array(jsonb_build_object('ok', pg_temp.has(p.rows, a1) and pg_temp.has(p.rows, a2),
-    'name', 'S1 ordre inversé : après validation, la récupération suivante renvoie A1 et A2 (aucune perte)'));
+    'name', 'M9 S1 ordre inversé : après validation, la récupération suivante renvoie A1 et A2 (aucune perte)'));
   cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   naive_rows := tests.db_value('pull', format(
     $q$select coalesce(jsonb_agg(id), '[]')::text from public.accounts where user_id = %L and server_updated_at > %L$q$, u, naive_cursor))::jsonb;
   res := res || jsonb_build_array(jsonb_build_object('ok', not (naive_rows ? a1::text),
-    'name', 'S1 contrôle négatif : un curseur sur l''horodatage aurait PERDU A1 (justifie sync_txid)'));
+    'name', 'M9 S1 contrôle négatif : un curseur sur l''horodatage aurait PERDU A1 (justifie sync_txid)'));
 
   -- S1b — s1 commence (BEGIN) en premier mais écrit après la validation de s2
   perform pg_temp.x('s1', 'begin');
@@ -159,7 +184,7 @@ begin
   perform pg_temp.x('s1', 'commit');
   select * into p from pg_temp.pull(u, cur); cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   res := res || jsonb_build_array(jsonb_build_object('ok', cache ? ('transactions:' || b1) and cache ? ('transactions:' || b2),
-    'name', 'S1b démarrage ≠ première écriture : B1 et B2 récupérées'));
+    'name', 'M9 S1b démarrage ≠ première écriture : B1 et B2 récupérées'));
 
   -- S2 — transaction annulée
   perform pg_temp.x('s3', 'begin');
@@ -170,11 +195,11 @@ begin
   perform pg_temp.x('s3', 'rollback');
   select * into p from pg_temp.pull(u, cur); cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   res := res || jsonb_build_array(jsonb_build_object('ok', not (cache ? ('accounts:' || a3)),
-    'name', 'S2 annulation : la ligne insérée par la transaction annulée n''apparaît jamais'));
+    'name', 'M9 S2 annulation : la ligne insérée par la transaction annulée n''apparaît jamais'));
   res := res || jsonb_build_array(jsonb_build_object('ok', cache -> ('accounts:' || a1) ->> 'name' <> 'modif annulée',
-    'name', 'S2 annulation : la modification annulée n''apparaît jamais'));
+    'name', 'M9 S2 annulation : la modification annulée n''apparaît jamais'));
   res := res || jsonb_build_array(jsonb_build_object('ok', p.hi > hi_before,
-    'name', 'S2 annulation : le curseur avance après l''annulation (pas de blocage)'));
+    'name', 'M9 S2 annulation : le curseur avance après l''annulation (pas de blocage)'));
 
   -- S3 — modifications successives d'une même ligne
   perform pg_temp.x('s1', format('update public.accounts set name = ''v2'' where id = %L', a1));
@@ -185,29 +210,29 @@ begin
   perform pg_temp.x('s1', format('update public.accounts set name = ''v5'' where id = %L', a1));
   select * into p from pg_temp.pull(u, cur); cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   res := res || jsonb_build_array(jsonb_build_object('ok', cache -> ('accounts:' || a1) ->> 'name' = 'v3',
-    'name', 'S3 modifications successives : pendant la transaction en cours, le client a la dernière version VALIDÉE (v3)'));
+    'name', 'M9 S3 modifications successives : pendant la transaction en cours, le client a la dernière version VALIDÉE (v3)'));
   perform pg_temp.x('s1', 'commit');
   select * into p from pg_temp.pull(u, cur); cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   res := res || jsonb_build_array(jsonb_build_object('ok', cache -> ('accounts:' || a1) ->> 'name' = 'v5'
       and (cache -> ('accounts:' || a1) ->> 'v')::int = (pg_temp.truth(u) -> ('accounts:' || a1) ->> 'v')::int,
-    'name', 'S3 modifications successives : état final v5 et version identique au serveur'));
+    'name', 'M9 S3 modifications successives : état final v5 et version identique au serveur'));
 
   -- S4 — suppression logique
   perform pg_temp.x('s2', format('update public.accounts set deleted_at = now() where id = %L', a2));
   select * into p from pg_temp.pull(u, cur); cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   res := res || jsonb_build_array(jsonb_build_object('ok', (cache -> ('accounts:' || a2) ->> 'd')::boolean,
-    'name', 'S4 suppression logique : la suppression est récupérée (tombstone)'));
+    'name', 'M9 S4 suppression logique : la suppression est récupérée (tombstone)'));
   perform pg_temp.x('s2', format('update public.accounts set deleted_at = null where id = %L', a2));
   select * into p from pg_temp.pull(u, cur); cache := pg_temp.apply(cache, p.rows); cur := p.hi;
   res := res || jsonb_build_array(jsonb_build_object('ok', not (cache -> ('accounts:' || a2) ->> 'd')::boolean,
-    'name', 'S4 restauration : la réactivation est récupérée'));
+    'name', 'M9 S4 restauration : la réactivation est récupérée'));
 
   -- S5 — récupération idempotente : rejouer depuis 0 donne le même cache
   select * into p from pg_temp.pull(u, '0');
   res := res || jsonb_build_array(jsonb_build_object('ok', pg_temp.apply('{}', p.rows) = pg_temp.truth(u),
-    'name', 'S5 récupération complète depuis 0 = état du serveur'));
+    'name', 'M9 S5 récupération complète depuis 0 = état du serveur'));
   res := res || jsonb_build_array(jsonb_build_object('ok', cache = pg_temp.truth(u),
-    'name', 'S5 cache incrémental = état du serveur après actualisations successives du curseur'));
+    'name', 'M9 S5 cache incrémental = état du serveur après actualisations successives du curseur'));
 
   perform pg_temp.disconnect_all();
   -- Enregistrement des assertions (la session principale écrit seulement maintenant)
@@ -278,22 +303,56 @@ begin
   select count(*) into missing from jsonb_object_keys(pg_temp.truth(u)) k where not cache ? k;
   perform pg_temp.disconnect_all();
   insert into tests.results (file, name, ok, detail) values (current_setting('tests.file', true),
-    format('S6 entrelacements aléatoires : cache = serveur (%s écritures, %s validations, %s annulations, %s récupérations)', writes, commits, rollbacks, pulls),
+    format('M9 S6 entrelacements aléatoires : cache = serveur (%s écritures, %s validations, %s annulations, %s récupérations)', writes, commits, rollbacks, pulls),
     coalesce(ok and missing = 0, false), format('lignes manquantes : %s', missing));
 end $$;
 
 -- ---------------------------------------------------------------------------
 -- La récupération respecte la RLS lorsqu'elle est faite par l'utilisateur lui-même
 -- ---------------------------------------------------------------------------
+-- Les données de B sont créées et VALIDÉES dans des transactions distinctes (instructions
+-- autonomes), AVANT l'appel : elles sont donc sous la borne, et seule la RLS (avec le filtre
+-- sur auth.uid()) peut les exclure de la récupération de A. L'assertion vérifie aussi que le
+-- test n'est pas vide : lignes de B présentes sous la borne, lignes de A bien renvoyées.
+create temp table sy_other (b uuid);
+insert into sy_other select tests.new_user('sync-other');
+select tests.seed(b) from sy_other;
+
 do $$
 declare
   u uuid := (select sy.u from sy);
-  other uuid := tests.new_user('sync-other');
-  p record;
+  other uuid := (select b from sy_other);
+  j jsonb;
+  rows jsonb := '[]';
+  bound text := null;
+  after jsonb := null;
+  t text;
+  n bigint;
+  b_below bigint := 0;
+  b_sent bigint;
+  a_sent bigint;
 begin
-  perform tests.seed(other);
+  -- Récupération complète sous l'identité de A (toutes les pages ; la session principale
+  -- n'a rien écrit dans cette transaction : elle ne retient pas la borne).
   perform tests.as_user(u);
-  select * into p from tests.pull(other, '0');
-  perform tests.eq(jsonb_array_length(p.rows), 0, 'récupération sous l''identité de A pour l''utilisateur B : aucune ligne (RLS)');
+  loop
+    j := public.pull_changes('0', bound, after, 1000);
+    bound := j ->> 'bound';
+    rows := rows || (j -> 'rows');
+    after := j -> 'next';
+    exit when after is null or after = 'null'::jsonb;
+  end loop;
   perform tests.as_admin();
+  -- Lignes VALIDÉES de B situées sous la borne de cette récupération (administrateur).
+  execute 'select count(*) from public.profiles where id = $1 and sync_txid < $2::xid8' into n using other, bound;
+  b_below := b_below + n;
+  for t in select name from tests.user_tables loop
+    execute format('select count(*) from public.%I where user_id = $1 and sync_txid < $2::xid8', t) into n using other, bound;
+    b_below := b_below + n;
+  end loop;
+  b_sent := (select count(*) from jsonb_array_elements(rows) e where coalesce(e -> 'row' ->> 'user_id', e -> 'row' ->> 'id') = other::text);
+  a_sent := (select count(*) from jsonb_array_elements(rows) e where coalesce(e -> 'row' ->> 'user_id', e -> 'row' ->> 'id') = u::text);
+  perform tests.ok(b_below > 0 and a_sent > 0 and b_sent = 0,
+    'M9 récupération sous l''identité de A : aucune ligne de l''utilisateur B (RLS)',
+    format('lignes validées de B sous la borne : %s ; lignes de B renvoyées : %s ; lignes de A renvoyées : %s', b_below, b_sent, a_sent));
 end $$;

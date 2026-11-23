@@ -9,7 +9,8 @@
 //
 // Fichiers contrôlés : <préfixe>-report.md, <préfixe>-sql.json, <préfixe>-http.json.
 // Attendus selon le jeu de preuves : 3b-local = migrations 1 à 7, 8 contrôles de précision
-// (écriture et lecture directes) ; lot4-local = migrations 1 à 8, 4 contrôles de précision
+// (écriture et lecture directes) ; lot4-local = migrations 1 à 8, 4 contrôles de précision ;
+// v41-local = migrations 1 à 9 (V4.1, M9), 4 contrôles de précision, traçabilité exigée
 // (lecture seule : apply_changeset ne renvoie pas la valeur écrite).
 //
 // 1. Recherche de secrets et de données personnelles — AUCUNE valeur trouvée n'est affichée :
@@ -41,7 +42,10 @@ const REFERENCE_DIR = join(ROOT, 'scripts', 'qualification-reference');
 const REFERENCE_SHA256 = {
   '3b-local': 'c44e7bdd365d6c8562eb6492bf6816e266e0b240a7d3510f24e2241b827fabe2',
   'lot4-local': '39e36ad29c7895f3263e609e594348dc651c5bb032b6f1e35f9253618fd29fcc',
+  'v41-local': 'e21d3f237f32d94e41fa0e288b447e98531371752162359f594580e9543bd9f6',
 };
+/** Jeux de preuves antérieurs à l'enregistrement de la traçabilité dans le rapport. */
+const LEGACY_PREFIXES = ['3b-local', 'lot4-local'];
 /**
  * Catégories critiques : utilisées pour produire une référence candidate (--print-reference) ;
  * le contrôle porte sur les comptes ENREGISTRÉS dans la référence épinglée.
@@ -75,9 +79,9 @@ const printReference = argv[0] === '--print-reference';
 if (printReference) argv.shift();
 const dir = argv[0] ?? 'docs/qualification';
 const prefix = argv[1] ?? '3b-local';
-const EXPECTED = { '3b-local': { migrations: 7, precision: 8 }, 'lot4-local': { migrations: 8, precision: 4 } }[prefix];
+const EXPECTED = { '3b-local': { migrations: 7, precision: 8 }, 'lot4-local': { migrations: 8, precision: 4 }, 'v41-local': { migrations: 9, precision: 4 } }[prefix];
 if (!EXPECTED) {
-  console.error(`Préfixe inconnu « ${prefix} » (attendu : 3b-local ou lot4-local).`);
+  console.error(`Préfixe inconnu « ${prefix} » (attendu : 3b-local, lot4-local ou v41-local).`);
   process.exit(2);
 }
 const names = { report: `${prefix}-report.md`, sql: `${prefix}-sql.json`, http: `${prefix}-http.json` };
@@ -109,7 +113,7 @@ if (printReference) {
     description: 'Référence de complétude : signatures exactes attendues (fichier :: nom), avec multiplicité.',
     postgresMajor: Number(String(sqlJ.server_version).split('.')[0]),
     migrations: migrationsLine ? migrationsLine[1].trim().split(/\s+/) : [],
-    traceability: 'legacy',
+    traceability: LEGACY_PREFIXES.includes(prefix) ? 'legacy' : 'required',
     sql: scope(sqlJ),
     http: scope(httpJ),
     // Une catégorie absente du jeu de preuves (ex. protocole de la migration 8 avant le Lot 4) n'est pas retenue.

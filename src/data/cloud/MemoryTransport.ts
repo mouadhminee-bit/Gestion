@@ -27,9 +27,15 @@
  *    `invalid_key`, `invalid_row`, `changeset_too_large`…), dans le même ordre de contrôle ;
  *  - `changeset_pending` simulable (`pendingResolveNext`) ;
  *  - lecture (V3.4-a) : lignes SQL actives et supprimées (`sqlRows`), source de lecture de la
- *    session (`readSource`, même contrat que `HttpReadSource`).
+ *    session (`readSource`, même contrat que `HttpReadSource`) ;
+ *  - récupération des changements (V4.1, migration 9 : `pull`) : chaque lot accepté reçoit un
+ *    identifiant de transaction croissant (`sync_txid`, comme `pg_current_xact_id()`), commun
+ *    à toutes ses lignes ; borne = prochain identifiant (aucune transaction en cours en
+ *    mémoire) ; mêmes paramètres, pagination, ordre (sync_txid, table, clé) et refus
+ *    (`invalid_pull`) que `public.pull_changes`.
  * Non modélisé (propre à PostgreSQL) : types et contraintes métier des colonnes (CHECK, clés
- * étrangères), taille en octets, concurrence réelle.
+ * étrangères), taille en octets, concurrence réelle (donc transactions en cours retenant la
+ * borne de récupération : qualifié sur PostgreSQL, suites 07 et 12).
  */
 import type { ID } from '@/domain/types';
 import type { Key } from '../storage';
@@ -91,7 +97,35 @@ interface ServerEntry {
   row: Record<string, unknown>;
   version: number;
   deleted: boolean;
+  /** Identifiant de la transaction (lot) qui a écrit la ligne en dernier (`sync_txid`). */
+  txid: number;
 }
+
+/** Paramètre refusé par la récupération des changements (`invalid_pull`, PT400). */
+export class PullRequestError extends Error {
+  constructor(readonly reason: string) {
+    super(`invalid_pull : ${reason}`);
+    this.name = 'PullRequestError';
+  }
+}
+
+/** Position de reprise d'une page de récupération (champ `next` de la réponse). */
+export interface PullPosition {
+  readonly txid: string;
+  readonly table: string;
+  readonly key: string;
+}
+
+/** Réponse de la récupération des changements (format filaire de `public.pull_changes`). */
+export interface PullResponse {
+  readonly bound: string;
+  readonly rows: { readonly table: string; readonly key: Record<string, unknown>; readonly row: Record<string, unknown> }[];
+  readonly next: PullPosition | null;
+}
+
+/** Taille maximale d'une page de récupération (comme la migration 9). */
+export const PULL_MAX_LIMIT = 1000;
+const XID_TEXT = /^[0-9]{1,20}$/;
 
 export class MemoryTransport implements CloudTransport {
   readonly kind = 'memory';
@@ -115,6 +149,8 @@ export class MemoryTransport implements CloudTransport {
   garbleResponseNext: ((r: CommitResult) => unknown) | null = null;
   /** Tant que non nul : chaque `resolve` échoue avec cette erreur (réseau indisponible). */
   resolveFailure: Error | null = null;
+  /** Prochain identifiant de transaction (`sync_txid`) ; 1 est réservé (jamais attribué). */
+  private nextTxid = 2;
 
   /** Identité : à défaut de session (`as`), le `userId` du lot. */
   async commit(changes: ChangeSet): Promise<CommitResult> {
@@ -145,7 +181,7 @@ export class MemoryTransport implements CloudTransport {
     this.server.set(uid, space);
     const users = space.get('users') ?? new Map<string, ServerEntry>();
     space.set('users', users);
-    users.set(keyString(uid), { row: { id: uid, displayName, createdAt: REGISTERED_AT }, version: 1, deleted: false });
+    users.set(keyString(uid), { row: { id: uid, displayName, createdAt: REGISTERED_AT }, version: 1, deleted: false, txid: this.nextTxid++ });
     this.keyOwners.set(`users\u0000${keyString(uid)}`, uid);
   }
 
@@ -283,14 +319,15 @@ export class MemoryTransport implements CloudTransport {
     // Application (tout ou rien)
     this.server.set(uid, space);
     const versions: VersionEntry[] = [];
+    const txid = this.nextTxid++; // une transaction par lot : même sync_txid pour toutes ses lignes
     for (const op of changes.ops) {
       const table = space.get(op.table) ?? new Map<string, ServerEntry>();
       space.set(op.table, table);
       const k = keyString(op.key);
       const cur = table.get(k);
       const version = (cur?.version ?? 0) + 1;
-      if (op.type === 'put') table.set(k, { row: structuredClone(op.row), version, deleted: false });
-      else table.set(k, { row: cur!.row, version, deleted: true });
+      if (op.type === 'put') table.set(k, { row: structuredClone(op.row), version, deleted: false, txid });
+      else table.set(k, { row: cur!.row, version, deleted: true, txid });
       this.keyOwners.set(`${op.table}\u0000${k}`, uid);
       versions.push({ table: op.table, key: structuredClone(op.key) as Key, version, deleted: op.type === 'delete' });
     }
@@ -320,9 +357,9 @@ export class MemoryTransport implements CloudTransport {
    * Lignes SQL d'un utilisateur pour une table (V3.4-a), ACTIVES ET SUPPRIMÉES, au format
    * renvoyé par PostgREST pour `select=*` : colonnes du mapping (ligne convertie par
    * `serializeRow` ; date d'inscription du profil, seule colonne non modifiable, fixée par le
-   * serveur) et métadonnées serveur. Métadonnées simulées : `sync_txid` = version, horodatages
-   * fixes à la microseconde comme PostgreSQL (`REGISTERED_AT_SQL`) ; seules la version et la
-   * suppression sont significatives ici.
+   * serveur) et métadonnées serveur. Métadonnées simulées : `sync_txid` = identifiant du lot
+   * qui a écrit la ligne (V4.1), horodatages fixes à la microseconde comme PostgreSQL
+   * (`REGISTERED_AT_SQL`).
    */
   sqlRows(userId: ID, table: CloudTableName): Record<string, unknown>[] {
     const out: Record<string, unknown>[] = [];
@@ -336,12 +373,70 @@ export class MemoryTransport implements CloudTransport {
         else throw new Error(`MemoryTransport.sqlRows : colonne ${table}.${column} non simulée`);
       }
       sql.version = e.version;
-      sql.sync_txid = String(e.version);
+      sql.sync_txid = String(e.txid);
       sql.server_updated_at = REGISTERED_AT_SQL;
       sql.deleted_at = e.deleted ? REGISTERED_AT_SQL : null;
       out.push(structuredClone(sql));
     }
     return out;
+  }
+
+  /**
+   * Récupération des changements (V4.1), même contrat que `public.pull_changes` (migration 9) :
+   * lignes de `userId`, actives et supprimées, telles que `cursor ≤ sync_txid < borne`, triées
+   * par (sync_txid, table SQL, clé) en ordre d'octets, par pages de `limit` ; `next` permet de
+   * reprendre dans le même intervalle (`bound`), nul quand l'intervalle est épuisé.
+   */
+  pull(userId: ID, params: { cursor?: unknown; bound?: unknown; after?: unknown; limit?: unknown }): PullResponse {
+    const xmin = BigInt(this.nextTxid);
+    const cursorText = params.cursor === undefined ? '0' : params.cursor;
+    if (typeof cursorText !== 'string' || !XID_TEXT.test(cursorText)) throw new PullRequestError('p_cursor : entier xid8 en texte attendu');
+    const cursor = BigInt(cursorText);
+    let bound: bigint;
+    if (params.bound === null || params.bound === undefined) {
+      if (params.after !== null && params.after !== undefined) throw new PullRequestError('p_after exige p_bound (page suivante d’un même intervalle)');
+      bound = xmin;
+    } else {
+      if (typeof params.bound !== 'string' || !XID_TEXT.test(params.bound)) throw new PullRequestError('p_bound : entier xid8 en texte attendu');
+      bound = BigInt(params.bound);
+      if (bound > xmin) throw new PullRequestError('p_bound : borne postérieure à la borne sûre actuelle');
+    }
+    if (cursor > bound) throw new PullRequestError('p_cursor supérieur à la borne');
+    const limit = params.limit === undefined ? PULL_MAX_LIMIT : params.limit;
+    if (typeof limit !== 'number' || !Number.isSafeInteger(limit) || limit < 1 || limit > PULL_MAX_LIMIT) throw new PullRequestError('p_limit : entier de 1 à 1000 attendu');
+    let after: { txid: bigint; table: string; key: string } | null = null;
+    if (params.after !== null && params.after !== undefined) {
+      const a = params.after as Record<string, unknown>;
+      if (typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some((k) => !['txid', 'table', 'key'].includes(k))
+          || typeof a.txid !== 'string' || typeof a.table !== 'string' || typeof a.key !== 'string' || !XID_TEXT.test(a.txid)) {
+        throw new PullRequestError('p_after : { txid, table, key } attendu (valeur de next)');
+      }
+      after = { txid: BigInt(a.txid), table: a.table, key: a.key };
+      if (after.txid < cursor || after.txid >= bound) throw new PullRequestError('p_after hors de l’intervalle [p_cursor, p_bound)');
+    }
+    const items: { s: bigint; t: string; k: string; key: Record<string, unknown>; row: Record<string, unknown> }[] = [];
+    for (const table of Object.keys(MAPPING) as CloudTableName[]) {
+      const spec = MAPPING[table];
+      for (const row of this.sqlRows(userId, table)) {
+        const s = BigInt(row.sync_txid as string);
+        if (s < cursor || s >= bound) continue;
+        const key = Object.fromEntries(spec.sqlKey.map((c) => [c, row[c]]));
+        const k = spec.sqlTable === 'user_settings' ? String(row.user_id)
+          : spec.sqlTable === 'recurring_occurrences' ? `${row.rule_id}|${row.due_date}` : String(row.id);
+        items.push({ s, t: spec.sqlTable, k, key, row });
+      }
+    }
+    const cmp = (x: { s: bigint; t: string; k: string }, y: { s: bigint; t: string; k: string }) =>
+      x.s !== y.s ? (x.s < y.s ? -1 : 1) : x.t !== y.t ? (x.t < y.t ? -1 : 1) : x.k < y.k ? -1 : x.k > y.k ? 1 : 0;
+    items.sort(cmp);
+    const rest = after ? items.filter((i) => cmp(i, { s: after!.txid, t: after!.table, k: after!.key }) > 0) : items;
+    const page = rest.slice(0, limit);
+    const last = page[page.length - 1];
+    return structuredClone({
+      bound: String(bound),
+      rows: page.map((i) => ({ table: i.t, key: i.key, row: i.row })),
+      next: rest.length > limit ? { txid: String(last.s), table: last.t, key: last.k } : null,
+    });
   }
 
   /**

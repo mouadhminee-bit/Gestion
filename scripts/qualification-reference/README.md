@@ -8,6 +8,7 @@ cohérent : il compare les assertions aux références de ce dossier.
 |---|---|---|
 | `3b-local.json` | étape 3b, migrations 1 à 7 | 1 152 assertions SQL, 143 HTTP |
 | `lot4-local.json` | Lot 0 (étapes 4.5 / 4.6), migrations 1 à 8 | 1 847 assertions SQL, 302 HTTP |
+| `v41-local.json` | V4.1 (M9), migrations 1 à 9, traçabilité exigée | 1 905 assertions SQL, 320 HTTP |
 
 Chaque référence contient :
 
@@ -78,3 +79,23 @@ empreinte épinglée ne changent pas.
 Un nouveau jeu de preuves (par exemple hébergé) reçoit sa propre référence et son propre
 préfixe, avec `"traceability": "required"` : le rapport doit alors indiquer l'environnement,
 le commit et l'empreinte des migrations.
+
+## Provenance de `v41-local.json` (V4.1, 22/11/2026)
+
+Produite par `--print-reference` à partir des preuves `docs/qualification/v41-local-*`
+(qualification sur la pile Supabase locale du Codespace, PostgreSQL 17.11, migrations 1 à 9,
+toutes les assertions réussies). Différences avec `lot4-local.json`, toutes volontaires :
+
+* migration 9 (`pull_changes`) ajoutée à la liste des migrations ; `"traceability": "required"` ;
+* suite `12_pull_changes.sql` ajoutée (51 assertions) ;
+* `07_sync.sql` : les 16 assertions portent sur la vraie fonction (préfixe « M9 ») au lieu du
+  prototype `tests.pull` ;
+* `01_catalog.sql` et `P1_supabase_platform.sql` : inventaire exact étendu à la troisième fonction
+  publique (`pull_changes`) ; P1 : 2 assertions de plus (droits et propriétaire de la fonction) ;
+* HTTP : 18 assertions « M9 » ajoutées (récupération sous l'identité de chaque utilisateur).
+
+La référence PostgreSQL 16 (`supabase/db-tests/baseline/pg16.json`) n'a pas été régénérée
+(binaires PostgreSQL 16 absents du Codespace) : les 17 assertions remplacées y sont déclarées
+dans `supabase/db-tests/baseline/pg16-declared-deltas.json` et contrôlées exactement par
+`compare-results.mjs --declared` ; elles ne sont pas requalifiées sur PostgreSQL 16, pas plus que
+les assertions nouvelles.

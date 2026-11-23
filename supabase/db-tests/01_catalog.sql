@@ -118,11 +118,12 @@ begin
   select count(*) into n from pg_class r join pg_namespace s on s.oid = r.relnamespace
     where s.nspname = 'public' and r.relkind in ('v', 'm');
   perform tests.eq(n, 0, 'aucune vue dans public (une vue contournerait la RLS)');
-  -- Seules fonctions exposées (RPC) : les deux portes d'entrée du protocole ChangeSet.
+  -- Seules fonctions exposées (RPC) : les deux portes d'entrée du protocole ChangeSet
+  -- (migration 8) et la récupération des changements (migration 9, V4.1 / M9).
   perform tests.eq((select string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')', ', ' order by p.proname)
                     from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public'),
-    'apply_changeset(p_changeset jsonb), resolve_changeset(p_changeset_id text)',
-    'fonctions de public : exactement apply_changeset et resolve_changeset (aucun autre appel RPC exposé)');
+    'apply_changeset(p_changeset jsonb), pull_changes(p_cursor text, p_bound text, p_after jsonb, p_limit integer), resolve_changeset(p_changeset_id text)',
+    'fonctions de public : exactement apply_changeset, pull_changes et resolve_changeset (aucun autre appel RPC exposé)');
   perform tests.ok(not has_schema_privilege('authenticated', 'private', 'USAGE'), 'schéma private inaccessible à authenticated');
   perform tests.ok(not has_schema_privilege('anon', 'private', 'USAGE'), 'schéma private inaccessible à anon');
 end $$;
