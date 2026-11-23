@@ -383,12 +383,36 @@ Point consigné après l'application sur DEV :
 
 | # | Point | Statut | Lot |
 |---|---|---|---|
-| P55 | **Validation fonctionnelle de `pull_changes` sur NEXORA-DEV non réalisée** : isolation entre utilisateurs réels, pagination et scénarios multi-utilisateurs complets ne sont qualifiés qu'en **local** (suites 07 et 12, suite HTTP) ; sur DEV, seuls la structure, les droits et des appels sans données ont été vérifiés. Une validation sur DEV exige des appels sous l'identité de comptes de test (lecture de leurs données) : autorisation distincte | ouvert | à décider : non prévue explicitement par le plan directeur (V4.1 : « qualification locale, puis application sur DEV ») ; rattachement possible aux essais sur DEV de V4.2 ou à la clôture de V4 |
+| P55 | **Validation fonctionnelle de `pull_changes` sur NEXORA-DEV non réalisée** : isolation entre utilisateurs réels, pagination et scénarios multi-utilisateurs complets ne sont qualifiés qu'en **local** (suites 07 et 12, suite HTTP) ; sur DEV, seuls la structure, les droits et des appels sans données ont été vérifiés. Une validation sur DEV exige des appels sous l'identité de comptes de test (lecture de leurs données) : autorisation distincte | **levé (23/11/2026)** : campagne C1 + C2 + C3 sur DEV, 88 / 88 contrôles (voir « Validation fonctionnelle sur NEXORA-DEV ») ; **réserve** : pagination au-delà de 1 000 lignes non exercée sur DEV (qualifiée en local ; plafond de 1 000 lignes par page vérifié sur DEV par le refus de la limite 1 001) | hors plan directeur (non prévue explicitement : V4.1 = « qualification locale, puis application sur DEV ») ; campagne réalisée après l'application de M9 sur DEV et avant V4.2, sur autorisation explicite de chaque volet (C1, C2, C3) |
 
-État global : **V4.1** : migration M9 appliquée sur DEV, contrôles après application conformes ;
+**Validation fonctionnelle sur NEXORA-DEV (P55, 23/11/2026, autorisation explicite pour chaque volet)** —
+comptes **fictifs** uniquement (8 utilisateurs, tous confirmés, domaines `example`), identifiés par
+l'empreinte de leur adresse ; aucune adresse, aucun mot de passe, aucun jeton ni aucune valeur métier dans
+les preuves. Scripts et preuves hors dépôt : `/workspaces/nexora-n2/v4-1/p55/` (manifeste `SHA256SUMS`,
+29 fichiers, `aeee4885…`).
+
+| Volet | Méthode | Résultat |
+|---|---|---|
+| **C1** — lecture seule, 8 comptes | pooler épinglé, transactions `READ ONLY` (vérifiées par le serveur) puis annulées ; identité de chaque compte simulée comme PostgREST (rôle `authenticated` et revendications du jeton), RLS de la plateforme | **57 / 57** : récupération complète égale, table par table (18 tables), à la lecture sous RLS et au décompte administrateur ; partition **230 = 230** lignes sans doublon ; 0 ligne étrangère, y compris page par page ; pages de 1, 3 et 7 identiques à une page de 1 000 (même borne, même ordre strict, aucun doublon) ; récupération incrémentale vide ; refus `PT403`, `42501` et `PT400 invalid_pull` (9 paramètres invalides, limite 1 001 comprise) ; accès HTTP anonyme refusé (401). Contrôle négatif du détecteur de fuite : 45 / 45 lignes signalées. Aucune écriture |
+| **C2** — chemin HTTP réel, comptes A et B | connexion par mot de passe (GoTrue), jeton réel, `/rest/v1/rpc/pull_changes`, lectures REST du même jeton, déconnexion `scope=local` | **14 / 14** : récupération complète égale aux lectures REST (A : 21 lignes, B : 27) ; pages de 3 identiques à une page de 1 000 ; isolation croisée (0 ligne de l'autre compte, par la fonction et par REST avec filtre explicite) ; refus (paramètres invalides : 400 `invalid_pull` ; jeton modifié : 401 ; sans jeton : 401 `42501`) ; session révoquée (204, puis 403 `session_not_found` sur `/auth/v1/user`). Écritures : Auth seulement (2 sessions créées puis révoquées, `last_sign_in_at`) |
+| **C3** — écritures de test, compte S1 | connexion réelle de S1, **5 lots** `apply_changeset` (plafond imposé par le script ; `resolve_changeset` bloqué) sur **une** ligne `accounts` préfixée `P55-` | **17 / 17** : création, modification, suppression logique et réactivation, chacune renvoyée **seule** par la récupération incrémentale suivante, dans la version attendue (1 à 5) et avec `deleted_at` renseigné puis remis à nul ; la ligne supprimée figure dans la récupération complète ; **modification pendant une pagination par pages de 3** : la ligne, présente dans l'intervalle avant la modification, en sort (15 pages, 45 lignes, borne constante, autres lignes identiques et dans le même ordre) et revient dans sa dernière version à la récupération suivante (aucune perte) ; aucun retard de borne observé |
+| Avant / après (sessions distinctes en lecture seule) | empreintes du schéma et des données | politiques `fed8d71f…`, RLS des tables `2b167013…`, droits des tables `b32d17e3…`, fonctions `96786c3f…` : **inchangées** ; historique : 9 migrations ; empreinte des versions **par compte** (8 comptes, S1 compris) hors ligne P55 : **inchangée** ; seule différence : la ligne P55 (`accounts` 14 → 15, total 230 → 231) ; 8 utilisateurs, 6 sessions (sessions préexistantes de A, B et S1 non touchées ; voir P49) ; aucun accès à PROD |
+
+Reste sur DEV : la ligne de test `P55-…` du compte S1 (`accounts`, active, version 5). L'effacement
+physique n'existe pas dans le schéma ; une suppression logique demanderait un lot supplémentaire, non
+autorisé. Elle relève du sort des comptes de test sur DEV (P49, décision A6).
+
+Point consigné pendant la validation fonctionnelle :
+
+| # | Point | Statut | Lot |
+|---|---|---|---|
+| P56 | **Jeton d'accès accepté après la déconnexion** (constat C2, 23/11/2026) : après `logout` (`scope=local`, HTTP 204), GoTrue refuse l'ancien jeton (`/auth/v1/user` : 403 `session_not_found`), mais **PostgREST l'accepte encore** (`/rpc/pull_changes` : HTTP 200) jusqu'à son expiration, car il ne vérifie que la signature. Comportement normal de Supabase ; durée de vie du jeton d'accès sur DEV non vérifiée (1 heure par défaut). La révocation supprime la session et ses jetons de renouvellement, pas le jeton d'accès déjà émis | ouvert, non bloquant (aucune correction faite) | à prendre en compte avec la déconnexion hors ligne (décision A1-c', V4.4) et la sécurité du compte (V4.5) |
+
+État global : **V4.1** : migration M9 appliquée sur DEV, contrôles après application conformes,
+**validation fonctionnelle sur DEV réalisée (P55 levé, réserve > 1 000 lignes)** ;
 **V4.2** : non commencée (aucun lancement automatique de phase suivante).
 
-Réserves toujours ouvertes après V4.1 : P55 (validation fonctionnelle sur DEV), P53, P8 (propriété
+Réserves toujours ouvertes après V4.1 : P56 (jeton d'accès après déconnexion), P53, P8 (propriété
 assumée), P40 (lecture non transactionnelle du chargement complet, inchangée : décision A2-b), P38,
 P41, P45, P46, P48, P49.
 
