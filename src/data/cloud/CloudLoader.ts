@@ -1,5 +1,5 @@
 /**
- * Chargeur du cache Cloud (Plan directeur V1, V3.4-b) — PRÉPARÉ, non branché.
+ * Chargeur du cache Cloud (Plan directeur V1, V3.4-b ; curseur de récupération : V4.2).
  *
  * Remplace intégralement les données du cache `nexora-cache-<uid>` par le résultat de
  * `readCloudData` (V3.4-a), en deux temps strictement séparés :
@@ -7,12 +7,17 @@
  *     utilisateur, propriétaire et clé de chaque ligne, version de chaque clé, cohérence
  *     entre lignes actives, versions et totaux. Toute anomalie → `CloudLoadError`, le cache
  *     n'est pas ouvert en écriture.
- *  2. ÉCRITURE, en UNE transaction IndexedDB couvrant les 18 tables métier et
- *     `serverVersions` (et elles seules) :
+ *  2. ÉCRITURE, en UNE transaction IndexedDB couvrant les 18 tables métier,
+ *     `serverVersions` et `syncState` (et elles seules) :
  *       a. vider les 18 tables métier ;
- *       b. vider `serverVersions` ;
+ *       b. vider `serverVersions` puis `syncState` ;
  *       c. insérer les lignes ACTIVES ;
- *       d. insérer TOUTES les versions, clés supprimées comprises (`deleted: true`).
+ *       d. insérer TOUTES les versions, clés supprimées comprises (`deleted: true`) ;
+ *       e. insérer le curseur de récupération (V4.2), s'il est fourni : la borne de
+ *          `pull_changes` prise AVANT la lecture (A2-b). Il REMPLACE le curseur précédent (jamais
+ *          un maximum) : les données écrites viennent toutes de cette lecture, et tout ce qui a pu
+ *          changer depuis la borne sera récupéré de nouveau. Sans curseur, `syncState` reste vide
+ *          (aucune récupération incrémentale possible avant un chargement avec curseur).
  *     Une erreur à n'importe quelle étape (écriture refusée, quota dépassé…) annule la
  *     transaction : IndexedDB rétablit l'état antérieur, rien n'est conservé.
  *
@@ -24,14 +29,14 @@
  *  - la base locale `nexora` est refusée avant tout accès (`assertCloudCacheName`).
  * Les messages d'erreur ne contiennent ni valeur métier ni clé : table, motif et nombres.
  *
- * Non branché : le déclenchement (ouverture de session, rechargement) et la vérification de
- * la session juste avant l'écriture relèvent de V3.4-c.
+ * Déclenchement et vérification de la session juste avant l'écriture : `cloudLoadCycle.ts`
+ * (V3.4-c).
  */
 import type { ID } from '@/domain/types';
 import type { Key } from '../storage';
 import { PRIMARY_KEYS, type TableName } from '../tables';
-import { CloudCacheDB, SERVER_VERSIONS_TABLE, assertCloudCacheName, type ServerVersionRecord } from './CloudCacheDB';
-import { readCloudData, type CloudReadResult, type CloudReadSource } from './CloudReader';
+import { CloudCacheDB, PULL_STATE_ID, SERVER_VERSIONS_TABLE, SYNC_STATE_TABLE, XID8_TEXT, assertCloudCacheName, type ServerVersionRecord } from './CloudCacheDB';
+import { readCloudData, readPullBound, type CloudReadResult, type CloudReadSource } from './CloudReader';
 import { CLOUD_TABLES, type CloudTableName } from './mapping';
 import { keyString } from './transport';
 
@@ -81,6 +86,8 @@ export interface CloudLoadSummary {
   readonly versionCount: number;
   /** Dont clés supprimées. */
   readonly deletedCount: number;
+  /** Curseur de récupération écrit avec les données (V4.2), `null` si aucun. */
+  readonly cursor: string | null;
 }
 
 const inconsistent = (reason: string, table: CloudTableName | null, detail: string) => new CloudLoadError('inconsistent', detail, { table, reason });
@@ -163,18 +170,22 @@ function checkedCache(cache: unknown, userId: ID): CloudCacheDB {
 }
 
 /**
- * Écrit un chargement préparé : UNE transaction sur les 18 tables métier et
- * `serverVersions` (vider, puis insérer). Tout échec annule l'ensemble.
+ * Écrit un chargement préparé : UNE transaction sur les 18 tables métier, `serverVersions` et
+ * `syncState` (vider, puis insérer). Tout échec annule l'ensemble. `cursor` : borne de
+ * récupération prise avant la lecture (V4.2), écrite telle quelle.
  */
-export async function writeCloudLoad(cache: CloudCacheDB, prepared: PreparedCloudLoad): Promise<CloudLoadSummary> {
+export async function writeCloudLoad(cache: CloudCacheDB, prepared: PreparedCloudLoad, cursor: string | null = null): Promise<CloudLoadSummary> {
   const db = checkedCache(cache, prepared.userId);
-  const tables = [...CLOUD_TABLES.map((t) => db.table(t)), db.table(SERVER_VERSIONS_TABLE)];
+  if (cursor !== null && (typeof cursor !== 'string' || !XID8_TEXT.test(cursor))) throw inconsistent('invalid_cursor', null, 'curseur de récupération invalide');
+  const tables = [...CLOUD_TABLES.map((t) => db.table(t)), db.table(SERVER_VERSIONS_TABLE), db.table(SYNC_STATE_TABLE)];
   try {
     await db.transaction('rw', tables, async () => {
       for (const t of CLOUD_TABLES) await db.table(t).clear();
       await db.table(SERVER_VERSIONS_TABLE).clear();
+      await db.table(SYNC_STATE_TABLE).clear();
       for (const t of CLOUD_TABLES) if (prepared.rows[t].length) await db.table(t).bulkAdd([...prepared.rows[t]]);
       if (prepared.versions.length) await db.table(SERVER_VERSIONS_TABLE).bulkAdd([...prepared.versions]);
+      if (cursor !== null) await db.table(SYNC_STATE_TABLE).add({ id: PULL_STATE_ID, cursor });
     });
   } catch (e) {
     const name = e instanceof Error ? e.name : 'Error';
@@ -184,29 +195,31 @@ export async function writeCloudLoad(cache: CloudCacheDB, prepared: PreparedClou
   }
   const rowCounts = Object.fromEntries(CLOUD_TABLES.map((t) => [t, prepared.rows[t].length])) as Record<CloudTableName, number>;
   const deletedCount = prepared.versions.filter((v) => v.deleted).length;
-  return { userId: prepared.userId, rowCounts, versionCount: prepared.versions.length, deletedCount };
+  return { userId: prepared.userId, rowCounts, versionCount: prepared.versions.length, deletedCount, cursor };
 }
 
 /**
  * Charge le résultat d'une lecture dans le cache de `userId` : préparation complète, puis
  * écriture atomique. Toute erreur laisse le cache inchangé.
  */
-export async function loadCloudData(cache: CloudCacheDB, result: CloudReadResult, userId: ID): Promise<CloudLoadSummary> {
+export async function loadCloudData(cache: CloudCacheDB, result: CloudReadResult, userId: ID, cursor: string | null = null): Promise<CloudLoadSummary> {
   checkedCache(cache, userId); // avant toute préparation : aucune base étrangère n'est ouverte
   const prepared = prepareCloudLoad(result, userId);
-  return writeCloudLoad(cache, prepared);
+  return writeCloudLoad(cache, prepared, cursor);
 }
 
 /**
- * Lecture complète (`readCloudData`), PUIS chargement. Aucune requête réseau n'a lieu
- * pendant la transaction : l'écriture ne commence qu'une fois toutes les données lues et
- * vérifiées. Une erreur de lecture (`CloudReadError`) laisse le cache inchangé.
+ * Borne de récupération (V4.2, A2-b), lecture complète (`readCloudData`), PUIS chargement avec ce
+ * curseur. Aucune requête réseau n'a lieu pendant la transaction : l'écriture ne commence qu'une
+ * fois toutes les données lues et vérifiées. Une erreur de lecture (`CloudReadError`) laisse le
+ * cache inchangé.
  */
 export async function loadCloudCache(source: CloudReadSource, cache: CloudCacheDB, userId: ID): Promise<CloudLoadSummary> {
   checkedCache(cache, userId);
+  const cursor = await readPullBound(source, userId);
   const result = await readCloudData(source, userId);
-  return loadCloudData(cache, result, userId);
+  return loadCloudData(cache, result, userId, cursor);
 }
 
-/** Tables écrites par le chargeur (diagnostic et tests) : les 18 tables métier et `serverVersions`. */
-export const LOADED_TABLES: readonly (TableName | typeof SERVER_VERSIONS_TABLE)[] = [...CLOUD_TABLES, SERVER_VERSIONS_TABLE];
+/** Tables écrites par le chargeur (diagnostic et tests) : les 18 tables métier, `serverVersions` et `syncState`. */
+export const LOADED_TABLES: readonly (TableName | typeof SERVER_VERSIONS_TABLE | typeof SYNC_STATE_TABLE)[] = [...CLOUD_TABLES, SERVER_VERSIONS_TABLE, SYNC_STATE_TABLE];

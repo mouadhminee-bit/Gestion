@@ -490,6 +490,39 @@ async function main() {
   ok(fullA.rows.every((e, i) => i === 0 || before(fullA.rows[i - 1], e)), 'M9 A : ordre strict (sync_txid, table, clé)');
   const fullB = await pullAll(B, '0', 1000);
   ok(fullB.rows.length > 0 && fullB.rows.every((e) => owner(e) === B.id), 'M9 B : uniquement ses propres lignes (aucune de A)');
+  // V4.2 (décision D1) : les VALEURS renvoyées par pull_changes (to_jsonb dans la fonction) sont
+  // identiques à celles de la lecture REST (sérialisation PostgREST), colonne par colonne, sur les
+  // 18 tables — flottants (migration 7), dates, horodatages, tableaux et métadonnées compris.
+  // Lecture REST COMPLÈTE (pages de 1 000, tri sur la clé) : une seule requête serait plafonnée
+  // par la pile (max_rows), ce qui fausserait la comparaison pour B (plus de 6 000 taux).
+  const norm = (x) => JSON.stringify(x, Object.keys(x).sort());
+  async function restAll(u, t) {
+    const order = SPEC[t].key.map((c) => `${c}.asc`).join(',');
+    const out = [];
+    for (let offset = 0; ; offset += 1000) {
+      const res = await rest('GET', `${t}?select=*&order=${order}&offset=${offset}&limit=1000`, { token: u.token });
+      if (res.status !== 200) throw new Error(`lecture complète ${t} : ${describe(res)}`);
+      out.push(...res.json);
+      if (res.json.length < 1000) return out;
+    }
+  }
+  async function valueGaps(u, full) {
+    const gaps = [];
+    for (const t of Object.keys(SPEC)) {
+      const fromPull = full.rows.filter((e) => e.table === t).map((e) => norm(e.row)).sort();
+      const fromRest = (await restAll(u, t)).map(norm).sort();
+      if (JSON.stringify(fromPull) !== JSON.stringify(fromRest)) gaps.push(`${t} (${fromPull.length} / ${fromRest.length})`);
+    }
+    return gaps;
+  }
+  const gapsA = await valueGaps(A, fullA);
+  ok(gapsA.length === 0, 'M9 A : valeurs récupérées identiques à la lecture REST (18 tables, toutes colonnes)', gapsA.join(', ') || 'aucun écart');
+  const gapsB = await valueGaps(B, fullB);
+  ok(gapsB.length === 0, 'M9 B : valeurs récupérées identiques à la lecture REST (18 tables, toutes colonnes)', gapsB.join(', ') || `aucun écart (${fullB.rows.length} lignes)`);
+  const pulledRates = fullB.rows.filter((e) => e.table === 'exchange_rates').map((e) => e.row.rate);
+  ok(exact.every(([, v]) => pulledRates.includes(v)), 'M9 B : flottants exacts dans pull_changes (0.1 + 0.2, 1/3, 10.86)', exact.map(([l, v]) => `${l}=${pulledRates.includes(v)}`).join(' ; '));
+  const pulledDebt = fullB.rows.find((e) => e.table === 'debts' && e.key.id === b.debt);
+  ok(pulledDebt?.row.interest_rate === rateValue, `M9 B : taux d'intérêt exact dans pull_changes (${rateValue})`, String(pulledDebt?.row.interest_rate));
   const pagedB = await pullAll(B, '0', 97);
   ok(pagedB.pages > 1 && pagedB.stable, 'M9 B : pagination par 97 (plusieurs pages, borne constante)', `${fullB.rows.length} lignes, ${pagedB.pages} pages`);
   const sig = (rows) => rows.map((e) => `${e.table}:${sortKey(e)}:${e.row.version}`).join(',');

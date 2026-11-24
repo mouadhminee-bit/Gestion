@@ -130,17 +130,17 @@ describe('V3.4-c [UI] — ouverture et restauration de session', () => {
     expect(b.sim.requests[0]).toMatchObject({ method: 'GET', path: '/auth/v1/user' });
     release();
     await until(() => tab.text().includes(fr['cloud.title']), 'espace Cloud');
-    expect(rest(b)).toHaveLength(36);
+    expect(rest(b)).toHaveLength(37); // borne de récupération (V4.2) + 36 lectures
     expect(await accountsOf(b, uid)).toBe(b.sim.server.rows(uid, 'accounts').length);
     expect(await b.databases()).toEqual([cloudCacheName(uid)]);
   });
 
-  it('T17 StrictMode (effets exécutés deux fois) : UN seul chargement, 36 lectures', async () => {
+  it('T17 StrictMode (effets exécutés deux fois) : UN seul chargement, 36 lectures (et 1 borne de récupération)', async () => {
     const { b } = await signedIn();
     const tab = await openTab(b, (n) => h(StrictMode, null, n));
     await until(() => tab.text().includes(fr['cloud.title']), 'espace Cloud');
     await act(async () => new Promise((r) => setTimeout(r, 50)));
-    expect(rest(b)).toHaveLength(36);
+    expect(rest(b)).toHaveLength(37); // borne de récupération (V4.2) + 36 lectures
   });
 
   it('T18 renouvellement du jeton (TOKEN_REFRESHED, même utilisateur) : aucun nouveau chargement', async () => {
@@ -150,7 +150,7 @@ describe('V3.4-c [UI] — ouverture et restauration de session', () => {
     await act(async () => (tab.client.auth as unknown as { _notifyAllSubscribers: (e: string, s: unknown, broadcast?: boolean) => Promise<void> })._notifyAllSubscribers('TOKEN_REFRESHED', session, false));
     await act(async () => new Promise((r) => setTimeout(r, 50)));
     expect(tab.text()).toContain(fr['cloud.title']);
-    expect(rest(b)).toHaveLength(36);
+    expect(rest(b)).toHaveLength(37); // borne de récupération (V4.2) + 36 lectures
   });
 
   it('nouvelle ouverture de session APRÈS purge : caches des autres utilisateurs supprimés, « nexora » intacte, chargement réussi', async () => {
@@ -198,7 +198,7 @@ describe('V3.4-c [UI] — erreurs de chargement (D-3) : cache conservé, aucun a
     const before = rest(b).length;
     await click(tab.button(fr['auth.retry']));
     await until(() => tab.text().includes(fr['cloud.title']), 'espace Cloud après nouvel essai');
-    expect(rest(b).length - before).toBe(36);
+    expect(rest(b).length - before).toBe(37); // borne (V4.2) + 36 lectures
   });
 
   it('erreur 5xx : « service injoignable », cache CONSERVÉ', async () => {
@@ -387,8 +387,11 @@ describe('V3.4-c [UI] — fin de session et changement de compte (D-3, D6)', () 
     });
     await until(async () => (await b.databases()).join() === cloudCacheName(u2) && tab.text().includes(fr['cloud.title']), 'compte 2 chargé');
     const after = b.sim.requests.slice(from).filter((r) => r.path.startsWith('/rest/v1/'));
-    expect(after).toHaveLength(36);
-    for (const r of after) expect(new URLSearchParams(r.query).toString()).toContain(u2);
+    expect(after).toHaveLength(37); // borne de récupération (V4.2) + 36 lectures
+    expect(after[0]).toMatchObject({ method: 'POST', path: '/rest/v1/rpc/pull_changes' });
+    const sub = JSON.parse(Buffer.from(after[0].headers.authorization.split('.')[1], 'base64url').toString()).sub;
+    expect(sub).toBe(u2); // jeton du nouveau compte
+    for (const r of after.slice(1)) expect(new URLSearchParams(r.query).toString()).toContain(u2);
     const cache2 = await dump(cacheOf(b, u2));
     expect(JSON.stringify(cache2)).not.toContain(uid);
     expect(cache2.accounts).toHaveLength(b.sim.server.rows(u2, 'accounts').length);

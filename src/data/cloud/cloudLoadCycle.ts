@@ -9,11 +9,12 @@
  *  2. vérification : chargement toujours d'actualité (`ctx.isCurrent`), cache non révoqué,
  *     session (stockage partagé entre onglets) toujours celle de `uid` ;
  *  3. purge des caches des AUTRES utilisateurs (P-3) ;
- *  4. lecture complète (`readCloudData`) — la session est revérifiée avant CHAQUE requête,
- *     et un chargement invalidé n'envoie plus aucune requête ;
+ *  4. borne de récupération des changements (`pull_changes`, V4.2, A2-b) PUIS lecture complète
+ *     (`readCloudData`) — la session est revérifiée avant CHAQUE requête, et un chargement
+ *     invalidé n'envoie plus aucune requête ;
  *  5. préparation (`prepareCloudLoad`) ;
  *  6. dernière vérification, immédiatement avant l'écriture ;
- *  7. écriture atomique (`writeCloudLoad`) ;
+ *  7. écriture atomique (`writeCloudLoad`), curseur de récupération compris ;
  *  8. revérification après validation : session perdue entre-temps → suppression du cache.
  *
  * Invalidation : tout chargement devenu caduc (déconnexion, changement de compte, nouvel
@@ -26,7 +27,7 @@ import type { DexieOptions } from 'dexie';
 import type { ID } from '@/domain/types';
 import { CloudCacheDB, cloudCacheName } from './CloudCacheDB';
 import { prepareCloudLoad, writeCloudLoad, type CloudLoadSummary } from './CloudLoader';
-import { readCloudData, type CloudReadSource } from './CloudReader';
+import { readCloudData, readPullBound, type CloudReadSource } from './CloudReader';
 import { deleteCloudCache, purgeOtherCloudCaches, type CacheDeps, type DeleteOutcome, type PurgeOutcome } from './cloudCaches';
 
 /** Un chargement est-il toujours d'actualité ? (consulté avant chaque étape et chaque requête) */
@@ -84,6 +85,7 @@ export async function runCloudLoad(deps: CloudLoadDeps, userId: ID, ctx: CloudLo
     sessionUserId: async () => (ctx.isCurrent() && !cache.revoked ? deps.source.sessionUserId() : null),
     page: (q, offset, limit) => deps.source.page(q, offset, limit),
     count: (q) => deps.source.count(q),
+    pull: (request) => deps.source.pull(request),
   };
 
   try {
@@ -94,7 +96,9 @@ export async function runCloudLoad(deps: CloudLoadDeps, userId: ID, ctx: CloudLo
     reason = await stale();
     if (reason) return await cancel(reason);
     let result;
+    let cursor: string;
     try {
+      cursor = await readPullBound(guarded, userId); // 4 : borne AVANT la lecture (A2-b)
       result = await readCloudData(guarded, userId); // 4
     } catch (e) {
       reason = await stale();
@@ -106,7 +110,7 @@ export async function runCloudLoad(deps: CloudLoadDeps, userId: ID, ctx: CloudLo
     if (reason) return await cancel(reason);
     let summary: CloudLoadSummary;
     try {
-      summary = await writeCloudLoad(cache, prepared); // 7
+      summary = await writeCloudLoad(cache, prepared, cursor); // 7
     } catch (e) {
       reason = await stale();
       if (reason) return await cancel(reason);

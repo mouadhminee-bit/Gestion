@@ -1,5 +1,5 @@
 /**
- * Port de stockage cloud (PRÉPARÉ, non activé).
+ * Port de stockage cloud (branché en mode Cloud depuis V3.5, par `CloudRepository`).
  *
  * - Lectures : cache IndexedDB propre à l'utilisateur, `nexora-cache-<uid>` (jamais la
  *   base locale `nexora`, refusée explicitement).
@@ -27,7 +27,7 @@ import type { Collection, Key, StoragePort, TablePort, Tables, WhereClause } fro
 import type { ID } from '@/domain/types';
 import { ALL_TABLES, PRIMARY_KEYS, type TableName } from '../tables';
 import { EXCLUDED_TABLES } from './mapping';
-import { CloudCacheDB, SERVER_VERSIONS_TABLE, assertCloudCacheName, type ServerVersionRecord } from './CloudCacheDB';
+import { CloudCacheDB, SERVER_VERSIONS_TABLE, assertCloudCacheName, isNewerVersion, type ServerVersionRecord } from './CloudCacheDB';
 import {
   CHANGESET_PROTOCOL,
   CloudCacheWriteError,
@@ -333,6 +333,12 @@ export class CloudStorage implements StoragePort {
   /**
    * Lignes, versions ET écritures locales dans UNE transaction Dexie : tout ou rien.
    * Aucune version n'est enregistrée pour les tables locales.
+   *
+   * Version la plus haute (V4.2, risque R1) : une clé n'est écrite que si la version confirmée
+   * est STRICTEMENT supérieure à celle du cache. Une confirmation tardive (lot résolu
+   * `replayed` après qu'une récupération des changements a déjà apporté une version plus
+   * récente) ne fait donc jamais revenir le cache en arrière. Aucune fusion : la clé est
+   * écrite ou laissée entière.
    */
   private async applyConfirmed(confirmed: PreparedLot & { result: CommitResult }): Promise<void> {
     const { changes, local, result } = confirmed;
@@ -340,10 +346,12 @@ export class CloudStorage implements StoragePort {
     try {
       await this.cache.transaction('rw', [...touched.map((t) => this.cache.table(t)), this.cache.table(SERVER_VERSIONS_TABLE)], async () => {
         for (const [i, op] of changes.ops.entries()) {
+          const v = result.versions[i];
+          const known = await this.cache.serverVersions.get([op.table, keyString(op.key)]);
+          if (!isNewerVersion(v.version, known)) continue; // le cache connaît déjà cette version ou une plus récente
           const table = this.cache.table(op.table);
           if (op.type === 'put') await table.put(op.row);
           else await table.delete(op.key as never);
-          const v = result.versions[i];
           await this.cache.serverVersions.put({ table: op.table, key: keyString(op.key), version: v.version, deleted: v.deleted });
         }
         await this.applyLocal(local);

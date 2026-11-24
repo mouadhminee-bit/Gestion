@@ -47,6 +47,10 @@ function tamper(
       const c = await src.count(q);
       return edit.count ? edit.count(q, c) : c;
     },
+    pull: async (r) => {
+      calls.push('pull');
+      return src.pull(r);
+    },
   };
   return { source, calls, sessions: () => sessions };
 }

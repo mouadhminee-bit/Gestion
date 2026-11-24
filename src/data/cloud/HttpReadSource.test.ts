@@ -487,3 +487,38 @@ describe('V3.4-a [S] — contrôle P-7 (T36)', () => {
     expect((await refusal(h2.read())).code).toBe('incomplete'); // même clé deux fois : refus avant le contrôle P-7
   });
 });
+
+describe('V4.2 [S] — récupération des changements (HttpReadSource.pull)', () => {
+  const isPull = (r: RecordedRequest) => r.method === 'POST' && r.path === '/rest/v1/rpc/pull_changes';
+
+  it('POST /rpc/pull_changes avec { p_cursor, p_bound, p_after, p_limit } et le jeton de la session ; réponse renvoyée telle quelle', async () => {
+    const h = setup();
+    await seed(h.sim.server, h.uid);
+    const page = (await h.source.pull({ cursor: '0', bound: null, after: null, limit: 3 })) as { bound: string; rows: unknown[]; next: unknown };
+    const sent = h.sim.requests.filter(isPull);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body).toEqual({ p_cursor: '0', p_bound: null, p_after: null, p_limit: 3 });
+    expect(sent[0].headers.authorization).toBe(`Bearer ${h.token}`);
+    expect(page).toEqual(h.sim.server.pull(h.uid, { cursor: '0', limit: 3 }));
+    expect(page.rows).toHaveLength(3);
+    expect(page.next).not.toBeNull();
+  });
+
+  it('refus de paramètre (400 PT400 invalid_pull) → rejected, motif PT400 ; aucune nouvelle tentative', async () => {
+    const h = setup();
+    const e = await refusal(h.source.pull({ cursor: '0', bound: '999999999999', after: null, limit: 1 }));
+    expect(e).toMatchObject({ code: 'rejected', status: 400, reason: 'PT400' });
+    expect(h.sim.requests.filter(isPull)).toHaveLength(1);
+  });
+
+  it('jeton refusé (401), 503, réseau → unauthorized / unavailable, une seule requête chacun', async () => {
+    const h = setup();
+    h.sim.respondNext({ status: 401, body: JSON.stringify({ code: 'PGRST301', message: 'JWT invalide' }), contentType: 'application/json' });
+    expect((await refusal(h.source.pull({ cursor: '0', bound: null, after: null, limit: 1 }))).code).toBe('unauthorized');
+    h.sim.respondNext({ status: 503, body: null });
+    expect((await refusal(h.source.pull({ cursor: '0', bound: null, after: null, limit: 1 }))).code).toBe('unavailable');
+    h.sim.respondNext({ network: true });
+    expect((await refusal(h.source.pull({ cursor: '0', bound: null, after: null, limit: 1 }))).code).toBe('unavailable');
+    expect(h.sim.requests.filter(isPull)).toHaveLength(3);
+  });
+});

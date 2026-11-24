@@ -9,6 +9,10 @@
  *
  * L'affichage ne lit pas l'instantané par cette classe (file d'appels hors du suivi de Dexie) :
  * voir `CloudSnapshotReader` (V3.5, option O1).
+ *
+ * File des opérations (V4.2, A5) : injectable (`queue`) pour que l'application des changements
+ * récupérés (`CloudSync`) attende son tour dans la MÊME file que les opérations publiques — jamais
+ * au milieu d'une écriture. Aucune méthode n'est ajoutée au dépôt (contrat inchangé).
  */
 import { RepositoryCore } from '../RepositoryCore';
 import { REPOSITORY_METHODS } from '../contracts';
@@ -17,6 +21,7 @@ import type { NexoraDB } from '../db';
 import { CloudCacheDB } from './CloudCacheDB';
 import { CloudStorage, cloudCacheName } from './CloudStorage';
 import { DisabledTransport, type CloudTransport } from './transport';
+import { createOperationQueue, type OperationQueue } from './CloudSync';
 
 export interface CloudRepositoryOptions {
   /** Transport des écritures (défaut : `DisabledTransport`, tout est refusé). */
@@ -26,6 +31,8 @@ export interface CloudRepositoryOptions {
    * être une `CloudCacheDB` (table des versions) — vérifié à l'exécution par `CloudStorage`.
    */
   cache?: NexoraDB;
+  /** File des opérations, partagée avec la synchronisation (défaut : file propre au dépôt). */
+  queue?: OperationQueue;
 }
 
 const METHODS = new Set<string>(REPOSITORY_METHODS);
@@ -37,8 +44,7 @@ const READ_ONLY = new Set<string>(['snapshot', 'getSettings', 'getTransactionGro
  * transaction de `CloudStorage` est unique). Les appels internes (`this.x()` depuis une
  * méthode) passent par l'instance réelle et ne sont donc pas mis en file.
  */
-function serialized<T extends object>(target: T, storage: CloudStorage): T {
-  let queue: Promise<unknown> = Promise.resolve();
+function serialized<T extends object>(target: T, storage: CloudStorage, queue: OperationQueue): T {
   return new Proxy(target, {
     get(obj, prop) {
       const value = Reflect.get(obj, prop, obj);
@@ -46,12 +52,7 @@ function serialized<T extends object>(target: T, storage: CloudStorage): T {
       return (...args: unknown[]) => {
         const call = () => (value as (...a: unknown[]) => Promise<unknown>).apply(obj, args);
         // Opération susceptible d'écrire : versions observées dès la première lecture (protocole v1).
-        const run = queue.then(() => (READ_ONLY.has(prop) ? call() : storage.runOperation(call)));
-        queue = run.then(
-          () => undefined,
-          () => undefined,
-        );
-        return run;
+        return queue.run(() => (READ_ONLY.has(prop) ? call() : storage.runOperation(call)));
       };
     },
   });
@@ -68,6 +69,6 @@ export class CloudRepository extends RepositoryCore {
     super(storage, userId);
     this.cacheName = cache.name;
     this.transportKind = transport.kind;
-    return serialized(this, storage);
+    return serialized(this, storage, options.queue ?? createOperationQueue());
   }
 }

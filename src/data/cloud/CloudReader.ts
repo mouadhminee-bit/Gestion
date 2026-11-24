@@ -1,5 +1,6 @@
 /**
- * Lecture initiale des données Cloud (Plan directeur V1, V3.4-a) — PRÉPARÉE, non branchée.
+ * Lecture initiale des données Cloud (Plan directeur V1, V3.4-a), branchée par le cycle de
+ * chargement (`cloudLoadCycle.ts`, V3.4-c).
  *
  * Lit, pour l'utilisateur de la session, les 18 tables du serveur et renvoie un résultat
  * technique destiné au futur chargeur du cache (V3.4-b) :
@@ -25,7 +26,9 @@
  * d'une table ne peut que croître. Deux totaux égaux encadrant la lecture prouvent donc
  * qu'aucune ligne n'a été insérée entre-temps. Une modification SUR PLACE d'une ligne déjà
  * lue n'est pas détectée (version antérieure, protégée par le contrôle de version à
- * l'écriture) : ce n'est PAS un instantané transactionnel des 18 tables (V4).
+ * l'écriture) : ce n'est PAS un instantané transactionnel des 18 tables (P40). Depuis V4.2,
+ * la borne de récupération est prise AVANT cette lecture (`readPullBound`) : une telle
+ * modification a un `sync_txid` supérieur ou égal à la borne et est récupérée ensuite.
  *
  * Contrôles métier (P-7) : exactement 1 ligne de profil, active ; 0 ou 1 ligne de paramètres.
  * Isolation : toute ligne d'un autre utilisateur fait refuser le résultat (en plus de la RLS).
@@ -35,7 +38,7 @@
 import type { ID } from '@/domain/types';
 import type { Key } from '../storage';
 import { PRIMARY_KEYS } from '../tables';
-import type { ServerVersionRecord } from './CloudCacheDB';
+import { XID8_TEXT, type ServerVersionRecord } from './CloudCacheDB';
 import { CLOUD_TABLES, MAPPING, MappingError, deserializeRow, type CloudRow, type CloudTableName, type ServerMetadata } from './mapping';
 import { keyString } from './transport';
 
@@ -77,6 +80,23 @@ export interface CloudReadSource {
   page(query: ReadQuery, offset: number, limit: number): Promise<ReadPage>;
   /** Nombre total exact de lignes du filtre, sans données (contre-vérification). */
   count(query: ReadQuery): Promise<unknown>;
+  /**
+   * Récupération des changements (V4.2) : une page de `public.pull_changes` (M9) pour
+   * l'utilisateur de la session. Réponse brute `{ bound, rows, next }`, jamais supposée
+   * correcte (validée par l'appelant). Erreurs : `CloudReadError` (refus `invalid_pull` :
+   * code `rejected`, motif `PT400`).
+   */
+  pull(request: PullRequest): Promise<unknown>;
+}
+
+/** Paramètres d'une page de `pull_changes` (format filaire : `xid8` en texte). */
+export interface PullRequest {
+  readonly cursor: string;
+  /** `null` à la première page : la borne est fixée par le serveur. */
+  readonly bound: string | null;
+  /** Position de reprise (`next` de la page précédente), `null` à la première page. */
+  readonly after: unknown;
+  readonly limit: number;
 }
 
 export type CloudReadErrorCode =
@@ -160,7 +180,7 @@ function validTotal(total: unknown, table: CloudTableName): number {
 }
 
 /** Session vérifiée avant chaque requête : absente ou d'un autre utilisateur → refus, rien n'est envoyé. */
-async function ensureSession(source: CloudReadSource, userId: ID, table: CloudTableName): Promise<void> {
+async function ensureSession(source: CloudReadSource, userId: ID, table: CloudTableName | null): Promise<void> {
   let uid: ID | null;
   try {
     uid = await source.sessionUserId();
@@ -272,4 +292,25 @@ export async function readCloudData(source: CloudReadSource, userId: ID): Promis
   const result = rows as unknown as CloudTablesRows;
   checkInvariants(result, totals);
   return { userId, rows: result, versions, totals };
+}
+
+/**
+ * Borne de récupération des changements prise AVANT un chargement complet (V4.2, décision A2-b) :
+ * une page d'une ligne de `pull_changes` depuis le curseur `'0'` (la ligne renvoyée est ignorée).
+ * Toute transaction terminée avant cette borne est visible par la lecture complète qui suit ;
+ * toute écriture ultérieure a un `sync_txid` supérieur ou égal et sera récupérée ensuite. Session
+ * vérifiée avant l'envoi ; réponse sans borne valide → `invalid_response`.
+ */
+export async function readPullBound(source: CloudReadSource, userId: ID): Promise<string> {
+  await ensureSession(source, userId, null); // aucune table : requête de borne
+  let page: unknown;
+  try {
+    page = await source.pull({ cursor: '0', bound: null, after: null, limit: 1 });
+  } catch (e) {
+    if (e instanceof CloudReadError) throw e;
+    throw new CloudReadError('unavailable', `échec de la source (${e instanceof Error ? e.name : 'erreur'})`, { reason: 'pull_bound' });
+  }
+  const bound = (page as { bound?: unknown } | null)?.bound;
+  if (typeof bound !== 'string' || !XID8_TEXT.test(bound)) throw new CloudReadError('invalid_response', 'borne de récupération absente ou invalide', { reason: 'pull_bound' });
+  return bound;
 }

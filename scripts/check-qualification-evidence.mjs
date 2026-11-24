@@ -11,7 +11,8 @@
 // Attendus selon le jeu de preuves : 3b-local = migrations 1 à 7, 8 contrôles de précision
 // (écriture et lecture directes) ; lot4-local = migrations 1 à 8, 4 contrôles de précision ;
 // v41-local = migrations 1 à 9 (V4.1, M9), 4 contrôles de précision, traçabilité exigée
-// (lecture seule : apply_changeset ne renvoie pas la valeur écrite).
+// (lecture seule : apply_changeset ne renvoie pas la valeur écrite) ; v42-local = mêmes
+// migrations, suite HTTP complétée en V4.2 (valeurs de pull_changes identiques à REST).
 //
 // 1. Recherche de secrets et de données personnelles — AUCUNE valeur trouvée n'est affichée :
 //    seuls le fichier, la ligne, la règle et la longueur de la correspondance sont indiqués.
@@ -43,6 +44,7 @@ const REFERENCE_SHA256 = {
   '3b-local': 'c44e7bdd365d6c8562eb6492bf6816e266e0b240a7d3510f24e2241b827fabe2',
   'lot4-local': '39e36ad29c7895f3263e609e594348dc651c5bb032b6f1e35f9253618fd29fcc',
   'v41-local': 'e21d3f237f32d94e41fa0e288b447e98531371752162359f594580e9543bd9f6',
+  'v42-local': '7cd227a6a76f887ebe47654b4ccacd13056ffbbbc3eea860d298d49a3e934030',
 };
 /** Jeux de preuves antérieurs à l'enregistrement de la traçabilité dans le rapport. */
 const LEGACY_PREFIXES = ['3b-local', 'lot4-local'];
@@ -79,9 +81,9 @@ const printReference = argv[0] === '--print-reference';
 if (printReference) argv.shift();
 const dir = argv[0] ?? 'docs/qualification';
 const prefix = argv[1] ?? '3b-local';
-const EXPECTED = { '3b-local': { migrations: 7, precision: 8 }, 'lot4-local': { migrations: 8, precision: 4 }, 'v41-local': { migrations: 9, precision: 4 } }[prefix];
+const EXPECTED = { '3b-local': { migrations: 7, precision: 8 }, 'lot4-local': { migrations: 8, precision: 4 }, 'v41-local': { migrations: 9, precision: 4 }, 'v42-local': { migrations: 9, precision: 4 } }[prefix];
 if (!EXPECTED) {
-  console.error(`Préfixe inconnu « ${prefix} » (attendu : 3b-local, lot4-local ou v41-local).`);
+  console.error(`Préfixe inconnu « ${prefix} » (attendu : 3b-local, lot4-local, v41-local ou v42-local).`);
   process.exit(2);
 }
 const names = { report: `${prefix}-report.md`, sql: `${prefix}-sql.json`, http: `${prefix}-http.json` };

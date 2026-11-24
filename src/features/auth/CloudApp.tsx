@@ -9,7 +9,8 @@
  *    (V3.4-c) ; l'espace Cloud n'est accessible qu'une fois ce chargement réussi ; en cas
  *    d'échec : écran d'erreur (« Réessayer », « Se déconnecter », utilisable hors ligne) ;
  *  - chargement réussi → application NEXORA (V3.5) : `CloudRepository(uid, HttpTransport)`
- *    pour les écritures, lecteur du cache (données confirmées uniquement) pour l'affichage ;
+ *    pour les écritures, lecteur du cache (données confirmées uniquement) pour l'affichage,
+ *    synchronisation incrémentale du cache (V4.2) tant que l'espace est ouvert ;
  *    nouvel utilisateur → onboarding (`ensureUser` après le chargement).
  *
  * La base locale `nexora` n'est jamais ouverte.
@@ -260,9 +261,11 @@ export default function CloudApp({ selection = getBackendSelection(), auth, clou
       }
     }
     const authPort = auth ?? client?.auth ?? null;
-    const cloudPort = cloud ?? (client ? createCloudDataPort({ source: new HttpReadSource(client) }) : null);
-    // Écritures : `HttpTransport` sur le client de l'application (session de l'utilisateur).
-    const workspacePort = workspace ?? (client ? createCloudWorkspacePort({ transport: new HttpTransport(client) }) : null);
+    const source = client ? new HttpReadSource(client) : null;
+    const cloudPort = cloud ?? (source ? createCloudDataPort({ source }) : null);
+    // Écritures : `HttpTransport` sur le client de l'application (session de l'utilisateur) ;
+    // synchronisation incrémentale (V4.2) : `pull_changes` par la même source de lecture.
+    const workspacePort = workspace ?? (client && source ? createCloudWorkspacePort({ transport: new HttpTransport(client), source }) : null);
     return authPort && cloudPort && workspacePort ? { auth: authPort, cloud: cloudPort, workspace: workspacePort } : null;
   }, [auth, cloud, workspace, selection]);
   if (!ports) return <ConfigError />;

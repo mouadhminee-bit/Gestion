@@ -173,7 +173,7 @@ Points consignés en clôture de V3.4 :
 | P37 | **Validation dans un vrai navigateur** : ordre « fin de la transaction, puis suppression » prévu par la norme IndexedDB (fake-indexeddb 6.0.0 supprime d'abord ; seul l'état final est vérifié), comportement multi-onglets (`BroadcastChannel` du SDK : testé sous jsdom avec le vrai SDK et le `BroadcastChannel` de Node, non dans un navigateur), quota IndexedDB réel (simulé), réouverture du cache après suppression | **levée (V3.7)**, une limite consignée (suppression pendant une écriture en cours non testée) | V3.7 |
 | P38 | **Hypothèse H1** (preuve d'intégralité de la lecture) : aucune ligne métier n'est effacée physiquement pendant un chargement (`authenticated` sans `DELETE`, suppression logique par `apply_changeset`, clés jamais modifiées). À réexaminer avant toute purge (P5, P14, P31) ou toute suppression de compte | ouvert | avant V7 |
 | P39 | **Lecture et chargement non validés sur NEXORA-DEV** : lecture seule, sans aucune écriture — distinct de **P35**, qui porte sur l'écriture (lot accepté, puis `replayed`). les essais réels en lecture seule prévus au cadrage (chargement du compte B comparé à une lecture directe, profil du compte A, isolation, conversion des 18 tables réelles, jeton falsifié, déconnexion réelle) n'ont pas été réalisés ; seule une ligne `accounts` réelle a été convertie (V3.3) | **levée (V3.7)** après la correction C1 | **V3.7**, sur autorisation (report acté en V3.5, arbitrage A6) |
-| P40 | **Lecture non transactionnelle entre les 18 tables** : une modification sur place pendant un chargement laisse une version antérieure dans le cache (sans danger : l'écriture suivante est refusée par conflit) ; un instantané exact relève de V4 (M9, borne P8). Pièces jointes chargées sans fichier (`blob` local, jamais transmis) : sans effet tant qu'elles sont désactivées en mode Cloud | accepté | V4 / V5 |
+| P40 | **Lecture non transactionnelle entre les 18 tables** : une modification sur place pendant un chargement laisse une version antérieure dans le cache (sans danger : l'écriture suivante est refusée par conflit) ; un instantané exact relève de V4 (M9, borne P8). Pièces jointes chargées sans fichier (`blob` local, jamais transmis) : sans effet tant qu'elles sont désactivées en mode Cloud | accepté ; **atténué par V4.2 (qualifié en local, 24/11/2026)** : la borne de récupération est prise AVANT la lecture complète, donc une version antérieure laissée par le chargement est remplacée à la synchronisation suivante (test R2) ; non vérifié sur DEV (P57) ; pièces jointes : inchangé | V4 / V5 |
 | P41 | Comportements de V3.2 conservés : une déconnexion faite dans un autre onglet s'affiche « session expirée » dans les onglets restants ; un `SIGNED_IN` venu d'un autre onglet est accepté sans nouvelle vérification (le changement de compte entre onglets repose sur ce comportement). Suppression du cache en arrière-plan, bornée à 5 s ; un cache dont la suppression est bloquée est purgé à l'ouverture de session suivante. Traductions des 5 nouvelles clés et de `cloud.pending` non relues par des locuteurs natifs | comportements **constatés en vrai navigateur et acceptés (V3.7, B4)** ; traductions : ouvert | V6 |
 | P42 | **SMTP personnalisé** (réserve de clôture de V2, 19/11/2026) : NEXORA-DEV exige la confirmation de l'e-mail (V2.3) et utilise le serveur d'e-mail par défaut de Supabase, limité ; l'inscription réelle d'un nouvel utilisateur requiert un SMTP personnalisé, à configurer avant l'étape 2 (confirmation de l'e-mail) du parcours de V3.7 | **levée (V3.7)** : SMTP sandbox actif, inscription réelle confirmée | avant l'étape 2 de V3.7 |
 
@@ -410,9 +410,82 @@ Point consigné pendant la validation fonctionnelle :
 
 État global : **V4.1** : migration M9 appliquée sur DEV, contrôles après application conformes,
 **validation fonctionnelle sur DEV réalisée (P55 levé, réserve > 1 000 lignes)** ;
-**V4.2** : non commencée (aucun lancement automatique de phase suivante).
+**V4.2** : non commencée à cette date (développée et qualifiée en local le 24/11/2026 : voir la
+section V4.2 ci-dessous).
 
 Réserves toujours ouvertes après V4.1 : P56 (jeton d'accès après déconnexion), P53, P8 (propriété
 assumée), P40 (lecture non transactionnelle du chargement complet, inchangée : décision A2-b), P38,
 P41, P45, P46, P48, P49.
 
+## Plan directeur V1 — V4.2 : synchronisation incrémentale, développement et qualification locale (24/11/2026)
+
+Périmètre (ligne V4.2 du plan directeur V1 et cadrage V4 consolidé) : récupération des changements par
+`pull_changes` (M9) au retour au premier plan, au retour du réseau et toutes les 60 s (D7) ;
+suppressions propagées ; curseur pris **avant** le chargement complet (A2-b) ; règle de la version
+la plus haute, y compris pour `applyConfirmed` (R1) ; application dans la file des opérations de
+`CloudRepository` (A5) ; arrêt à la déconnexion et au changement de compte. **Développement et
+qualification en local uniquement** : aucun accès à DEV ni à PROD ; aucune migration ; aucune
+modification d'Auth ni de la RLS. Hors périmètre, inchangés : interface de conflit (V4.3), hors ligne
+et indicateur (V4.4), compte (V4.5) ; lot non confirmé toujours résolu avant l'écriture suivante.
+
+Décisions prises au lancement (24/11/2026) :
+- **D1** : les valeurs renvoyées par `pull_changes` sont comparées à la lecture REST dans la suite
+  HTTP locale (requalification, nouveau jeu de preuves `v42-local`) ;
+- **D2** : minuterie de 60 s sans condition de visibilité (le navigateur la ralentit seul dans un
+  onglet masqué) ; aucune synchronisation supplémentaire à l'ouverture de l'espace ;
+- **D3** : en cas d'erreur (`unauthorized`, `invalid_pull`…), cycle abandonné sans écriture ni
+  avancée du curseur ; aucune action sur la session, aucun rechargement, aucun message (indicateur :
+  V4.4) ; reprise au déclencheur suivant, ou par le chargement complet d'un rechargement de page.
+
+| Élément | Contenu | Fichiers |
+|---|---|---|
+| Version la plus haute (R1) | Une clé n'est écrite dans le cache que si la version reçue est **strictement** supérieure à celle connue (ou si la clé est inconnue) ; règle commune à `applyConfirmed` (lot confirmé ou résolu `replayed`) et à la synchronisation ; aucune fusion : la clé est écrite ou laissée entière | `src/data/cloud/CloudCacheDB.ts` (`isNewerVersion`), `src/data/cloud/CloudStorage.ts` |
+| Curseur | Cache `nexora-cache-<uid>` en **version 3** : table annexe `syncState` (un enregistrement, curseur `xid8` en texte). Écrit par le chargement complet dans la **même** transaction que les données ; il **remplace** le curseur précédent (jamais un maximum : les données viennent toutes de cette lecture). Absent → aucune synchronisation | `src/data/cloud/CloudCacheDB.ts`, `src/data/cloud/CloudLoader.ts` |
+| Borne avant le chargement (A2-b) | `readPullBound` : une page d'une ligne de `pull_changes` depuis `'0'`, AVANT les 36 lectures (un chargement envoie désormais 37 requêtes) ; session vérifiée avant l'envoi. Le client V4.2 exige donc la migration 9 sur le serveur (P58) | `src/data/cloud/CloudReader.ts`, `src/data/cloud/cloudLoadCycle.ts` |
+| Source de récupération | `CloudReadSource.pull` : `POST /rest/v1/rpc/pull_changes` (une seule tentative, délai de 30 s ; erreurs classées comme les lectures : `rejected` / `PT400` pour `invalid_pull`) ; même contrat sur le serveur simulé | `src/data/cloud/HttpReadSource.ts`, `src/data/cloud/MemoryTransport.ts` |
+| Moteur `CloudSync` | 1. curseur lu ; 2. toutes les pages de `[curseur, borne)` récupérées **hors** de la file (session vérifiée avant chaque requête) ; 3. contrôles en mémoire (forme, borne constante, progression, table connue, conversion stricte, **propriétaire = utilisateur**, version ≥ 1, `curseur ≤ sync_txid < borne`, une ligne par clé) ; 4. **dans** la file des opérations : dernière vérification (synchronisation d'actualité, cache non révoqué, session inchangée) puis **une** transaction Dexie (lignes actives écrites, lignes supprimées retirées, versions, curseur porté au maximum de lui-même et de la borne). Une seule synchronisation à la fois par instance (une demande pendant un cycle = une relance). Déclencheurs : `online`, `visibilitychange` (visible), minuterie de 60 s ; `stop()` définitif | `src/data/cloud/CloudSync.ts` |
+| File partagée (A5) | File des opérations injectée dans `CloudRepository` et partagée avec `CloudSync` ; aucune méthode ajoutée au dépôt (test de contrat inchangé) | `src/data/cloud/CloudRepository.ts` |
+| Branchement | L'espace de travail de la session crée et démarre la synchronisation sur son cache ; `close()` l'arrête PUIS ferme le cache (aucune réouverture automatique) : aucune écriture après une déconnexion ou un changement de compte | `src/data/cloud/cloudWorkspace.ts`, `src/features/auth/CloudApp.tsx` |
+| Suite HTTP (D1) | 4 assertions « M9 » : valeurs de `pull_changes` identiques, colonne par colonne, à une lecture REST **complète** (paginée) des 18 tables pour A et pour B (6 030 lignes) ; flottants exacts (0.1 + 0.2, 1/3, 10.86, 4.123456789012345) | `supabase/db-tests/http/rls.mjs` |
+| Outillage de qualification | Préfixe `v42-local` (9 migrations, 4 contrôles de précision, traçabilité exigée) ; référence `v42-local.json` = `v41-local.json` + les 4 assertions HTTP ci-dessus (aucune retirée ni renommée ; SQL, catégories et migrations identiques), empreinte épinglée `7cd227a6a76f887e…` | `scripts/check-qualification-evidence.mjs` (+ tests), `scripts/qualification-reference/` |
+
+**Tests applicatifs** (`npm run check` : 65 fichiers, **1 881 / 1 881** tests, typage et build réussis ;
+32 tests ajoutés) :
+- version la plus haute (2 tests, contrôle négatif : sans la règle, ils échouent) ;
+- moteur (`CloudSync.test.ts`, 23 tests) : création, modification, suppression, réactivation ;
+  modification pendant le chargement (R2) ; 2 500 changements (3 pages, une transaction) ;
+  réapplication sans effet ; R1 de bout en bout ; application après l'écriture en cours (R3) ; une
+  seule synchronisation à la fois ; arrêt pendant la récupération, session changée, sans session
+  (R6) ; ligne d'un autre utilisateur refusée ; réseau, `invalid_pull`, réponse illisible, quota
+  (rien n'est écrit, curseur inchangé) ; deux onglets sur un même cache (curseur jamais en
+  arrière) ; chargement complet qui remplace le curseur ; déclencheurs ;
+- application réelle avec le vrai SDK (`CloudWorkspace.test.ts`, 4 tests) : création, modification et
+  suppression faites ailleurs, affichées **sans rechargement** (aucune nouvelle lecture de table) ;
+  retour au premier plan puis écriture sans conflit ; déconnexion (synchronisation arrêtée, cache
+  jamais recréé) ; changement de compte (seules des requêtes du nouveau compte) ;
+- source HTTP (3 tests) : forme de l'appel, refus `PT400`, 401, 503, réseau ;
+- tests existants adaptés : 37 requêtes par chargement au lieu de 36 ; cache en version 3.
+
+**Qualification locale** (`EVIDENCE=v42-local bash scripts/qualify-supabase.sh local`, GitHub
+Codespaces, pile recréée puis détruite ; CLI Supabase 2.122.0 ; code testé : commit `f2a5fe6` +
+modifications non commitées de V4.2 ; empreinte des migrations `385ced586c63efd2…`, inchangée ;
+preuves `docs/qualification/v42-local-*`) : SQL **1 905 / 1 905** ; HTTP **324 / 324** ; précision
+4 / 4 ; identiques à PostgreSQL 16 : 1 776, 17 écarts déclarés, 0 régression ; contrôleur de preuves :
+« propres, cohérents et complets ». Une première exécution avait signalé un écart sur
+`exchange_rates` pour B : défaut du **test** (comparaison à une lecture REST d'une seule requête,
+plafonnée à 1 000 lignes par la pile), corrigé par une lecture complète paginée ; aucun écart de
+valeur réel.
+
+Points consignés en V4.2 :
+
+| # | Point | Statut | Lot |
+|---|---|---|---|
+| P57 | **Recette de V4.2 sur NEXORA-DEV non réalisée** : critères du § 7 (« une création sur A apparaît sur B (ouvert) en ≤ 60 s sans rechargement », « suppressions propagées ») vérifiés seulement en local (serveur simulé, vrai SDK) ; la recette exige des écritures sur un compte de test, avec deux navigateurs : autorisation distincte | ouvert | V4.2 (recette sur DEV) |
+| P58 | **Contraintes de déploiement du client V4.2** : (a) **la migration 9 (M9, `pull_changes`) doit être appliquée AVANT le déploiement du client V4.2** sur tout environnement : chaque chargement complet commence par un appel à `pull_changes` (borne, A2-b) ; sans la fonction, ce chargement échoue et l'espace Cloud reste inaccessible (écran d'échec du chargement — conséquence déduite du code, non testée contre un serveur sans M9). NEXORA-DEV est conforme (M9 appliquée le 23/11/2026) ; à respecter pour la production. (b) Onglets d'anciennes versions pendant un déploiement (**déduction, non testée**) : le cache passe en version 3 ; un onglet resté sur l'ancien code (version 2) serait fermé par la montée de version et ne pourrait plus lire son cache avant d'être rechargé (le cache est jetable : un rechargement suffit) | accepté, à documenter pour la mise en production | V7 |
+| P59 | **Recul momentané de versions par un chargement complet dans un autre onglet** (comportement de V3, inchangé) : le chargement remplace tout le cache par sa propre lecture ; corrigé à la synchronisation suivante, puisque le curseur est remis à la borne de ce chargement | accepté | — |
+
+État global : **V4.2** : développée et qualifiée en local (24/11/2026), aucun commit ; recette sur
+DEV non réalisée (P57) ; **V4.3** : non commencée.
+
+Réserves toujours ouvertes après la partie locale de V4.2 : P57 (recette sur DEV), P56, P53, P8
+(propriété assumée), P40 (atténué), P58, P38, P41, P45, P46, P48, P49.

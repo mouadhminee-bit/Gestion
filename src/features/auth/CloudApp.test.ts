@@ -385,7 +385,7 @@ describe('V2.5 — mode Cloud sans données', () => {
       // V3.5 : espace de données factice (nouvel utilisateur → accueil Cloud), aucune base ouverte.
       const opened: string[] = [];
       const workspace: CloudWorkspacePort = {
-        open: (userId) => (opened.push(userId), { userId, repo: {} as NexoraRepository, reader: { snapshot: async () => null }, close() {} }),
+        open: (userId) => (opened.push(userId), { userId, repo: {} as NexoraRepository, reader: { snapshot: async () => null }, sync: null, close() {} }),
       };
       await render(h(ToastProvider, null, h(CloudApp, { selection: selectBackend({}), auth: f.port, cloud: f.cloud, workspace })));
       await fillAndSubmit(EMAIL, 'mot-de-passe-fictif');

@@ -41,7 +41,7 @@ import type { ID } from '@/domain/types';
 import type { Key } from '../storage';
 import { PRIMARY_KEYS, type TableName } from '../tables';
 import { MAPPING, assertNoServerMetadata, fromSqlKey, serializeRow, sqlColumnsOf, toSqlKey, type CloudTableName } from './mapping';
-import type { CloudReadSource, ReadQuery } from './CloudReader';
+import { CloudReadError, type CloudReadSource, type ReadQuery } from './CloudReader';
 import {
   CHANGESET_PROTOCOL,
   CloudConflictError,
@@ -462,6 +462,14 @@ export class MemoryTransport implements CloudTransport {
         return { rows: all.slice(offset, offset + limit), total: all.length };
       },
       count: async (q) => visible(q).length,
+      pull: async (request) => {
+        try {
+          return this.pull(uid, request);
+        } catch (e) {
+          if (e instanceof PullRequestError) throw new CloudReadError('rejected', 'lecture refusée par le serveur (HTTP 400 PT400)', { status: 400, reason: 'PT400' });
+          throw e;
+        }
+      },
     };
   }
 }

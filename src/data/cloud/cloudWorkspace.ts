@@ -8,8 +8,12 @@
  *    de `CloudRepository` (aucune méthode métier redéfinie) est inchangé ;
  *  - `reader` : lecteur d'affichage du MÊME cache, qui ne voit que les données confirmées
  *    (`CloudSnapshotReader`, option O1) ;
- *  - `close()` : ferme la connexion au cache (la suppression du cache à la déconnexion, D6,
- *    n'est alors pas retardée par cet onglet).
+ *  - `sync` (V4.2) : synchronisation incrémentale du MÊME cache (`CloudSync`), démarrée à
+ *    l'ouverture (retour au premier plan, retour du réseau, toutes les 60 s), dans la même file
+ *    d'opérations que le dépôt ; absente sans source de récupération ;
+ *  - `close()` : arrête la synchronisation (aucune écriture ne peut plus avoir lieu) PUIS ferme la
+ *    connexion au cache (la suppression du cache à la déconnexion, D6, n'est alors pas retardée
+ *    par cet onglet ; aucune réouverture automatique).
  * Le cache est toujours `nexora-cache-<uid>` : la base locale `nexora` n'est jamais ouverte.
  */
 import type { DexieOptions } from 'dexie';
@@ -18,6 +22,8 @@ import type { ID } from '@/domain/types';
 import { CloudCacheDB, cloudCacheName } from './CloudCacheDB';
 import { CloudRepository } from './CloudRepository';
 import { createCloudSnapshotReader, type SnapshotSource } from './CloudSnapshotReader';
+import type { CloudReadSource } from './CloudReader';
+import { CloudSync, createOperationQueue } from './CloudSync';
 import type { CloudTransport } from './transport';
 
 /** Fonction non disponible en mode Cloud (jusqu'à V5) : refusée, sans aucune lecture ni écriture. */
@@ -56,6 +62,8 @@ export interface CloudWorkspace {
   readonly userId: ID;
   readonly repo: NexoraRepository;
   readonly reader: SnapshotSource;
+  /** Synchronisation incrémentale (V4.2), `null` sans source de récupération. */
+  readonly sync: CloudSync | null;
   close(): void;
 }
 
@@ -66,6 +74,8 @@ export interface CloudWorkspacePort {
 export interface CloudWorkspaceDeps {
   /** Transport des écritures (`HttpTransport` en production, lié à la session du client). */
   readonly transport: CloudTransport;
+  /** Source de récupération des changements (`HttpReadSource` en production) : sans elle, aucune synchronisation. */
+  readonly source?: CloudReadSource;
   /** Fabrique IndexedDB (tests : fabrique distincte). */
   readonly indexedDB?: IDBFactory;
   readonly IDBKeyRange?: typeof IDBKeyRange;
@@ -76,9 +86,21 @@ export function createCloudWorkspacePort(deps: CloudWorkspaceDeps): CloudWorkspa
   return {
     open(userId) {
       const cache = new CloudCacheDB(cloudCacheName(userId), { userId, dexie });
-      const repo = guardUnsupported(new CloudRepository(userId, { cache, transport: deps.transport }));
+      const queue = createOperationQueue();
+      const repo = guardUnsupported(new CloudRepository(userId, { cache, transport: deps.transport, queue }));
       const reader = createCloudSnapshotReader(cache, userId);
-      return { userId, repo, reader, close: () => cache.close() };
+      const sync = deps.source ? new CloudSync({ userId, cache, source: deps.source, queue }) : null;
+      sync?.start(); // déclencheurs du navigateur (aucun hors navigateur)
+      return {
+        userId,
+        repo,
+        reader,
+        sync,
+        close: () => {
+          sync?.stop();
+          cache.close();
+        },
+      };
     },
   };
 }

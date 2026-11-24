@@ -5,7 +5,9 @@
  *
  *  - page : `GET /rest/v1/<table>?select=*&<propriétaire>=eq.<uid>&order=<clé>.asc&offset=…&limit=…`
  *    avec `Prefer: count=exact` — AUCUN filtre `deleted_at` (lignes supprimées comprises) ;
- *  - contre-vérification : `HEAD` sur le même filtre, `Prefer: count=exact`, sans données.
+ *  - contre-vérification : `HEAD` sur le même filtre, `Prefer: count=exact`, sans données ;
+ *  - récupération des changements (V4.2) : `POST /rest/v1/rpc/pull_changes`
+ *    `{ p_cursor, p_bound, p_after, p_limit }` (M9 ; refus de paramètre : 400 `PT400`).
  * Une seule tentative (`retry(false)` : postgrest-js relancerait sinon GET et HEAD sur 503 /
  * 520), chaque requête bornée par un délai (30 s par défaut).
  *
@@ -18,11 +20,12 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ID } from '@/domain/types';
-import { CloudReadError, type CloudReadSource, type ReadPage, type ReadQuery } from './CloudReader';
+import { CloudReadError, type CloudReadSource, type PullRequest, type ReadPage, type ReadQuery } from './CloudReader';
+import type { CloudTableName } from './mapping';
 import { HTTP_TIMEOUT_MS, isTransientSqlstate } from './HttpTransport';
 
-/** Partie du client Supabase utilisée : la session (lue localement) et les tables. */
-export type ReadClient = Pick<SupabaseClient, 'from' | 'auth'>;
+/** Partie du client Supabase utilisée : la session (lue localement), les tables et `pull_changes`. */
+export type ReadClient = Pick<SupabaseClient, 'from' | 'auth' | 'rpc'>;
 
 interface PgError {
   message?: unknown;
@@ -31,7 +34,7 @@ interface PgError {
 }
 
 /** Erreur d'une requête de lecture → `CloudReadError` (statut et code seulement). */
-export function classifyReadError(status: number, error: PgError, query: ReadQuery, timeoutMs = HTTP_TIMEOUT_MS): CloudReadError {
+export function classifyReadError(status: number, error: PgError, query: { readonly table: CloudTableName | null }, timeoutMs = HTTP_TIMEOUT_MS): CloudReadError {
   const table = query.table;
   const code = typeof error.code === 'string' ? error.code : '';
   const label = `HTTP ${status}${code ? ` ${code}` : ''}`;
@@ -73,6 +76,16 @@ export class HttpReadSource implements CloudReadSource {
     if (res.error) throw classifyReadError(res.status, res.error, query, this.timeoutMs);
     if (res.status < 200 || res.status >= 300) throw new CloudReadError('invalid_response', `statut HTTP ${res.status} inattendu`, { table: query.table, status: res.status });
     return { rows: res.data, total: res.count };
+  }
+
+  async pull(request: PullRequest): Promise<unknown> {
+    const res = await this.client
+      .rpc('pull_changes', { p_cursor: request.cursor, p_bound: request.bound, p_after: request.after, p_limit: request.limit })
+      .retry(false)
+      .abortSignal(AbortSignal.timeout(this.timeoutMs));
+    if (res.error) throw classifyReadError(res.status, res.error, { table: null }, this.timeoutMs);
+    if (res.status < 200 || res.status >= 300) throw new CloudReadError('invalid_response', `statut HTTP ${res.status} inattendu`, { status: res.status });
+    return res.data;
   }
 
   async count(query: ReadQuery): Promise<unknown> {

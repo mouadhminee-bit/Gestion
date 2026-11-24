@@ -23,12 +23,13 @@ import { selectBackend } from '@/data/backend';
 import { cloudCacheName } from '@/data/cloud/CloudCacheDB';
 import { CloudFeatureUnavailableError, createCloudWorkspacePort, type CloudWorkspace, type CloudWorkspacePort } from '@/data/cloud/cloudWorkspace';
 import { HttpTransport } from '@/data/cloud/HttpTransport';
+import { HttpReadSource } from '@/data/cloud/HttpReadSource';
 import type { CloudTransport } from '@/data/cloud/transport';
 import { generateDemoData } from '@/data/demo';
 import { LAST_ACCOUNT_KEY, MONTH_KEY } from '@/app/uiState';
 import fr from '@/i18n/locales/fr';
 import { simBrowser, type SimBrowser } from '@/test/cloudBrowser';
-import { seed, TODAY } from '@/test/cloudData';
+import { commitAs, del, put, seed, TODAY } from '@/test/cloudData';
 import type { RecordedRequest } from '@/test/postgrestSimulator';
 import CloudApp from './CloudApp';
 
@@ -77,10 +78,11 @@ const applied = (b: SimBrowser) => b.sim.requests.filter(isApply);
 const opTables = (r: RecordedRequest) => [...new Set((r.body as { p_changeset: { ops: { table: string }[] } }).p_changeset.ops.map((o) => o.table))].sort();
 
 /** Un onglet de l'application en mode Cloud (fournisseurs de `App`, `CloudApp` réel). */
-async function openApp(b: SimBrowser, options: { wrapTransport?: (t: CloudTransport) => CloudTransport; strict?: boolean } = {}) {
+async function openApp(b: SimBrowser, options: { wrapTransport?: (t: CloudTransport) => CloudTransport; strict?: boolean; sync?: boolean } = {}) {
   const { client, cloud } = b.tab();
   const http = new HttpTransport(client);
-  const port = createCloudWorkspacePort({ transport: options.wrapTransport ? options.wrapTransport(http) : http, indexedDB: b.factory, IDBKeyRange });
+  // V4.2 : `sync` → synchronisation incrémentale réelle (HttpReadSource, déclencheurs du navigateur jsdom).
+  const port = createCloudWorkspacePort({ transport: options.wrapTransport ? options.wrapTransport(http) : http, indexedDB: b.factory, IDBKeyRange, ...(options.sync ? { source: new HttpReadSource(client) } : {}) });
   const spaces: CloudWorkspace[] = [];
   const closed: string[] = [];
   const workspace: CloudWorkspacePort = {
@@ -335,5 +337,101 @@ describe('V3.5 — utilisateur déjà configuré, désactivations, compte', () =
     await until(() => !!tabA.host.querySelector('#auth-email'), 'onglet A : écran de connexion');
     expect(tabA.text()).not.toContain(fr['app.error.title']);
     await until(async () => !(await b.databases()).includes(cloudCacheName(uid)), 'cache supprimé');
+  });
+});
+
+describe('V4.2 — synchronisation incrémentale dans l’application (vrai SDK, serveur simulé)', () => {
+  const isPull = (r: RecordedRequest) => r.method === 'POST' && r.path === '/rest/v1/rpc/pull_changes';
+  const isRead = (r: RecordedRequest) => (r.method === 'GET' || r.method === 'HEAD') && r.path.startsWith('/rest/v1/') && !r.path.startsWith('/rest/v1/rpc/');
+  const online = () => act(async () => void window.dispatchEvent(new Event('online')));
+  const subOf = (r: RecordedRequest) => JSON.parse(Buffer.from(String(r.headers.authorization).split('.')[1], 'base64url').toString()).sub;
+
+  async function configured() {
+    const b = simBrowser();
+    browsers.push(b);
+    const uid = randomUUID();
+    await seed(b.sim.server, uid, { settings: [{ ...generateDemoData(uid, TODAY).settings, onboarded: true, displayName: 'Nadia' }], accounts: generateDemoData(uid, TODAY).accounts } as never);
+    b.seedSession(uid);
+    return { b, uid };
+  }
+  const newAccount = (uid: string, name: string) => ({ ...generateDemoData(uid, TODAY).accounts[0], id: randomUUID(), name });
+
+  it('création, modification puis suppression faites ailleurs : affichées SANS rechargement après un déclenchement (retour du réseau)', async () => {
+    const { b, uid } = await configured();
+    const tab = await openApp(b, { sync: true });
+    await until(() => inApp(tab), 'application');
+    await tab.go('/accounts');
+    const reads = b.sim.requests.filter(isRead).length;
+    const server = b.sim.server;
+    const acc = newAccount(uid, 'Créé sur un autre appareil');
+    await commitAs(server, uid, [put('accounts', acc)]);
+    await online();
+    await until(() => tab.text().includes('Créé sur un autre appareil'), 'création affichée');
+    await commitAs(server, uid, [put('accounts', { ...acc, name: 'Renommé ailleurs' }, 1)]);
+    await online();
+    await until(() => tab.text().includes('Renommé ailleurs') && !tab.text().includes('Créé sur un autre appareil'), 'modification affichée');
+    await commitAs(server, uid, [del('accounts', acc.id, 2)]);
+    await online();
+    await until(() => !tab.text().includes('Renommé ailleurs'), 'suppression propagée');
+    // Aucun rechargement : pas une seule nouvelle lecture de table, uniquement pull_changes.
+    expect(b.sim.requests.filter(isRead).length).toBe(reads);
+    expect(b.sim.requests.filter(isPull).length).toBeGreaterThanOrEqual(4); // borne du chargement + 3 synchronisations
+    expect(tab.spaces).toHaveLength(1);
+  });
+
+  it('retour au premier plan : une synchronisation ; l’écriture locale suivante part de la version récupérée (aucun conflit)', async () => {
+    const { b, uid } = await configured();
+    const tab = await openApp(b, { sync: true });
+    await until(() => inApp(tab), 'application');
+    const acc = newAccount(uid, 'Venu d’ailleurs');
+    await commitAs(b.sim.server, uid, [put('accounts', acc)]);
+    const pulls = b.sim.requests.filter(isPull).length;
+    await act(async () => void document.dispatchEvent(new Event('visibilitychange')));
+    await until(async () => (await tab.space().reader.snapshot())!.accounts.some((a) => a.id === acc.id), 'compte récupéré');
+    expect(b.sim.requests.filter(isPull).length).toBe(pulls + 1);
+    await tab.space().repo.updateAccount(acc.id, { name: 'Modifié ici' });
+    expect(b.sim.server.entry(uid, 'accounts', acc.id)).toMatchObject({ version: 2, row: { name: 'Modifié ici' } });
+  });
+
+  it('déconnexion : synchronisation arrêtée (plus aucune requête), cache supprimé et jamais recréé', async () => {
+    const { b, uid } = await configured();
+    const tab = await openApp(b, { sync: true });
+    await until(() => inApp(tab), 'application');
+    const sync = tab.space().sync!;
+    await tab.go('/settings');
+    await until(() => !!tab.button(fr['auth.logout']), 'section Compte');
+    await tab.click(fr['auth.logout']);
+    await until(() => !!tab.host.querySelector('#auth-email'), 'écran de connexion');
+    await until(async () => !(await b.databases()).includes(cloudCacheName(uid)), 'cache supprimé');
+    expect(sync.isStopped).toBe(true);
+    const pulls = b.sim.requests.filter(isPull).length;
+    await online();
+    await act(async () => void document.dispatchEvent(new Event('visibilitychange')));
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    expect(b.sim.requests.filter(isPull).length).toBe(pulls);
+    expect(await b.databases()).not.toContain(cloudCacheName(uid));
+  });
+
+  it('changement de compte : la synchronisation de l’ancien compte s’arrête ; seules des requêtes du nouveau compte', async () => {
+    const { b, uid } = await configured();
+    const u2 = randomUUID();
+    await seed(b.sim.server, u2, { settings: [{ ...generateDemoData(u2, TODAY).settings, onboarded: true, displayName: 'Karim' }] } as never);
+    const tab = await openApp(b, { sync: true });
+    await until(() => inApp(tab), 'application A');
+    const syncA = tab.space().sync!;
+    await act(async () => {
+      await tab.client.auth.setSession({ access_token: (await import('@/test/postgrestSimulator')).userToken(u2), refresh_token: 'rafraichissement-fictif' });
+    });
+    await until(() => tab.spaces.length === 2 && inApp(tab), 'application B');
+    expect(syncA.isStopped).toBe(true);
+    const from = b.sim.requests.length;
+    await commitAs(b.sim.server, uid, [put('accounts', newAccount(uid, 'Donnée de A'))]);
+    await online();
+    await until(() => b.sim.requests.slice(from).some(isPull), 'synchronisation de B');
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    const pulls = b.sim.requests.slice(from).filter(isPull);
+    expect(pulls.every((r) => subOf(r) === u2)).toBe(true);
+    expect(JSON.stringify(await tab.space().reader.snapshot())).not.toContain('Donnée de A');
+    await until(async () => (await b.databases()).join() === cloudCacheName(u2), 'seul le cache de B subsiste');
   });
 });

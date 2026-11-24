@@ -255,7 +255,9 @@ describe('V3.4-c [S] — chargement lié à la session : invalidation, D-3, P-6'
     expect(outcome).toMatchObject({ status: 'loaded', purge: { supported: true, deleted: 1, pending: 0 } });
     expect(await names(b.factory)).toEqual([cloudCacheName(uid)]);
     await expectCacheMatchesServer(b.factory, b.sim.server, uid);
-    expect(b.sim.requests.filter((r) => r.path.startsWith('/rest/v1/'))).toHaveLength(36);
+    // V4.2 : borne de récupération (1 appel pull_changes, AVANT la lecture) + 18 pages + 18 contre-vérifications.
+    expect(b.sim.requests.filter((r) => r.path.startsWith('/rest/v1/'))).toHaveLength(37);
+    expect(b.sim.requests.find((r) => r.path.startsWith('/rest/v1/'))).toMatchObject({ method: 'POST', path: '/rest/v1/rpc/pull_changes' });
   });
 
   it('T38 déconnexion PENDANT la lecture (session retirée du stockage partagé) : plus aucune requête, AUCUNE écriture, cache supprimé', async () => {
@@ -270,7 +272,7 @@ describe('V3.4-c [S] — chargement lié à la session : invalidation, D-3, P-6'
     expect(outcome).toEqual({ status: 'cancelled', reason: 'session_lost', cacheDeleted: true });
     const sent = b.sim.requests.slice(from);
     expect(sent.at(-1)).toMatchObject({ method: 'GET', path: `/rest/v1/${MAPPING.transactions.sqlTable}` });
-    expect(sent).toHaveLength(CLOUD_TABLES.indexOf('transactions') + 1);
+    expect(sent).toHaveLength(CLOUD_TABLES.indexOf('transactions') + 2); // borne de récupération (V4.2) + pages jusqu'aux transactions
     expect(writes).not.toHaveBeenCalled();
     expect(await names(b.factory)).not.toContain(cloudCacheName(uid));
   });
@@ -283,7 +285,7 @@ describe('V3.4-c [S] — chargement lié à la session : invalidation, D-3, P-6'
     };
     const outcome = await load();
     expect(outcome).toEqual({ status: 'cancelled', reason: 'session_lost', cacheDeleted: true });
-    expect(b.sim.requests.filter((r) => r.path.startsWith('/rest/v1/'))).toHaveLength(36);
+    expect(b.sim.requests.filter((r) => r.path.startsWith('/rest/v1/'))).toHaveLength(37); // borne (V4.2) + 36 lectures
     expect(writes).not.toHaveBeenCalled();
     expect(await names(b.factory)).not.toContain(cloudCacheName(uid));
   });

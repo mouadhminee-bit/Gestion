@@ -128,7 +128,7 @@ describe('V3.4-c [multi-onglets, jsdom] — session partagée (T37) et diffusion
     const tabB = await openTab(b);
     await until(() => tabB.text().includes(fr['cloud.title']), 'onglet B prêt');
     expect(b.sim.requests.filter((r) => r.path === '/auth/v1/user')).toHaveLength(2); // une vérification par onglet
-    expect(rest(b)).toHaveLength(72); // un chargement complet par onglet
+    expect(rest(b)).toHaveLength(74); // un chargement complet par onglet (borne de récupération V4.2 + 36 lectures)
     expect(await b.databases()).toEqual([cloudCacheName(uid)]);
     const cache = await dump(cacheOf(b, uid));
     expect(cache.accounts).toHaveLength(b.sim.server.rows(uid, 'accounts').length);

@@ -9,7 +9,7 @@
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { describe, expect, it, vi } from 'vitest';
 import { CloudRepository } from './CloudRepository';
-import { CloudCacheDB, SERVER_VERSIONS_TABLE } from './CloudCacheDB';
+import { CloudCacheDB, SERVER_VERSIONS_TABLE, SYNC_STATE_TABLE } from './CloudCacheDB';
 import { CloudStorage, cloudCacheName } from './CloudStorage';
 import { MemoryTransport } from './MemoryTransport';
 import { loadCloudData } from './CloudLoader';
@@ -539,6 +539,56 @@ describe('protocole v1 : atomicité et idempotence', () => {
     await expectVersionsConsistent(u, cache, server);
   });
 
+  it('V4.2 (R1) : confirmation tardive plus ancienne qu’une version déjà récupérée → le cache garde la plus récente (ligne et version)', async () => {
+    const server = new MemoryTransport();
+    const u = uid();
+    const { repo, storage, cache } = device(u, server);
+    const other = device(u, server);
+    await preload(repo);
+    await repo.ensureUser('Test');
+    const acc = await repo.createAccount(account('A'));
+    server.loseResponseNext = new Error('réponse perdue');
+    await expect(repo.updateAccount(acc.id, { name: 'B' })).rejects.toBeInstanceOf(CloudTransportError); // v2 appliquée, non confirmée
+    await preload(other.repo);
+    await other.repo.updateAccount(acc.id, { name: 'C' }); // autre appareil : v3
+    // Récupération des changements (simulée ici) : la v3 arrive dans le cache avant la résolution.
+    const v3 = server.entry(u, 'accounts', acc.id)!;
+    expect(v3.version).toBe(3);
+    await cache.transaction('rw', [cache.accounts, cache.serverVersions], async () => {
+      await cache.accounts.put(v3.row as never);
+      await cache.serverVersions.put({ table: 'accounts', key: keyString(acc.id), version: 3, deleted: false });
+    });
+    await storage.resolveUnconfirmed(); // rejeu : confirmation de la v2
+    expect(storage.unconfirmedChangesetId).toBeNull();
+    expect((await cache.accounts.get(acc.id))?.name).toBe('C');
+    expect((await storage.serverVersion('accounts', acc.id))?.version).toBe(3);
+    // Même règle pour une suppression confirmée en retard : une réactivation plus récente est conservée.
+    await repo.updateAccount(acc.id, { name: 'D' }); // v4, part bien de la v3
+    expect(server.entry(u, 'accounts', acc.id)).toMatchObject({ version: 4, row: { name: 'D' } });
+    await expectVersionsConsistent(u, cache, server);
+  });
+
+  it('V4.2 (R1) : version confirmée ÉGALE à celle du cache → rien n’est réécrit ; version supérieure → écrite', async () => {
+    const server = new MemoryTransport();
+    const u = uid();
+    const { repo, storage, cache } = device(u, server);
+    await preload(repo);
+    await repo.ensureUser('Test');
+    const acc = await repo.createAccount(account('A'));
+    server.loseResponseNext = new Error('réponse perdue');
+    await expect(repo.updateAccount(acc.id, { name: 'B' })).rejects.toBeInstanceOf(CloudTransportError);
+    // La récupération a déjà apporté la v2 du serveur (contenu du serveur, marqué ici pour le repérer).
+    await cache.transaction('rw', [cache.accounts, cache.serverVersions], async () => {
+      await cache.accounts.put({ ...(server.entry(u, 'accounts', acc.id)!.row as object), description: 'serveur' } as never);
+      await cache.serverVersions.put({ table: 'accounts', key: keyString(acc.id), version: 2, deleted: false });
+    });
+    await storage.resolveUnconfirmed();
+    expect((await cache.accounts.get(acc.id))?.description).toBe('serveur'); // égale : non réécrite
+    await repo.updateAccount(acc.id, { name: 'E' }); // v3 : écrite
+    expect(await cache.accounts.get(acc.id)).toMatchObject({ name: 'E' });
+    expect((await storage.serverVersion('accounts', acc.id))?.version).toBe(3);
+  });
+
   it('réponse ambiguë (résultat incohérent) : non confirmée, cache inchangé ; résolue ensuite', async () => {
     const server = new MemoryTransport();
     const u = uid();
@@ -937,14 +987,14 @@ describe('CloudCacheDB : protection du constructeur', () => {
     expect(() => new CloudCacheDB(cloudCacheName('u1'), undefined as never)).toThrow();
   });
 
-  it('accepte le nom de cache de son utilisateur : version 2 avec la table annexe', async () => {
+  it('accepte le nom de cache de son utilisateur : version 3 avec les tables annexes (versions, curseur V4.2)', async () => {
     const u = uid();
     const db = new CloudCacheDB(cloudCacheName(u), { userId: u, dexie: { indexedDB: new IDBFactory(), IDBKeyRange } });
     expect(db.name).toBe(`nexora-cache-${u}`);
     expect(db.userId).toBe(u);
     await db.open();
-    expect(db.verno).toBe(2);
-    expect(db.tables.map((t) => t.name).sort()).toEqual([...ALL_TABLES, SERVER_VERSIONS_TABLE].sort());
+    expect(db.verno).toBe(3);
+    expect(db.tables.map((t) => t.name).sort()).toEqual([...ALL_TABLES, SERVER_VERSIONS_TABLE, SYNC_STATE_TABLE].sort());
     db.close();
   });
 

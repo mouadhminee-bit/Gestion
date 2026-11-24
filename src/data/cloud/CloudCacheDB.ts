@@ -10,10 +10,16 @@
  * (réactivation) porte la version de la ligne supprimée, et une écriture obsolète est
  * détectée par le serveur.
  *
+ * Version 3 (V4.2) : table annexe `syncState`, curseur de la récupération des changements
+ * (`pull_changes`, M9). Écrit par le chargement complet (borne prise AVANT la lecture, A2-b)
+ * dans la même transaction que les données, puis avancé par chaque récupération appliquée. Son
+ * absence signifie qu'aucun chargement complet avec curseur n'a eu lieu : aucune récupération
+ * incrémentale n'est alors possible. Le cache reste jetable (reconstruit par le chargement).
+ *
  * Protection : le constructeur exige l'utilisateur propriétaire et refuse tout nom autre
  * que `nexora-cache-<uid>` de CET utilisateur — en particulier `nexora`. Le contrôle a lieu
- * AVANT la construction de la base Dexie : la version 2 (table annexe) ne peut donc jamais
- * être déclarée sur la base locale réelle, ni la mettre à jour.
+ * AVANT la construction de la base Dexie : les versions 2 et 3 (tables annexes) ne peuvent donc
+ * jamais être déclarées sur la base locale réelle, ni la mettre à jour.
  */
 import type { DexieOptions, Table } from 'dexie';
 import { NexoraDB } from '../db';
@@ -62,8 +68,33 @@ export interface ServerVersionRecord {
 
 export const SERVER_VERSIONS_TABLE = 'serverVersions';
 
+/** Table annexe du curseur de récupération des changements (version 3 du cache, V4.2). */
+export const SYNC_STATE_TABLE = 'syncState';
+/** Identifiant de l'unique enregistrement de `syncState`. */
+export const PULL_STATE_ID = 'pull';
+
+/** Curseur de récupération : borne (`xid8` en texte décimal) jusqu'à laquelle le cache est à jour. */
+export interface SyncStateRecord {
+  id: typeof PULL_STATE_ID;
+  cursor: string;
+}
+
+/** Curseur `xid8` en texte décimal (format de `pull_changes`). */
+export const XID8_TEXT = /^[0-9]{1,20}$/;
+
+/**
+ * Règle de la version la plus haute (V4.2) : une version reçue du serveur (lot confirmé,
+ * changement récupéré) ne remplace la clé du cache que si elle est STRICTEMENT plus récente que
+ * celle déjà connue (ou si la clé est inconnue). Partagée par `CloudStorage.applyConfirmed` et
+ * l'application des changements récupérés (`CloudSync`).
+ */
+export function isNewerVersion(version: number, known: Pick<ServerVersionRecord, 'version'> | undefined | null): boolean {
+  return !known || version > known.version;
+}
+
 export class CloudCacheDB extends NexoraDB {
   serverVersions!: Table<ServerVersionRecord, [string, string]>;
+  syncState!: Table<SyncStateRecord, string>;
 
   readonly userId: ID;
   private revokedFlag = false;
@@ -73,6 +104,8 @@ export class CloudCacheDB extends NexoraDB {
     this.userId = options.userId;
     // Version 2 du CACHE : ajoute la table annexe ; les tables métier restent celles de la v1.
     this.version(2).stores({ [SERVER_VERSIONS_TABLE]: '[table+key]' });
+    // Version 3 du CACHE (V4.2) : curseur de récupération des changements.
+    this.version(3).stores({ [SYNC_STATE_TABLE]: 'id' });
     // Suppression de la base par une autre connexion (déconnexion dans un autre onglet, purge) :
     // cette instance est RÉVOQUÉE — fermée sans réouverture automatique, toute opération
     // ultérieure échoue (`DatabaseClosedError`) au lieu de recréer la base (V3.4-c, T41).

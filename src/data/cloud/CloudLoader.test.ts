@@ -13,7 +13,7 @@ import Dexie from 'dexie';
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NexoraDB } from '../db';
-import { CloudCacheDB, SERVER_VERSIONS_TABLE, type ServerVersionRecord } from './CloudCacheDB';
+import { CloudCacheDB, SERVER_VERSIONS_TABLE, SYNC_STATE_TABLE, type ServerVersionRecord } from './CloudCacheDB';
 import { CloudLoadError, LOADED_TABLES, loadCloudCache, loadCloudData, prepareCloudLoad, writeCloudLoad } from './CloudLoader';
 import { readCloudData, type CloudReadResult, type CloudReadSource } from './CloudReader';
 import { CloudRepository } from './CloudRepository';
@@ -226,7 +226,7 @@ describe('V3.4-b [T] — écriture atomique dans IndexedDB', () => {
     expect(summary).toMatchObject({ userId: uid, versionCount: serverVersions(server, uid).length, deletedCount: 4 });
   });
 
-  it('une SEULE transaction : vider les 18 tables, vider serverVersions, insérer les lignes, insérer les versions ; meta jamais touchée', async () => {
+  it('une SEULE transaction : vider les 18 tables, serverVersions et syncState, insérer les lignes, les versions et le curseur ; meta jamais touchée', async () => {
     const { server, uid } = await seeded();
     const d = device(uid, new IDBFactory());
     await d.cache.table('meta').put({ key: 'schemaVersion', value: 1 });
@@ -236,8 +236,8 @@ describe('V3.4-b [T] — écriture atomique dans IndexedDB', () => {
     expect(d.log.some((e) => e.table === 'meta')).toBe(false);
     const clears = d.log.filter((e) => e.type === 'deleteRange').map((e) => e.table);
     const adds = d.log.filter((e) => e.type === 'add').map((e) => e.table);
-    expect(clears).toEqual([...CLOUD_TABLES, SERVER_VERSIONS_TABLE]);
-    expect(adds).toEqual([...CLOUD_TABLES, SERVER_VERSIONS_TABLE]);
+    expect(clears).toEqual([...CLOUD_TABLES, SERVER_VERSIONS_TABLE, SYNC_STATE_TABLE]);
+    expect(adds).toEqual([...CLOUD_TABLES, SERVER_VERSIONS_TABLE, SYNC_STATE_TABLE]);
     expect(d.log.map((e) => e.type)).toEqual([...clears.map(() => 'deleteRange'), ...adds.map(() => 'add')]);
     expect(new Set(d.log.map((e) => e.table))).toEqual(new Set(LOADED_TABLES));
   });
@@ -258,6 +258,10 @@ describe('V3.4-b [T] — écriture atomique dans IndexedDB', () => {
         events.push(Dexie.currentTransaction ? 'réseau-DANS-transaction' : 'réseau');
         return inner.count(q);
       },
+      pull: async (r) => {
+        events.push(Dexie.currentTransaction ? 'réseau-DANS-transaction' : 'réseau');
+        return inner.pull(r);
+      },
     };
     d.failOn((table, type) => {
       events.push(`écriture ${type} ${table}`);
@@ -268,7 +272,7 @@ describe('V3.4-b [T] — écriture atomique dans IndexedDB', () => {
     const firstWrite = events.findIndex((e) => e.startsWith('écriture'));
     expect(events.slice(0, firstWrite).every((e) => e === 'réseau')).toBe(true);
     expect(events.slice(firstWrite).every((e) => e.startsWith('écriture'))).toBe(true);
-    expect(events.filter((e) => e === 'réseau')).toHaveLength(36);
+    expect(events.filter((e) => e === 'réseau')).toHaveLength(37); // borne de récupération (V4.2) + 18 pages + 18 contre-vérifications
   });
 
   it('T04 versions EXACTES de toutes les clés (actives et supprimées) relues dans serverVersions ; aucun contenu supprimé nulle part', async () => {

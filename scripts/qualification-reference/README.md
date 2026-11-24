@@ -9,6 +9,7 @@ cohérent : il compare les assertions aux références de ce dossier.
 | `3b-local.json` | étape 3b, migrations 1 à 7 | 1 152 assertions SQL, 143 HTTP |
 | `lot4-local.json` | Lot 0 (étapes 4.5 / 4.6), migrations 1 à 8 | 1 847 assertions SQL, 302 HTTP |
 | `v41-local.json` | V4.1 (M9), migrations 1 à 9, traçabilité exigée | 1 905 assertions SQL, 320 HTTP |
+| `v42-local.json` | V4.2, migrations 1 à 9, traçabilité exigée ; = `v41-local` + 4 assertions HTTP « M9 » (valeurs de `pull_changes` identiques à la lecture REST complète pour A et B, flottants exacts) | 1 905 assertions SQL, 324 HTTP |
 
 Chaque référence contient :
 
