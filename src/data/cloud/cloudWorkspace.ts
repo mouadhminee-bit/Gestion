@@ -9,7 +9,7 @@
  *  - `reader` : lecteur d'affichage du MÊME cache, qui ne voit que les données confirmées
  *    (`CloudSnapshotReader`, option O1) ;
  *  - `sync` (V4.2) : synchronisation incrémentale du MÊME cache (`CloudSync`), démarrée à
- *    l'ouverture (retour au premier plan, retour du réseau, toutes les 60 s), dans la même file
+ *    l'ouverture (retour au premier plan, retour du réseau, toutes les 50 s), dans la même file
  *    d'opérations que le dépôt ; absente sans source de récupération ;
  *  - `close()` : arrête la synchronisation (aucune écriture ne peut plus avoir lieu) PUIS ferme la
  *    connexion au cache (la suppression du cache à la déconnexion, D6, n'est alors pas retardée

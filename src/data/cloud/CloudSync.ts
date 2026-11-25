@@ -26,7 +26,8 @@
  * rapprochée, aucune action sur la session, aucun rechargement (décision D3 de V4.2).
  *
  * Déclencheurs (D7) : retour au premier plan (`visibilitychange`), retour du réseau (`online`),
- * et toutes les 60 s. Une seule synchronisation à la fois par instance : un déclenchement pendant
+ * et toutes les 50 s (décision R1, P57 : la période la plus défavorable plus le traitement doit
+ * rester ≤ 60 s, seuil du § 7 du plan directeur). Une seule synchronisation à la fois par instance : un déclenchement pendant
  * une synchronisation demande UNE relance à sa fin. `stop()` (fin de l'espace de travail :
  * déconnexion, changement de compte) retire les déclencheurs et rend caduque toute
  * synchronisation en cours : aucune écriture ne peut plus avoir lieu.
@@ -43,8 +44,13 @@ import { keyString } from './transport';
 
 /** Taille d'une page de récupération (maximum de `pull_changes`). */
 export const PULL_PAGE_SIZE = 1000;
-/** Synchronisation périodique (D7). */
-export const SYNC_INTERVAL_MS = 60_000;
+/**
+ * Synchronisation périodique (D7). 50 s et non 60 s (décision R1, P57) : une création confirmée
+ * juste après la borne d'une synchronisation n'apparaît qu'à la suivante, soit au plus la période
+ * PLUS le traitement (requête, application, affichage). Avec 50 s, le seuil strict « ≤ 60 s » du
+ * plan directeur (§ 7) est garanti tant que ce traitement ne dépasse pas 10 s.
+ */
+export const SYNC_INTERVAL_MS = 50_000;
 
 /** File des opérations d'un dépôt Cloud : une seule opération à la fois (écritures, application des changements). */
 export interface OperationQueue {
@@ -347,7 +353,7 @@ export class CloudSync {
   }
 
   /**
-   * Branche les déclencheurs (D7) : retour au premier plan, retour du réseau, toutes les 60 s.
+   * Branche les déclencheurs (D7) : retour au premier plan, retour du réseau, toutes les 50 s (R1).
    * Sans environnement navigateur (et sans environnement injecté) : aucun déclencheur.
    */
   start(env: SyncTriggerEnvironment | null = browserEnvironment(), intervalMs = SYNC_INTERVAL_MS): void {

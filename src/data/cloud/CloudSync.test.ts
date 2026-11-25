@@ -511,7 +511,7 @@ describe('V4.2 — déclencheurs (D7)', () => {
     return { env, target, doc, timers, cleared };
   }
 
-  it('retour au premier plan, retour du réseau et minuterie de 60 s lancent une synchronisation ; masqué : rien ; arrêt : plus rien', async () => {
+  it('retour au premier plan, retour du réseau et minuterie de 50 s (R1) lancent une synchronisation ; masqué : rien ; arrêt : plus rien', async () => {
     const server = new MemoryTransport();
     const u = randomUUID();
     await seed(server, u);
@@ -519,7 +519,7 @@ describe('V4.2 — déclencheurs (D7)', () => {
     const request = vi.spyOn(B.sync, 'request');
     const f = fakeEnv();
     B.sync.start(f.env);
-    expect(f.timers).toEqual([{ fn: expect.any(Function), ms: 60_000 }]);
+    expect(f.timers).toEqual([{ fn: expect.any(Function), ms: 50_000 }]); // R1 : 50 s + traitement ≤ 60 s
     expect(request).not.toHaveBeenCalled(); // aucune synchronisation supplémentaire au démarrage (D2)
     f.target.dispatchEvent(new Event('online'));
     expect(request).toHaveBeenCalledTimes(1);

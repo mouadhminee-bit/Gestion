@@ -420,7 +420,8 @@ P41, P45, P46, P48, P49.
 ## Plan directeur V1 — V4.2 : synchronisation incrémentale, développement et qualification locale (24/11/2026)
 
 Périmètre (ligne V4.2 du plan directeur V1 et cadrage V4 consolidé) : récupération des changements par
-`pull_changes` (M9) au retour au premier plan, au retour du réseau et toutes les 60 s (D7) ;
+`pull_changes` (M9) au retour au premier plan, au retour du réseau et toutes les 60 s (D7 ; période
+ramenée à **50 s** par la décision R1 du 24/11/2026, voir ci-dessous) ;
 suppressions propagées ; curseur pris **avant** le chargement complet (A2-b) ; règle de la version
 la plus haute, y compris pour `applyConfirmed` (R1) ; application dans la file des opérations de
 `CloudRepository` (A5) ; arrêt à la déconnexion et au changement de compte. **Développement et
@@ -431,11 +432,18 @@ et indicateur (V4.4), compte (V4.5) ; lot non confirmé toujours résolu avant l
 Décisions prises au lancement (24/11/2026) :
 - **D1** : les valeurs renvoyées par `pull_changes` sont comparées à la lecture REST dans la suite
   HTTP locale (requalification, nouveau jeu de preuves `v42-local`) ;
-- **D2** : minuterie de 60 s sans condition de visibilité (le navigateur la ralentit seul dans un
+- **D2** : minuterie périodique sans condition de visibilité (le navigateur la ralentit seul dans un
   onglet masqué) ; aucune synchronisation supplémentaire à l'ouverture de l'espace ;
 - **D3** : en cas d'erreur (`unauthorized`, `invalid_pull`…), cycle abandonné sans écriture ni
   avancée du curseur ; aucune action sur la session, aucun rechargement, aucun message (indicateur :
   V4.4) ; reprise au déclencheur suivant, ou par le chargement complet d'un rechargement de page.
+- **R1** (24/11/2026, préparation de P57) : période de la minuterie ramenée de 60 s à **50 s**. Mesure
+  sur la pile locale (essai à blanc P57) : une création confirmée juste après la borne d'une
+  synchronisation n'apparaît qu'à la suivante, soit la période plus le traitement (requête,
+  application, affichage ; 37 à 56 ms en local) ; avec 60 s, le seuil strict « ≤ 60 s » du § 7 n'est
+  donc pas garanti (59 899 et 59 910 ms mesurés, marge due au seul délai d'écriture). Avec 50 s, il
+  l'est tant que ce traitement ne dépasse pas 10 s. Même déclencheur (aucun ajout, D2 respecté) ;
+  coût : environ 20 % de requêtes `pull_changes` en plus par onglet ouvert.
 
 | Élément | Contenu | Fichiers |
 |---|---|---|
@@ -443,7 +451,7 @@ Décisions prises au lancement (24/11/2026) :
 | Curseur | Cache `nexora-cache-<uid>` en **version 3** : table annexe `syncState` (un enregistrement, curseur `xid8` en texte). Écrit par le chargement complet dans la **même** transaction que les données ; il **remplace** le curseur précédent (jamais un maximum : les données viennent toutes de cette lecture). Absent → aucune synchronisation | `src/data/cloud/CloudCacheDB.ts`, `src/data/cloud/CloudLoader.ts` |
 | Borne avant le chargement (A2-b) | `readPullBound` : une page d'une ligne de `pull_changes` depuis `'0'`, AVANT les 36 lectures (un chargement envoie désormais 37 requêtes) ; session vérifiée avant l'envoi. Le client V4.2 exige donc la migration 9 sur le serveur (P58) | `src/data/cloud/CloudReader.ts`, `src/data/cloud/cloudLoadCycle.ts` |
 | Source de récupération | `CloudReadSource.pull` : `POST /rest/v1/rpc/pull_changes` (une seule tentative, délai de 30 s ; erreurs classées comme les lectures : `rejected` / `PT400` pour `invalid_pull`) ; même contrat sur le serveur simulé | `src/data/cloud/HttpReadSource.ts`, `src/data/cloud/MemoryTransport.ts` |
-| Moteur `CloudSync` | 1. curseur lu ; 2. toutes les pages de `[curseur, borne)` récupérées **hors** de la file (session vérifiée avant chaque requête) ; 3. contrôles en mémoire (forme, borne constante, progression, table connue, conversion stricte, **propriétaire = utilisateur**, version ≥ 1, `curseur ≤ sync_txid < borne`, une ligne par clé) ; 4. **dans** la file des opérations : dernière vérification (synchronisation d'actualité, cache non révoqué, session inchangée) puis **une** transaction Dexie (lignes actives écrites, lignes supprimées retirées, versions, curseur porté au maximum de lui-même et de la borne). Une seule synchronisation à la fois par instance (une demande pendant un cycle = une relance). Déclencheurs : `online`, `visibilitychange` (visible), minuterie de 60 s ; `stop()` définitif | `src/data/cloud/CloudSync.ts` |
+| Moteur `CloudSync` | 1. curseur lu ; 2. toutes les pages de `[curseur, borne)` récupérées **hors** de la file (session vérifiée avant chaque requête) ; 3. contrôles en mémoire (forme, borne constante, progression, table connue, conversion stricte, **propriétaire = utilisateur**, version ≥ 1, `curseur ≤ sync_txid < borne`, une ligne par clé) ; 4. **dans** la file des opérations : dernière vérification (synchronisation d'actualité, cache non révoqué, session inchangée) puis **une** transaction Dexie (lignes actives écrites, lignes supprimées retirées, versions, curseur porté au maximum de lui-même et de la borne). Une seule synchronisation à la fois par instance (une demande pendant un cycle = une relance). Déclencheurs : `online`, `visibilitychange` (visible), minuterie de 50 s (R1) ; `stop()` définitif | `src/data/cloud/CloudSync.ts` |
 | File partagée (A5) | File des opérations injectée dans `CloudRepository` et partagée avec `CloudSync` ; aucune méthode ajoutée au dépôt (test de contrat inchangé) | `src/data/cloud/CloudRepository.ts` |
 | Branchement | L'espace de travail de la session crée et démarre la synchronisation sur son cache ; `close()` l'arrête PUIS ferme le cache (aucune réouverture automatique) : aucune écriture après une déconnexion ou un changement de compte | `src/data/cloud/cloudWorkspace.ts`, `src/features/auth/CloudApp.tsx` |
 | Suite HTTP (D1) | 4 assertions « M9 » : valeurs de `pull_changes` identiques, colonne par colonne, à une lecture REST **complète** (paginée) des 18 tables pour A et pour B (6 030 lignes) ; flottants exacts (0.1 + 0.2, 1/3, 10.86, 4.123456789012345) | `supabase/db-tests/http/rls.mjs` |
